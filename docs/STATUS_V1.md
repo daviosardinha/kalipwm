@@ -1,4 +1,4 @@
-Status: implementation baseline complete. Bare-metal preflight, power-supply detection, dynamic display/hotplug validation, the first full interactive V1 installation, and the pre-login sanity check have passed on Lenovo 83F5. BSPWM session validation and VM validation remain pending.
+Status: implementation baseline complete. Bare-metal preflight, power-supply detection, dynamic display/hotplug validation, the first full interactive V1 installation, and the pre-login sanity check have passed on Lenovo 83F5. First BSPWM-session validation is in progress; VM validation remains pending.
 
 Validated on bare metal:
 - Kali GNU/Linux Rolling detected correctly
@@ -51,9 +51,17 @@ Telemetry regression found and fixed before first BSPWM login:
 - telemetry polling interval increased from 3 seconds to 15 seconds
 - static regression guards cover runtime-PM gating and polling interval
 
+Flameshot regression found during first BSPWM session:
+- Flameshot 14 timed out waiting for the XDG Desktop Portal Screenshot interface under BSPWM (`Screenshot portal timed out after 30 seconds`)
+- this is the documented Flameshot 14+ behavior on minimal X11 window managers when the available portal backend does not implement Screenshot
+- KaliPWM now ships `CONFIGS/config/flameshot/flameshot.ini` with `useX11LegacyScreenshot=true`, forcing Flameshot's native X11 capture path in the BSPWM session
+- static CI guards the legacy-X11 setting so future changes do not reintroduce the portal timeout
+- live validation of the fix is pending
+
 Pending before merge:
-- BSPWM login/session validation
-- Polybar, Rofi, Kitty, Picom, Flameshot, audio, brightness, battery and telemetry validation
+- complete BSPWM login/session validation
+- validate Flameshot legacy-X11 capture fix
+- Polybar, Rofi, Kitty, Picom, audio, brightness, battery and telemetry validation
 - suspend/resume validation
 - rollback exercise
 - VMware guest validation
