@@ -109,6 +109,11 @@ grep -q '^start_once()' CONFIGS/config/bspwm/bspwmrc
 grep -q 'if pgrep -u "\$UID" -x "\$process"' CONFIGS/config/bspwm/bspwmrc
 echo 'PASS BSPWM session startup does not leave conditional background shell wrappers'
 
+printf '\n== BSPWM rule reload guard ==\n'
+grep -q "^bspc rule -r '\*'$" CONFIGS/config/bspwm/bspwmrc
+! grep -nEi '^bspc rule -a .*vmware.*desktop=' CONFIGS/config/bspwm/bspwmrc >/dev/null
+echo 'PASS BSPWM reload flushes stale runtime rules and does not force VMware onto a workspace'
+
 printf '\n== Rollback session rehydration guard ==\n'
 grep -q '^rehydrate_bspwm_session()' SCRIPTS/kalipwm-state
 grep -q 'pkill -USR1 -u "\$UID" -x sxhkd' SCRIPTS/kalipwm-state
