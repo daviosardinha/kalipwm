@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -u
+
+# Small OSD bridge for the BSPWM session. Dunst is already part of KaliPWM;
+# use dunstify when available and fall back to notify-send.
+
+notify_osd() {
+  local replace_id="$1" icon="$2" title="$3" body="$4" value="$5"
+
+  if command -v dunstify >/dev/null 2>&1; then
+    dunstify -a KaliPWM -r "$replace_id" -t 900 \
+      -h "int:value:$value" -i "$icon" "$title" "$body" >/dev/null 2>&1 || true
+  elif command -v notify-send >/dev/null 2>&1; then
+    notify-send -a KaliPWM -r "$replace_id" -t 900 \
+      -h "int:value:$value" -i "$icon" "$title" "$body" >/dev/null 2>&1 || true
+  fi
+}
+
+case "${1:-}" in
+  volume)
+    status="$(/usr/bin/wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null || true)"
+    [[ -n "$status" ]] || exit 0
+
+    level="$(awk '{printf "%.0f", $2 * 100}' <<<"$status")"
+    [[ "$level" =~ ^[0-9]+$ ]] || exit 0
+
+    bar="$level"
+    (( bar > 100 )) && bar=100
+
+    if [[ "$status" == *"[MUTED]"* ]]; then
+      notify_osd 9911 audio-volume-muted-symbolic "Volume muted" "${level}%" "$bar"
+    elif (( level >= 67 )); then
+      notify_osd 9911 audio-volume-high-symbolic "Volume" "${level}%" "$bar"
+    elif (( level >= 34 )); then
+      notify_osd 9911 audio-volume-medium-symbolic "Volume" "${level}%" "$bar"
+    elif (( level > 0 )); then
+      notify_osd 9911 audio-volume-low-symbolic "Volume" "${level}%" "$bar"
+    else
+      notify_osd 9911 audio-volume-muted-symbolic "Volume" "0%" 0
+    fi
+    ;;
+
+  brightness)
+    state="$(/usr/bin/brightnessctl -m 2>/dev/null | tail -n 1 || true)"
+    [[ -n "$state" ]] || exit 0
+
+    level="$(awk -F, '{gsub(/%/, "", $4); print $4}' <<<"$state")"
+    [[ "$level" =~ ^[0-9]+$ ]] || exit 0
+    (( level > 100 )) && level=100
+
+    notify_osd 9912 display-brightness-symbolic "Brightness" "${level}%" "$level"
+    ;;
+
+  *)
+    exit 2
+    ;;
+esac
