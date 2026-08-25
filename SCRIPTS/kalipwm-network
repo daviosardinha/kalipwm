@@ -26,9 +26,16 @@ elif [[ -n "$wired_interface" ]] && is_up "$wired_interface"; then
   iface="$wired_interface"
 fi
 
-[[ -n "$iface" ]] || exit 0
+if [[ -z "$iface" ]]; then
+  printf '%%{F#C95B6A}NET OFF%%{F-}\n'
+  exit 0
+fi
+
 addr="$(ip_for "$iface")"
-[[ -n "$addr" ]] || exit 0
+if [[ -z "$addr" ]]; then
+  printf '%%{F#C95B6A}NET OFF%%{F-}\n'
+  exit 0
+fi
 
 if [[ -d "/sys/class/net/$iface/wireless" ]]; then
   printf 'WLAN %s\n' "$addr"
