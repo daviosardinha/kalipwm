@@ -34,9 +34,14 @@ run_flameshot() {
 
 case "${1:-gui}" in
   gui|select)
-    run_flameshot flameshot gui --path "$SCREENSHOT_DIR"
+    # Do not pass --path here. In Flameshot GUI mode, --path becomes a final
+    # action and can break/replace the normal Ctrl+C clipboard workflow. The
+    # interactive GUI should behave like classic Flameshot: Ctrl+C copies the
+    # selection to the clipboard, Ctrl+S saves only when the user asks.
+    run_flameshot flameshot gui
     ;;
   full)
+    # Shift+Print is intentionally the explicit save-to-disk action.
     run_flameshot flameshot full --path "$SCREENSHOT_DIR"
     ;;
   launcher)
