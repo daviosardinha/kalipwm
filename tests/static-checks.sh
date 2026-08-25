@@ -79,10 +79,12 @@ printf '\n== Flameshot integration guard ==\n'
 ! grep -RInE '(^|[[:space:]])scrot([[:space:]]|$)' SCRIPTS CONFIGS/config/sxhkd >/dev/null
 grep -q 'start_once flameshot flameshot' CONFIGS/config/bspwm/bspwmrc
 grep -q '~/.local/bin/screenshot.sh gui' CONFIGS/config/sxhkd/sxhkdrc
-grep -q 'flameshot gui --path' SCRIPTS/screenshot.sh
+grep -q 'run_flameshot flameshot gui$' SCRIPTS/screenshot.sh
+! grep -q 'flameshot gui --path' SCRIPTS/screenshot.sh
 grep -q 'flameshot full --path' SCRIPTS/screenshot.sh
 grep -q '^useX11LegacyScreenshot=true$' CONFIGS/config/flameshot/flameshot.ini
-echo 'PASS BSPWM screenshots use Flameshot with the legacy X11 capture path required by minimal X11 WMs'
+grep -q '^saveAfterCopy=false$' CONFIGS/config/flameshot/flameshot.ini
+echo 'PASS BSPWM screenshots use native X11 capture and preserve Ctrl+C clipboard-only behavior'
 
 printf '\n== Entry point ==\n'
 bash kalipwm.sh --help >/dev/null
