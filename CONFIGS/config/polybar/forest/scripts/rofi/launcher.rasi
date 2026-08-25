@@ -1,119 +1,94 @@
-/*
- *
- * Author  : Aditya Shakya
- * Mail    : adi1090x@gmail.com
- * Github  : @adi1090x
- * Twitter : @adi1090x
- *
- */
+/* KaliPWM V1 — Obsidian Tactical Rofi launcher */
 
-configuration {
-	font:							"Iosevka Nerd Font 10";
-    show-icons:                     true;
-	icon-theme: 					"Papirus";
-    display-drun: 					"";
-    drun-display-format:            "{name}";
-    disable-history:                false;
-    fullscreen:                     false;
-	hide-scrollbar: 				true;
-	sidebar-mode: 					false;
+* {
+    background:       #0F1117F2;
+    background-alt:   #171A22F2;
+    selected:         #2B2638F2;
+    foreground:       #D7D9E0FF;
+    muted:            #9298A6FF;
+    accent:           #9B7EDEFF;
+    border:           #303541FF;
+
+    font: "JetBrainsMono Nerd Font 11";
 }
-
-@import "colors.rasi"
 
 window {
-    transparency:                   "real";
-    background-color:               @bg;
-    text-color:                     @fg;
-	border:							0px 0px 0px 0px;
-	border-color:					@ac;
-    border-radius:                  0px;
-	width:							500px;
-    location:                       center;
-    x-offset:                       0;
-    y-offset:                       0;
-}
-
-prompt {
-    enabled: 						true;
-	padding: 						0px;
-	background-color: 				@bga;
-	text-color: 					@ac;
-	font:							"feather 12";
-}
-
-entry {
-    background-color:               @al;
-    text-color:                     @fg;
-    placeholder-color:              @fg;
-    expand:                         true;
-    horizontal-align:               0;
-    placeholder:                    "Search...";
-	padding: 						0px 0px 0px 5px;
-    blink:                          true;
-}
-
-inputbar {
-	children: 						[ prompt, entry ];
-    background-color:               @bga;
-    text-color:                     @fg;
-    expand:                         false;
-	border:							0px 0px 1px 0px;
-    border-radius:                  0px;
-	border-color:					@se;
-    margin:                         0px;
-    padding:                        10px;
-}
-
-listview {
-    background-color:               @al;
-    padding:                        0px;
-    columns:                        1;
-    lines:                          6;
-    spacing:                        5px;
-    cycle:                          true;
-    dynamic:                        true;
-    layout:                         vertical;
+    transparency: "real";
+    location: center;
+    anchor: center;
+    width: 560px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 12px;
+    background-color: @background;
 }
 
 mainbox {
-    background-color:               @al;
-	border:							0px;
-    border-radius:                  0px;
-	border-color:					@ac;
-    children:                       [ inputbar, listview ];
-    spacing:                       	5px;
-    padding:                        5px;
+    spacing: 12px;
+    padding: 18px;
+    background-color: transparent;
+    children: [ inputbar, listview ];
+}
+
+inputbar {
+    spacing: 10px;
+    padding: 12px 14px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 9px;
+    background-color: @background-alt;
+    children: [ prompt, entry ];
+}
+
+prompt {
+    text-color: @accent;
+    background-color: transparent;
+    str: "";
+}
+
+entry {
+    placeholder: "Search applications…";
+    placeholder-color: @muted;
+    text-color: @foreground;
+    background-color: transparent;
+}
+
+listview {
+    lines: 7;
+    columns: 1;
+    fixed-height: false;
+    dynamic: true;
+    cycle: true;
+    scrollbar: false;
+    spacing: 4px;
+    background-color: transparent;
 }
 
 element {
-    background-color:               @al;
-    text-color:                     @fg;
-    orientation:                    horizontal;
-    border-radius:                  0px;
-	padding: 						8px;
+    padding: 10px 12px;
+    spacing: 10px;
+    border-radius: 8px;
+    background-color: transparent;
+    text-color: @foreground;
+}
+
+element normal.normal {
+    background-color: transparent;
+    text-color: @foreground;
+}
+
+element selected.normal {
+    background-color: @selected;
+    text-color: @foreground;
 }
 
 element-icon {
-    background-color:               transparent;
-    text-color:               		inherit;
-    size:                           24px;
-    border:                         0px;
+    size: 24px;
+    background-color: transparent;
 }
 
 element-text {
-    background-color:               transparent;
-    text-color:               		inherit;
-    expand:                         true;
-    horizontal-align:               0;
-    vertical-align:                 0.5;
-    margin:                         0px 2.5px 0px 2.5px;
-}
-
-element selected {
-    background-color:               @se;
-    text-color:                     @bg;
-	border:							0px 0px 0px 0px;
-    border-radius:                  0px;
-    border-color:                  	@ac;
+    vertical-align: 0.5;
+    background-color: transparent;
+    text-color: inherit;
 }
