@@ -9,7 +9,10 @@ environment="${environment:-baremetal}"
 
 start_once() {
   local process="$1"; shift
-  pgrep -u "$UID" -x "$process" >/dev/null 2>&1 || "$@" &
+  if pgrep -u "$UID" -x "$process" >/dev/null 2>&1; then
+    return 0
+  fi
+  "$@" >/dev/null 2>&1 &
 }
 
 start_polkit_agent() {
@@ -21,7 +24,9 @@ start_polkit_agent() {
     /usr/libexec/polkit-gnome-authentication-agent-1; do
     [[ -x "$agent" ]] || continue
     process="$(basename "$agent")"
-    pgrep -u "$UID" -f "$process" >/dev/null 2>&1 || "$agent" &
+    if ! pgrep -u "$UID" -f "$process" >/dev/null 2>&1; then
+      "$agent" >/dev/null 2>&1 &
+    fi
     return
   done
 }
@@ -31,7 +36,9 @@ command -v wmname >/dev/null 2>&1 && wmname LG3D &
 
 # VMware desktop integration belongs only inside a VMware guest.
 if [[ "$environment" == vmware ]] && command -v vmware-user-suid-wrapper >/dev/null 2>&1; then
-  pgrep -u "$UID" -f vmware-user >/dev/null 2>&1 || vmware-user-suid-wrapper &
+  if ! pgrep -u "$UID" -f vmware-user >/dev/null 2>&1; then
+    vmware-user-suid-wrapper >/dev/null 2>&1 &
+  fi
 fi
 
 # Apply the current display topology before BSPWM assigns workspaces.
@@ -95,15 +102,18 @@ shopt -u nullglob
 
 # Compositor.
 pkill -x picom >/dev/null 2>&1 || true
-command -v picom >/dev/null 2>&1 && picom --config "$HOME/.config/picom/picom.conf" &
+if command -v picom >/dev/null 2>&1; then
+  picom --config "$HOME/.config/picom/picom.conf" >/dev/null 2>&1 &
+fi
 
 # Polybar.
 "$HOME/.config/polybar/forest/launch.sh" &
 
 # Dynamic display hotplug watcher. It does not hard-code output names,
 # resolutions, or GPU providers.
-if [[ -x "$LOCAL_BIN/kalipwm-display" ]]; then
-  pgrep -u "$UID" -f 'kalipwm-display --watch' >/dev/null 2>&1 || "$LOCAL_BIN/kalipwm-display" --watch &
+if [[ -x "$LOCAL_BIN/kalipwm-display" ]] && \
+   ! pgrep -u "$UID" -f 'kalipwm-display --watch' >/dev/null 2>&1; then
+  "$LOCAL_BIN/kalipwm-display" --watch >/dev/null 2>&1 &
 fi
 
 xsetroot -cursor_name left_ptr &
