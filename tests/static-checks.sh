@@ -81,7 +81,8 @@ grep -q 'start_once flameshot flameshot' CONFIGS/config/bspwm/bspwmrc
 grep -q '~/.local/bin/screenshot.sh gui' CONFIGS/config/sxhkd/sxhkdrc
 grep -q 'flameshot gui --path' SCRIPTS/screenshot.sh
 grep -q 'flameshot full --path' SCRIPTS/screenshot.sh
-echo 'PASS screenshot hotkeys use a Flameshot wrapper and the session starts its DBus-aware daemon'
+grep -q '^useX11LegacyScreenshot=true$' CONFIGS/config/flameshot/flameshot.ini
+echo 'PASS BSPWM screenshots use Flameshot with the legacy X11 capture path required by minimal X11 WMs'
 
 printf '\n== Entry point ==\n'
 bash kalipwm.sh --help >/dev/null
