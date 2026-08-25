@@ -28,8 +28,26 @@ if [[ -z "$cpu_temp" ]]; then
 fi
 [[ -n "$cpu_temp" ]] && parts+=("CPU ${cpu_temp}°")
 
-# NVIDIA temperature is shown only when the driver and GPU are actually available.
-if command -v nvidia-smi >/dev/null 2>&1; then
+# Never call nvidia-smi just to discover whether a hybrid-laptop dGPU is asleep:
+# doing so can wake the device and cost battery. Read PCI runtime PM state first
+# and query NVIDIA temperature only when at least one NVIDIA device is already
+# active. KALIPWM_FORCE_GPU_TELEMETRY=1 is available for systems without usable
+# runtime PM reporting where the user explicitly wants GPU telemetry.
+nvidia_runtime_active() {
+  local dev vendor runtime
+  for dev in /sys/bus/pci/devices/*; do
+    [[ -r "$dev/vendor" ]] || continue
+    vendor="$(cat "$dev/vendor" 2>/dev/null || true)"
+    [[ "$vendor" == 0x10de ]] || continue
+
+    runtime="$(cat "$dev/power/runtime_status" 2>/dev/null || true)"
+    [[ "$runtime" == active ]] && return 0
+  done
+  return 1
+}
+
+if command -v nvidia-smi >/dev/null 2>&1 && \
+   { [[ ${KALIPWM_FORCE_GPU_TELEMETRY:-0} == 1 ]] || nvidia_runtime_active; }; then
   gpu_temp="$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -n1 | tr -d '[:space:]')"
   [[ "$gpu_temp" =~ ^[0-9]+$ ]] && parts+=("GPU ${gpu_temp}°")
 fi
