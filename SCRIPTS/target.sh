@@ -7,9 +7,10 @@ FILE="$STATE_DIR/kalipwm-target-${UID}"
 case "${1:-}" in
   '')
     if [[ -s "$FILE" ]]; then
-      cat "$FILE"
+      value="$(cat "$FILE")"
+      printf '%%{F#C95B6A}TARGET %s%%{F-}\n' "$value"
     else
-      printf 'NO TARGET\n'
+      printf '%%{F#9298A6}NO TARGET%%{F-}\n'
     fi
     ;;
   reset|clear)
