@@ -4,18 +4,54 @@ set -u
 PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf"
 [[ -r "$PROFILE" ]] && source "$PROFILE"
 battery="${battery:-}"
+POWER_SUPPLY_ROOT="${KALIPWM_POWER_SUPPLY_ROOT:-/sys/class/power_supply}"
 
-if [[ -z "$battery" || ! -d "/sys/class/power_supply/$battery" ]]; then
-  for path in /sys/class/power_supply/*; do
-    [[ -r "$path/type" ]] || continue
-    [[ "$(cat "$path/type" 2>/dev/null)" == Battery ]] || continue
-    battery="$(basename "$path")"
-    break
+valid_system_battery() {
+  local path="$1" type scope present capacity
+  [[ -r "$path/type" ]] || return 1
+  type="$(cat "$path/type" 2>/dev/null || true)"
+  [[ "$type" == Battery ]] || return 1
+
+  scope="$(cat "$path/scope" 2>/dev/null || true)"
+  [[ "$scope" == Device ]] && return 1
+
+  present="$(cat "$path/present" 2>/dev/null || printf '1')"
+  [[ "$present" == 0 ]] && return 1
+
+  capacity="$(cat "$path/capacity" 2>/dev/null || true)"
+  [[ "$capacity" =~ ^[0-9]+$ ]]
+}
+
+select_battery() {
+  local path scope name
+  local system_candidate='' fallback=''
+
+  for path in "$POWER_SUPPLY_ROOT"/*; do
+    valid_system_battery "$path" || continue
+    name="$(basename "$path")"
+    scope="$(cat "$path/scope" 2>/dev/null || true)"
+    if [[ "$scope" == System ]]; then
+      [[ -n "$system_candidate" ]] || system_candidate="$name"
+    else
+      [[ -n "$fallback" ]] || fallback="$name"
+    fi
   done
+
+  if [[ -n "$system_candidate" ]]; then
+    printf '%s\n' "$system_candidate"
+  elif [[ -n "$fallback" ]]; then
+    printf '%s\n' "$fallback"
+  else
+    return 1
+  fi
+}
+
+if [[ -z "$battery" || ! -d "$POWER_SUPPLY_ROOT/$battery" ]] || ! valid_system_battery "$POWER_SUPPLY_ROOT/$battery"; then
+  battery="$(select_battery || true)"
 fi
 
 [[ -n "$battery" ]] || exit 0
-base="/sys/class/power_supply/$battery"
+base="$POWER_SUPPLY_ROOT/$battery"
 capacity="$(cat "$base/capacity" 2>/dev/null || true)"
 status="$(cat "$base/status" 2>/dev/null || true)"
 [[ "$capacity" =~ ^[0-9]+$ ]] || exit 0
