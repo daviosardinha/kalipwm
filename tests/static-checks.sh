@@ -25,6 +25,39 @@ if grep -RInE "$legacy_regex" CONFIGS SCRIPTS install.sh kalipwm.sh; then
 fi
 echo 'PASS no forbidden legacy assumptions'
 
+printf '\n== Power-supply detection regression ==\n'
+fixture="$(mktemp -d)"
+trap 'rm -rf "$fixture"' EXIT
+
+mkdir -p \
+  "$fixture/apple_mfi_fastcharge_3-9" \
+  "$fixture/BAT0" \
+  "$fixture/ADP0" \
+  "$fixture/ucsi-source-psy-USBC000:001"
+
+printf 'Battery\n' > "$fixture/apple_mfi_fastcharge_3-9/type"
+printf 'Device\n' > "$fixture/apple_mfi_fastcharge_3-9/scope"
+
+printf 'Battery\n' > "$fixture/BAT0/type"
+printf '1\n' > "$fixture/BAT0/present"
+printf '41\n' > "$fixture/BAT0/capacity"
+printf 'Discharging\n' > "$fixture/BAT0/status"
+
+printf 'Mains\n' > "$fixture/ADP0/type"
+
+printf 'USB\n' > "$fixture/ucsi-source-psy-USBC000:001/type"
+printf 'System\n' > "$fixture/ucsi-source-psy-USBC000:001/scope"
+printf 'Discharging\n' > "$fixture/ucsi-source-psy-USBC000:001/status"
+
+power_out="$(KALIPWM_POWER_SUPPLY_ROOT="$fixture" bash install.sh --detect-power)"
+grep -qx 'battery=BAT0' <<< "$power_out"
+grep -qx 'adapter=ADP0' <<< "$power_out"
+echo 'PASS installer ignores peripheral Battery-class devices and prefers mains adapter'
+
+battery_out="$(KALIPWM_POWER_SUPPLY_ROOT="$fixture" XDG_CONFIG_HOME="$fixture/config" bash SCRIPTS/kalipwm-battery)"
+[[ "$battery_out" == 'BAT 41%' ]]
+echo 'PASS runtime battery module selects the system battery'
+
 printf '\n== Entry point ==\n'
 bash kalipwm.sh --help >/dev/null
 echo 'PASS kalipwm.sh --help'
