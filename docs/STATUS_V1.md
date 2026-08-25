@@ -1,6 +1,6 @@
 # KaliPWM V1 validation status
 
-Status: V1 implementation baseline is stable on the primary bare-metal machine and has completed a full KVM/QEMU install/use/uninstall round-trip. Static CI is green. VMware guest validation remains the main environment-specific release gate that has not yet been exercised.
+Status: V1 implementation baseline is stable on the primary bare-metal machine and has completed a full KVM/QEMU install/use/rerun/uninstall round-trip. Static CI is green. VMware guest validation remains the main environment-specific release gate that has not yet been exercised.
 
 ## Validated on bare metal — Lenovo 83F5
 
@@ -97,7 +97,8 @@ Fresh guest validation completed on a QEMU/KVM VM:
 - Platform detected as QEMU.
 - `eth0` detected dynamically.
 - No fake battery, AC adapter, backlight, Wi-Fi or internal laptop display assumptions were introduced.
-- `Virtual-1` detected as the connected virtual display.
+- `Virtual-1` detected as the connected virtual display when preflight/install received the graphical X11 context.
+- VM display summary reports physical external position as `n/a`.
 - KVM guest packages `spice-vdagent` and `qemu-guest-agent` installed when candidates were available.
 - Trusted pre-install baseline and transaction checkpoint were created.
 - First BSPWM login succeeded.
@@ -107,7 +108,19 @@ Fresh guest validation completed on a QEMU/KVM VM:
 - Full uninstall returned the VM to its original Kali XFCE desktop with KaliPWM-managed paths removed.
 - noVNC/SPICE/QEMU-agent host-side enablement is treated as hypervisor console configuration, not a KaliPWM desktop failure.
 
-For VM profiles, physical external-monitor positioning is now reported as `n/a`; the right/left/above/below/mirror preference is a bare-metal concept only.
+### Idempotent rerun validation
+
+Two consecutive installs were completed without uninstalling between them:
+
+- trusted baseline remained `baseline=trusted` and was not recreated;
+- legacy backup count remained unchanged at one historical backup from the pre-state-manager test cycle;
+- each rerun created exactly one new transaction checkpoint, as designed;
+- no duplicate BSPWM, Polybar, sxhkd or KaliPWM configuration directories were created;
+- one canonical copy of each `kalipwm-*` helper remained in `~/.local/bin`;
+- APT correctly reported the required packages as already installed rather than duplicating package state;
+- the resulting profile remained a KVM profile with `Virtual-1`, `eth0`, and `External position: n/a`.
+
+This validates configuration/state idempotency for the current KVM path. Download/cache optimization for remote fonts and shell-theme dependencies remains reproducibility/performance hardening rather than a state-correctness blocker.
 
 ## Static CI
 
@@ -127,7 +140,7 @@ Static checks cover, among other things:
 
 ## Pending before merge
 
-- VMware Kali guest install/session/uninstall validation.
+- VMware Kali guest install/session validation.
 - Optional VirtualBox guest smoke validation if an environment is available.
 - Reproducibility hardening for remote shell/theme dependencies and downloaded font archives.
 - Final documentation/release-gate review and PR cleanup.
