@@ -169,6 +169,54 @@ restore_snapshot() {
   log "$label restore complete. Log out and back in before validating the restored desktop session."
 }
 
+# A rollback restores files, not process state. If BSPWM is still the active
+# desktop, reload an existing sxhkd or start a detached replacement so keyboard
+# shortcuts do not depend on the terminal that launched the rollback command.
+rehydrate_bspwm_session() {
+  local bspwm_pid display xauthority log_file
+
+  bspwm_pid="$(pgrep -u "$UID" -x bspwm 2>/dev/null | head -1 || true)"
+  [[ -n "$bspwm_pid" ]] || return 0
+  [[ -r "$HOME/.config/sxhkd/sxhkdrc" ]] || return 0
+  command -v sxhkd >/dev/null 2>&1 || return 0
+
+  display="${DISPLAY:-}"
+  xauthority="${XAUTHORITY:-}"
+  if [[ -r "/proc/$bspwm_pid/environ" ]]; then
+    [[ -n "$display" ]] || display="$(tr '\0' '\n' < "/proc/$bspwm_pid/environ" | sed -n 's/^DISPLAY=//p' | head -1)"
+    [[ -n "$xauthority" ]] || xauthority="$(tr '\0' '\n' < "/proc/$bspwm_pid/environ" | sed -n 's/^XAUTHORITY=//p' | head -1)"
+  fi
+
+  if pgrep -u "$UID" -x sxhkd >/dev/null 2>&1; then
+    pkill -USR1 -u "$UID" -x sxhkd 2>/dev/null || true
+    log "Reloaded sxhkd for the active BSPWM session."
+    return 0
+  fi
+
+  [[ -n "$display" ]] || {
+    warn "BSPWM is running but DISPLAY could not be recovered; sxhkd will start on the next login."
+    return 0
+  }
+
+  mkdir -p "$STATE_ROOT"
+  log_file="$STATE_ROOT/sxhkd.log"
+  export DISPLAY="$display"
+  [[ -n "$xauthority" ]] && export XAUTHORITY="$xauthority"
+
+  if command -v setsid >/dev/null 2>&1; then
+    setsid -f sxhkd -m -1 -c "$HOME/.config/sxhkd/sxhkdrc" </dev/null >>"$log_file" 2>&1 || true
+  else
+    nohup sxhkd -m -1 -c "$HOME/.config/sxhkd/sxhkdrc" </dev/null >>"$log_file" 2>&1 &
+  fi
+
+  sleep 0.2
+  if pgrep -u "$UID" -x sxhkd >/dev/null 2>&1; then
+    log "Restarted sxhkd for the active BSPWM session."
+  else
+    warn "Rollback restored sxhkd configuration, but sxhkd did not restart; log out and back in."
+  fi
+}
+
 prepare_install() {
   require_repo
   mkdir -p "$STATE_ROOT" "$TRANSACTION_ROOT"
@@ -192,6 +240,7 @@ rollback() {
   [[ -n "$snapshot" ]] || die "No V1 transaction checkpoint is available. Create one with ./kalipwm.sh --checkpoint before testing rollback."
   sudo -v
   restore_snapshot "$snapshot" rollback
+  rehydrate_bspwm_session
 }
 
 uninstall() {
@@ -219,7 +268,7 @@ Usage: kalipwm-state <prepare|checkpoint|rollback|uninstall|status>
 
 prepare     Create a trusted baseline on a fresh machine and a transaction checkpoint.
 checkpoint  Create a transaction checkpoint without installing anything.
-rollback    Restore the latest transaction checkpoint.
+rollback    Restore the latest transaction checkpoint and rehydrate BSPWM shortcuts.
 uninstall   Restore the trusted pre-KaliPWM baseline; refuses legacy/unknown baselines.
 status      Show state-tracking status.
 EOF
