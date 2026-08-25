@@ -11,29 +11,12 @@ RED='\033[0;31m'
 RESET='\033[0m'
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-BACKUP_ROOT="$HOME/.local/state/kalipwm/backups"
 STATE_ROOT="$HOME/.local/state/kalipwm"
 INSTALL_MARKER="$STATE_ROOT/install-in-progress"
 PROFILE_DIR="$HOME/.config/kalipwm"
 PROFILE_FILE="$PROFILE_DIR/profile.conf"
 LOCAL_BIN="$HOME/.local/bin"
 POWER_SUPPLY_ROOT="${KALIPWM_POWER_SUPPLY_ROOT:-/sys/class/power_supply}"
-
-MANAGED_PATHS=(
-  .config/bspwm
-  .config/sxhkd
-  .config/polybar
-  .config/kitty
-  .config/picom
-  .config/rofi
-  .config/flameshot
-  .zshrc
-  .p10k.zsh
-  .tmux
-  .tmux.conf
-  .tmux.conf.local
-  .oh-my-zsh
-)
 
 ENVIRONMENT=''
 VENDOR=''
@@ -45,8 +28,7 @@ WIFI_IFACE=''
 WIRED_IFACE=''
 INTERNAL_DISPLAY=''
 CONNECTED_DISPLAYS=''
-EXTERNAL_POSITION='right'
-BACKUP_DIR=''
+EXTERNAL_POSITION=''
 INSTALL_ACTIVE=false
 
 log()  { printf '%b[+]%b %s\n' "$GREEN" "$RESET" "$*"; }
@@ -59,15 +41,17 @@ usage() {
 KaliPWM V1 — Obsidian Tactical
 
 Usage:
-  bash kalipwm.sh              Interactive install
-  bash kalipwm.sh --preflight  Detect environment/hardware without installing
-  bash kalipwm.sh --rollback   Restore the latest pre-install configuration backup
-  bash kalipwm.sh --uninstall  Remove V1 configuration and restore the latest backup
+  bash kalipwm.sh                 Interactive install
+  bash kalipwm.sh --preflight     Detect environment/hardware without installing
+  bash kalipwm.sh --checkpoint    Create a rollback transaction checkpoint
+  bash kalipwm.sh --rollback      Restore the latest transaction checkpoint
+  bash kalipwm.sh --uninstall     Restore the trusted pre-KaliPWM baseline
+  bash kalipwm.sh --state-status  Show recovery-state status
   bash kalipwm.sh --detect-power
   bash kalipwm.sh --help
 
 The installer must be launched as your normal user. It requests sudo only for
-package/system operations.
+package/system operations. Recovery state is managed by SCRIPTS/kalipwm-state.
 EOF
 }
 
@@ -87,74 +71,12 @@ require_normal_user() {
   [[ -z ${SUDO_USER:-} ]] || die "Do not run the whole installer with sudo. The script requests sudo only when needed."
 }
 
-latest_backup() {
-  [[ -d "$BACKUP_ROOT" ]] || return 1
-  find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
-    | sort -nr | awk 'NR==1 {sub(/^[^ ]+ /, ""); print}'
-}
-
-create_backup() {
-  local stamp backup rel
-  local -a tar_args=()
-
-  stamp="$(date +%Y%m%d-%H%M%S)"
-  backup="$BACKUP_ROOT/$stamp"
-  mkdir -p "$backup"
-
-  printf '%s\n' "${MANAGED_PATHS[@]}" > "$backup/managed-paths.txt"
-  getent passwd "$USER" | cut -d: -f7 > "$backup/login-shell.txt" || true
-
-  for rel in "${MANAGED_PATHS[@]}"; do
-    [[ -e "$HOME/$rel" || -L "$HOME/$rel" ]] && tar_args+=("$rel")
-  done
-
-  if ((${#tar_args[@]})); then
-    tar -czf "$backup/home-configs.tar.gz" -C "$HOME" "${tar_args[@]}"
-  else
-    : > "$backup/home-configs.tar.gz"
-  fi
-
-  printf '%s\n' "$backup"
-}
-
-restore_backup() {
-  local backup="${1:-}" rel old_shell current_shell
-
-  [[ -n "$backup" ]] || backup="$(latest_backup || true)"
-  [[ -n "$backup" && -d "$backup" ]] || die "No KaliPWM backup was found under $BACKUP_ROOT"
-  [[ -f "$backup/managed-paths.txt" ]] || die "Backup is missing managed-paths.txt: $backup"
-
-  info "Restoring backup: $backup"
-  while IFS= read -r rel; do
-    [[ -n "$rel" ]] || continue
-    rm -rf -- "$HOME/$rel"
-  done < "$backup/managed-paths.txt"
-
-  if [[ -s "$backup/home-configs.tar.gz" ]]; then
-    tar -xzf "$backup/home-configs.tar.gz" -C "$HOME"
-  fi
-
-  rm -rf "$PROFILE_DIR"
-  rm -f "$LOCAL_BIN"/kalipwm-* "$LOCAL_BIN/target" "$LOCAL_BIN/target.sh"
-  rm -f "$INSTALL_MARKER"
-
-  old_shell="$(cat "$backup/login-shell.txt" 2>/dev/null || true)"
-  current_shell="$(getent passwd "$USER" | cut -d: -f7)"
-  if [[ -n "$old_shell" && -x "$old_shell" && "$old_shell" != "$current_shell" ]]; then
-    info "Restoring login shell to $old_shell"
-    sudo chsh -s "$old_shell" "$USER" || warn "Could not restore the previous login shell automatically."
-  fi
-
-  log "Rollback complete. Log out and back in before testing the restored session."
-}
-
 on_error() {
   local rc=$?
   if [[ "$INSTALL_ACTIVE" == true ]]; then
     printf '\n' >&2
     warn "Installation stopped before completion (exit $rc)."
-    [[ -n "$BACKUP_DIR" ]] && warn "Your pre-install backup is: $BACKUP_DIR"
-    warn "Do not log into BSPWM yet. Fix the reported error, then rerun; use --rollback if configuration files were already changed."
+    warn "Do not log into BSPWM yet. Fix the reported error, then rerun; use ./kalipwm.sh --rollback if configuration files were already changed."
   fi
   exit "$rc"
 }
@@ -365,9 +287,13 @@ detect_hardware() {
 
 choose_display_preferences() {
   local pos
-  EXTERNAL_POSITION=right
-  [[ "$ENVIRONMENT" == baremetal ]] || return 0
 
+  if [[ "$ENVIRONMENT" != baremetal ]]; then
+    EXTERNAL_POSITION=''
+    return 0
+  fi
+
+  EXTERNAL_POSITION=right
   if confirm "Place external displays to the right of the laptop by default?" Y; then
     return 0
   fi
@@ -397,7 +323,7 @@ Wi-Fi              : ${WIFI_IFACE:-not detected}
 Ethernet           : ${WIRED_IFACE:-not detected}
 Internal display   : ${INTERNAL_DISPLAY:-not detected}
 Connected displays : ${CONNECTED_DISPLAYS:-not detected}
-External position  : $EXTERNAL_POSITION
+External position  : ${EXTERNAL_POSITION:-n/a}
 ────────────────────────────────────────
 EOF
 }
@@ -549,12 +475,12 @@ Backlight         : ${BACKLIGHT:-not detected}
 Wi-Fi             : ${WIFI_IFACE:-not detected}
 Ethernet          : ${WIRED_IFACE:-not detected}
 Displays          : ${CONNECTED_DISPLAYS:-not detected}
-External position : $EXTERNAL_POSITION
+External position : ${EXTERNAL_POSITION:-n/a}
 Editor            : Vim
 cat               : standard /usr/bin/cat
 Screenshots       : Flameshot
 Profile           : $PROFILE_FILE
-Backup            : $BACKUP_DIR
+Recovery          : trusted baseline + transaction checkpoint state
 ────────────────────────────────────────
 EOF
   log "Installation complete. Log out, select BSPWM from the session chooser, and log back in."
@@ -571,12 +497,6 @@ main() {
     --detect-power)
       printf 'battery=%s\n' "$(detect_battery || true)"
       printf 'adapter=%s\n' "$(detect_adapter || true)"
-      exit 0
-      ;;
-    --rollback|--uninstall)
-      require_normal_user
-      sudo -v
-      restore_backup
       exit 0
       ;;
     --preflight|'') ;;
@@ -598,10 +518,8 @@ main() {
 
   confirm "Apply this configuration?" Y || exit 0
 
-  BACKUP_DIR="$(create_backup)"
-  log "Backup created: $BACKUP_DIR"
   mkdir -p "$STATE_ROOT"
-  printf '%s\n' "$BACKUP_DIR" > "$INSTALL_MARKER"
+  printf 'prepared=%s\n' "$(date --iso-8601=seconds)" > "$INSTALL_MARKER"
   INSTALL_ACTIVE=true
 
   install_packages
