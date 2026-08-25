@@ -97,7 +97,7 @@ reconcile_bspwm() {
   command -v bspc >/dev/null 2>&1 || return 0
   bspc query -M --names >/dev/null 2>&1 || return 0
 
-  local out monitor geometry primary desktop target
+  local out monitor geometry primary desktop
   local -a outputs bspwm_monitors desktops
   mapfile -t outputs < <(connected_outputs)
   ((${#outputs[@]})) || return 0
@@ -164,6 +164,15 @@ reconcile_bspwm() {
       ;;
   esac
 
+  # `bspc wm -a` creates a placeholder desktop named "Desktop" on a newly
+  # learned monitor. Once the canonical I-V workspaces have been distributed,
+  # remove that placeholder only when it is empty.
+  if bspc query -D --names 2>/dev/null | grep -qx 'Desktop'; then
+    if ! bspc query -N -d Desktop 2>/dev/null | grep -q .; then
+      bspc desktop Desktop -r >/dev/null 2>&1 || true
+    fi
+  fi
+
   # Match BSPWM monitor ordering to the already-active XRandR topology.
   bspc wm -O "${outputs[@]}" >/dev/null 2>&1 || true
 }
@@ -179,7 +188,10 @@ apply_all() {
   apply_layout
   sleep 0.2
   reconcile_bspwm
-  [[ "$restart_bar" == true ]] && restart_polybar
+  if [[ "$restart_bar" == true ]]; then
+    restart_polybar
+  fi
+  return 0
 }
 
 topology_signature() {
