@@ -1,4 +1,4 @@
-Status: implementation baseline complete. Bare-metal preflight, power-supply detection, dynamic display/hotplug validation, and the first full interactive V1 installation have passed on Lenovo 83F5. BSPWM session validation and VM validation remain pending.
+Status: implementation baseline complete. Bare-metal preflight, power-supply detection, dynamic display/hotplug validation, the first full interactive V1 installation, and the pre-login sanity check have passed on Lenovo 83F5. BSPWM session validation and VM validation remain pending.
 
 Validated on bare metal:
 - Kali GNU/Linux Rolling detected correctly
@@ -34,8 +34,24 @@ First successful full install:
 - current successful install backup: `/home/stark/.local/state/kalipwm/backups/20260825-114233`
 - observed gedit schema override messages and dirsearch SyntaxWarning are package-side, non-fatal warnings; installation completed normally
 
+Pre-login sanity validation:
+- `/usr/share/xsessions/bspwm.desktop` is present
+- bspwm, sxhkd, Polybar, Picom, Rofi, Kitty, Flameshot, brightnessctl and pactl resolve from PATH
+- installed BSPWM and display helper Bash syntax passes
+- battery helper reports the real BAT0
+- network helper reports the active WLAN address
+- VPN helper reports disconnected state cleanly
+- telemetry reports CPU/GPU/fan values
+
+Telemetry regression found and fixed before first BSPWM login:
+- sanity output exposed that the telemetry helper called `nvidia-smi` whenever NVIDIA was installed
+- because Polybar polled telemetry every 3 seconds, this could repeatedly wake a sleeping hybrid-laptop dGPU and waste battery
+- telemetry now checks NVIDIA PCI runtime PM state first and only runs `nvidia-smi` if the dGPU is already active
+- `KALIPWM_FORCE_GPU_TELEMETRY=1` provides an explicit override for systems without usable runtime-PM reporting
+- telemetry polling interval increased from 3 seconds to 15 seconds
+- static regression guards cover runtime-PM gating and polling interval
+
 Pending before merge:
-- pre-logout post-install sanity check
 - BSPWM login/session validation
 - Polybar, Rofi, Kitty, Picom, Flameshot, audio, brightness, battery and telemetry validation
 - suspend/resume validation
