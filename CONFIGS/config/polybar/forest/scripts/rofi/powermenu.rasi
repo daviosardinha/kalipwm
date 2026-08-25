@@ -1,13 +1,14 @@
 /* KaliPWM V1 — Obsidian Tactical power menu */
 
 * {
-    background:       #0F1117F2;
-    background-alt:   #171A22F2;
-    selected:         #2B2638F2;
-    foreground:       #D7D9E0FF;
-    muted:            #9298A6FF;
-    accent:           #9B7EDEFF;
-    border:           #303541FF;
+    background:          #0F1117F2;
+    background-alt:      #171A22F2;
+    selected:            #342B46F2;
+    selected-foreground: #F4F1FFFF;
+    foreground:          #D7D9E0FF;
+    muted:               #9298A6FF;
+    accent:              #9B7EDEFF;
+    border:              #303541FF;
 
     font: "JetBrainsMono Nerd Font 11";
 }
@@ -64,6 +65,8 @@ listview {
 
 element {
     padding: 11px 13px;
+    border: 1px;
+    border-color: transparent;
     border-radius: 8px;
     background-color: transparent;
     text-color: @foreground;
@@ -71,12 +74,28 @@ element {
 
 element normal.normal {
     background-color: transparent;
+    border-color: transparent;
     text-color: @foreground;
 }
 
+/* Keyboard focus must be unmistakable: arrow-key navigation is a safety-critical
+ * interaction in a power menu. Keep the highlight visible for every Rofi state. */
 element selected.normal {
     background-color: @selected;
-    text-color: @foreground;
+    border-color: @accent;
+    text-color: @selected-foreground;
+}
+
+element selected.active {
+    background-color: @selected;
+    border-color: @accent;
+    text-color: @selected-foreground;
+}
+
+element selected.urgent {
+    background-color: @selected;
+    border-color: @accent;
+    text-color: @selected-foreground;
 }
 
 element-text {
