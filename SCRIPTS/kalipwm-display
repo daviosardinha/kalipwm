@@ -12,6 +12,29 @@ connected_outputs() {
   xrandr --query 2>/dev/null | awk '$2=="connected" {print $1}'
 }
 
+array_contains() {
+  local needle="$1" item
+  shift
+  for item in "$@"; do
+    [[ "$item" == "$needle" ]] && return 0
+  done
+  return 1
+}
+
+output_geometry() {
+  local output="$1"
+  xrandr --query 2>/dev/null | awk -v output="$output" '
+    $1 == output && $2 == "connected" {
+      for (i = 3; i <= NF; i++) {
+        if ($i ~ /^[0-9]+x[0-9]+\+[0-9-]+\+[0-9-]+$/) {
+          print $i
+          exit
+        }
+      }
+    }
+  '
+}
+
 find_internal() {
   local out
   if [[ -n "$internal_display" ]] && xrandr --query 2>/dev/null | grep -q "^${internal_display} connected"; then
@@ -68,25 +91,123 @@ apply_layout() {
       previous="$out"
     fi
   done
+}
 
-  # BSPWM and Polybar need to refresh their monitor view after RandR changes.
-  bspc wm -O $(bspc query -M --names 2>/dev/null) >/dev/null 2>&1 || true
-  pkill -USR1 -x polybar 2>/dev/null || true
+reconcile_bspwm() {
+  command -v bspc >/dev/null 2>&1 || return 0
+  bspc query -M --names >/dev/null 2>&1 || return 0
+
+  local out monitor geometry primary desktop target
+  local -a outputs bspwm_monitors desktops
+  mapfile -t outputs < <(connected_outputs)
+  ((${#outputs[@]})) || return 0
+
+  primary="$(find_internal)"
+  [[ -n "$primary" ]] || primary="${outputs[0]}"
+
+  # RandR may expose a reconnected USB-C display under a different provider
+  # output name (for example DP-1 -> DP-1-1). Add every currently connected
+  # output that BSPWM has not learned about yet. This does not alter provider
+  # routing; it only mirrors the topology already reported by XRandR.
+  mapfile -t bspwm_monitors < <(bspc query -M --names 2>/dev/null)
+  for out in "${outputs[@]}"; do
+    if ! array_contains "$out" "${bspwm_monitors[@]}"; then
+      geometry="$(output_geometry "$out")"
+      [[ -n "$geometry" ]] && bspc wm -a "$out" "$geometry" >/dev/null 2>&1 || true
+    fi
+  done
+
+  # Move desktops away from stale monitor objects before removing them. BSPWM
+  # otherwise keeps disconnected RandR names around and can strand workspaces.
+  mapfile -t bspwm_monitors < <(bspc query -M --names 2>/dev/null)
+  for monitor in "${bspwm_monitors[@]}"; do
+    array_contains "$monitor" "${outputs[@]}" && continue
+    mapfile -t desktops < <(bspc query -D -m "$monitor" --names 2>/dev/null)
+    for desktop in "${desktops[@]}"; do
+      bspc desktop "$desktop" -m "$primary" >/dev/null 2>&1 || true
+    done
+    bspc monitor "$monitor" -r >/dev/null 2>&1 || true
+  done
+
+  # Keep the V1 workspace model stable while monitors come and go. Existing
+  # desktops (and their windows) are moved; they are not destroyed/recreated.
+  mapfile -t desktops < <(bspc query -D --names 2>/dev/null)
+  for desktop in I II III IV V; do
+    if ! array_contains "$desktop" "${desktops[@]}"; then
+      bspc monitor "$primary" -a "$desktop" >/dev/null 2>&1 || true
+      desktops+=("$desktop")
+    fi
+  done
+
+  case "${#outputs[@]}" in
+    1)
+      for desktop in I II III IV V; do
+        bspc desktop "$desktop" -m "${outputs[0]}" >/dev/null 2>&1 || true
+      done
+      ;;
+    2)
+      for desktop in I II III; do
+        bspc desktop "$desktop" -m "${outputs[0]}" >/dev/null 2>&1 || true
+      done
+      for desktop in IV V; do
+        bspc desktop "$desktop" -m "${outputs[1]}" >/dev/null 2>&1 || true
+      done
+      ;;
+    *)
+      for desktop in I II; do
+        bspc desktop "$desktop" -m "${outputs[0]}" >/dev/null 2>&1 || true
+      done
+      for desktop in III IV; do
+        bspc desktop "$desktop" -m "${outputs[1]}" >/dev/null 2>&1 || true
+      done
+      bspc desktop V -m "${outputs[2]}" >/dev/null 2>&1 || true
+      ;;
+  esac
+
+  # Match BSPWM monitor ordering to the already-active XRandR topology.
+  bspc wm -O "${outputs[@]}" >/dev/null 2>&1 || true
+}
+
+restart_polybar() {
+  local launcher="$HOME/.config/polybar/forest/launch.sh"
+  [[ -x "$launcher" ]] || return 0
+  "$launcher" >/dev/null 2>&1 || true
+}
+
+apply_all() {
+  local restart_bar="${1:-false}"
+  apply_layout
+  sleep 0.2
+  reconcile_bspwm
+  [[ "$restart_bar" == true ]] && restart_polybar
+}
+
+topology_signature() {
+  connected_outputs | paste -sd, -
 }
 
 watch_layout() {
-  local previous="" current
+  local previous current
+
+  # Establish a clean baseline without restarting Polybar. BSPWM startup owns
+  # the initial bar launch, avoiding a race between the first bar and watcher.
+  apply_all false
+  previous="$(topology_signature)"
+
   while sleep 3; do
-    current="$(connected_outputs | paste -sd, -)"
+    current="$(topology_signature)"
     if [[ "$current" != "$previous" ]]; then
-      apply_layout
-      previous="$current"
+      # Give RandR a short debounce window so provider-backed USB-C outputs can
+      # settle before BSPWM and Polybar are reconciled.
+      sleep 1
+      apply_all true
+      previous="$(topology_signature)"
     fi
   done
 }
 
 case "${1:-apply}" in
-  apply) apply_layout ;;
-  --watch|watch) apply_layout; watch_layout ;;
+  apply) apply_all false ;;
+  --watch|watch) watch_layout ;;
   *) echo "Usage: kalipwm-display [apply|--watch]" >&2; exit 2 ;;
 esac
