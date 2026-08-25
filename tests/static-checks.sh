@@ -101,6 +101,13 @@ grep -q 'setsid -f sxhkd -m -1' SCRIPTS/kalipwm-state
 grep -A8 '^rollback()' SCRIPTS/kalipwm-state | grep -q '^  rehydrate_bspwm_session$'
 echo 'PASS rollback reloads or detaches sxhkd from the invoking terminal when BSPWM stays active'
 
+printf '\n== Uninstall session cleanup guard ==\n'
+grep -q '^cleanup_stale_kalipwm_helpers()' kalipwm.sh
+grep -q "pgrep -u \"\$UID\" -f 'kalipwm-display --watch'" kalipwm.sh
+grep -q '\$HOME/.config/polybar/forest/config.ini' kalipwm.sh
+grep -A8 '^end_stale_bspwm_session()' kalipwm.sh | grep -q '^  cleanup_stale_kalipwm_helpers$'
+echo 'PASS uninstall cleans persistent KaliPWM watcher and its own Polybar before ending stale BSPWM'
+
 printf '\n== Dynamic display reconciliation guard ==\n'
 grep -q '^reconcile_bspwm()' SCRIPTS/kalipwm-display
 grep -q 'bspc wm -a "\$out" "\$geometry"' SCRIPTS/kalipwm-display
