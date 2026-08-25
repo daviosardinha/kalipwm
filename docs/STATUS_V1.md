@@ -9,9 +9,9 @@ Validated on bare metal:
 - Wi-Fi detected as wlan0
 - Ethernet detected as eth0
 - internal display detected as eDP-1
-- external display dynamically detected as DP-1 when connected
+- external display dynamically detected when connected
 - external display placement to the right works as intended
-- disconnect/reconnect hotplug behavior works as intended
+- live USB-C disconnect/reconnect hotplug now reconciles XRandR, BSPWM, workspaces and Polybar correctly even when the provider-backed output name changes (observed DP-1 -> DP-1-1)
 - hybrid XRandR providers remain modesetting + NVIDIA-G0 without forcing NVIDIA desktop ownership
 - static CI checks pass
 
@@ -65,10 +65,18 @@ Flameshot regressions found and fixed during first BSPWM session:
 - live validation passed: capture overlay opens, screenshots work, and clipboard copy/paste behavior works as intended
 - static CI guards the BSPWM/Flameshot behavior
 
+Dynamic display regressions found and fixed during first BSPWM session:
+- a reconnected USB-C monitor can return under a different XRandR provider-backed output name; this was observed live as DP-1 becoming DP-1-1
+- the original watcher only acted on currently connected XRandR outputs, reordered existing BSPWM monitors and sent Polybar SIGUSR1, so stale BSPWM monitor objects and stale/vanished bars could remain after topology changes
+- the watcher now mirrors the topology already reported by XRandR without forcing provider routing, adds newly connected outputs to BSPWM, migrates desktops away from stale monitors before removing them, preserves canonical workspaces I-V, removes the empty BSPWM placeholder desktop, and relaunches one Polybar per active monitor
+- watcher startup establishes its initial topology signature without restarting Polybar, removing the startup race with the BSPWM-owned initial bar launch
+- live acceptance passed after repeated USB-C disconnect/reconnect: XRandR and BSPWM both report eDP-1 + DP-1-1, workspaces remain I-V, two Polybar processes are restored, and the display watcher remains alive
+- static CI guards the reconciliation path and prevents regression to signal-only Polybar refresh
+
 Pending before merge:
 - complete BSPWM application/session validation
-- Polybar, Rofi, Kitty, Picom, audio, brightness, battery and telemetry validation
-- suspend/resume validation
+- Rofi, Picom, audio, brightness, battery and telemetry validation
+- suspend/resume validation with external monitor attached
 - rollback exercise
 - VMware guest validation
 - optional VirtualBox/KVM smoke validation where available
