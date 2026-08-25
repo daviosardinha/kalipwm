@@ -1,39 +1,104 @@
-#! /bin/sh
+#!/usr/bin/env bash
 
-wmname LG3D &
-vmware-user-suid-wrapper &
+# KaliPWM V1 — Obsidian Tactical BSPWM session
 
-pgrep -x sxhkd > /dev/null || sxhkd &
+PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf"
+[[ -r "$PROFILE" ]] && source "$PROFILE"
+environment="${environment:-baremetal}"
 
-bspc monitor -d I II III IV V VI VII VIII IX X
+start_once() {
+  local process="$1"; shift
+  pgrep -u "$UID" -x "$process" >/dev/null 2>&1 || "$@" &
+}
 
+start_polkit_agent() {
+  local agent
+  for agent in \
+    /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 \
+    /usr/libexec/polkit-gnome-authentication-agent-1; do
+    [[ -x "$agent" ]] || continue
+    pgrep -u "$UID" -f 'polkit-gnome-authentication-agent-1' >/dev/null 2>&1 || "$agent" &
+    return
+  done
+}
+
+# Java/Swing compatibility (useful for tools such as Burp Suite).
+command -v wmname >/dev/null 2>&1 && wmname LG3D &
+
+# VMware desktop integration belongs only inside a VMware guest.
+if [[ "$environment" == vmware ]] && command -v vmware-user-suid-wrapper >/dev/null 2>&1; then
+  pgrep -u "$UID" -f vmware-user >/dev/null 2>&1 || vmware-user-suid-wrapper &
+fi
+
+# Apply the current display topology before BSPWM assigns workspaces.
+command -v kalipwm-display >/dev/null 2>&1 && kalipwm-display apply
+sleep 0.3
+
+mapfile -t monitors < <(bspc query -M --names 2>/dev/null)
+case "${#monitors[@]}" in
+  0) bspc monitor -d I II III IV V ;;
+  1) bspc monitor "${monitors[0]}" -d I II III IV V ;;
+  2)
+    bspc monitor "${monitors[0]}" -d I II III
+    bspc monitor "${monitors[1]}" -d IV V
+    ;;
+  *)
+    bspc monitor "${monitors[0]}" -d I II
+    bspc monitor "${monitors[1]}" -d III IV
+    bspc monitor "${monitors[2]}" -d V
+    ;;
+esac
+
+# Obsidian Tactical geometry.
 bspc config border_width         2
-bspc config window_gap          12
-
+bspc config window_gap           9
 bspc config split_ratio          0.52
 bspc config borderless_monocle   true
 bspc config gapless_monocle      true
-
-bspc rule -a Gimp desktop='^8' state=floating follow=on
-bspc rule -a Chromium desktop='^2'
-bspc rule -a mplayer2 state=floating
-bspc rule -a Kupfer.py focus=on
-bspc rule -a Screenkey manage=off
-
-# WALLPAPER
-feh --bg-fill ~/Wallpapers/wallpaper.*
-
-# POLYBAR
-~/.config/polybar/launch.sh --forest
-
-# CUSTOM
 bspc config focus_follows_pointer true
 
-# Resolución Full HD
-xrandr --output Virtual1 --mode 1920x1080
+# Graphite inactive borders, restrained violet focus, red urgency.
+bspc config normal_border_color   '#272A33'
+bspc config active_border_color   '#5A526B'
+bspc config focused_border_color  '#9B7EDE'
+bspc config presel_feedback_color '#C95B6A'
 
-# PICOM
-picom &
-bspc config border_width 0
+# Useful application placement rules.
+bspc rule -a Gimp state=floating follow=on
+bspc rule -a Pavucontrol state=floating
+bspc rule -a Nm-connection-editor state=floating
+bspc rule -a flameshot state=floating
+bspc rule -a BurpSuite desktop='II'
+bspc rule -a burp-StartBurp desktop='II'
+bspc rule -a Firefox desktop='III'
+bspc rule -a firefox desktop='III'
+bspc rule -a Vmware desktop='IV'
+bspc rule -a "VMware Workstation" desktop='IV'
+
+# Desktop services.
+start_once sxhkd sxhkd
+command -v dunst >/dev/null 2>&1 && start_once dunst dunst
+command -v nm-applet >/dev/null 2>&1 && start_once nm-applet nm-applet --indicator
+command -v xfce4-power-manager >/dev/null 2>&1 && start_once xfce4-power-manager xfce4-power-manager
+start_polkit_agent
+
+# Wallpaper.
+shopt -s nullglob
+wallpapers=("$HOME"/Wallpapers/wallpaper.*)
+((${#wallpapers[@]})) && feh --no-fehbg --bg-fill "${wallpapers[0]}" &
+shopt -u nullglob
+
+# Compositor.
+pkill -x picom >/dev/null 2>&1 || true
+command -v picom >/dev/null 2>&1 && picom --config "$HOME/.config/picom/picom.conf" &
+
+# Polybar.
+"$HOME/.config/polybar/forest/launch.sh" &
+
+# Dynamic display hotplug watcher. It does not hard-code Virtual1, HDMI-1,
+# eDP-1, resolutions, or GPU providers.
+if command -v kalipwm-display >/dev/null 2>&1; then
+  pgrep -u "$UID" -f 'kalipwm-display --watch' >/dev/null 2>&1 || kalipwm-display --watch &
+fi
 
 xsetroot -cursor_name left_ptr &
