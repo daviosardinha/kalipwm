@@ -25,6 +25,17 @@ if grep -RInE "$legacy_regex" CONFIGS SCRIPTS install.sh kalipwm.sh; then
 fi
 echo 'PASS no forbidden legacy assumptions'
 
+printf '\n== Kali rolling package guard ==\n'
+if grep -nE '^[[:space:]]*network-manager-gnome([[:space:]]|$)|^[[:space:]]*policykit-1-gnome([[:space:]]|$)' install.sh; then
+  echo 'FAIL: obsolete/no-candidate Kali package name is present in installer list.' >&2
+  exit 1
+fi
+grep -q 'network-manager-applet' install.sh
+grep -q 'nm-connection-editor' install.sh
+grep -q 'mate-polkit' install.sh
+grep -q 'package_has_candidate' install.sh
+echo 'PASS installer uses current desktop integration packages and candidate checks'
+
 printf '\n== Power-supply detection regression ==\n'
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
