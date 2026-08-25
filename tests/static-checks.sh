@@ -75,6 +75,14 @@ grep -q 'KALIPWM_FORCE_GPU_TELEMETRY' SCRIPTS/kalipwm-telemetry
 grep -A5 '^\[module/telemetry\]' CONFIGS/config/polybar/forest/user_modules.ini | grep -q 'interval = 15'
 echo 'PASS telemetry checks runtime PM before nvidia-smi and uses a conservative polling interval'
 
+printf '\n== Flameshot integration guard ==\n'
+! grep -RInE '(^|[[:space:]])scrot([[:space:]]|$)' SCRIPTS CONFIGS/config/sxhkd >/dev/null
+grep -q 'start_once flameshot flameshot' CONFIGS/config/bspwm/bspwmrc
+grep -q '~/.local/bin/screenshot.sh gui' CONFIGS/config/sxhkd/sxhkdrc
+grep -q 'flameshot gui --path' SCRIPTS/screenshot.sh
+grep -q 'flameshot full --path' SCRIPTS/screenshot.sh
+echo 'PASS screenshot hotkeys use a Flameshot wrapper and the session starts its DBus-aware daemon'
+
 printf '\n== Entry point ==\n'
 bash kalipwm.sh --help >/dev/null
 echo 'PASS kalipwm.sh --help'
