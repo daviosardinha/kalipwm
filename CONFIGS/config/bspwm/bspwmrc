@@ -83,8 +83,6 @@ bspc rule -a BurpSuite desktop='II'
 bspc rule -a burp-StartBurp desktop='II'
 bspc rule -a Firefox desktop='III'
 bspc rule -a firefox desktop='III'
-bspc rule -a Vmware desktop='IV'
-bspc rule -a "VMware Workstation" desktop='IV'
 
 # Desktop services. Keep sxhkd aware of XKB mapping changes; this is the
 # mode validated with the laptop multimedia keys.
