@@ -1,95 +1,71 @@
 #!/usr/bin/env bash
+set -u
 
-## Author  : Aditya Shakya
-## Mail    : adi1090x@gmail.com
-## Github  : @adi1090x
-## Twitter : @adi1090x
+# KaliPWM V1 — Obsidian Tactical power menu
 
-dir="~/.config/polybar/forest/scripts/rofi"
-uptime=$(uptime -p | sed -e 's/up //g')
+dir="${XDG_CONFIG_HOME:-$HOME/.config}/polybar/forest/scripts/rofi"
+uptime_text="$(uptime -p 2>/dev/null | sed -e 's/^up //' || true)"
 
-rofi_command="rofi -no-config -theme $dir/powermenu.rasi"
+rofi_command=(rofi -no-config -theme "$dir/powermenu.rasi")
 
-# Options
-shutdown=" Shutdown"
-reboot=" Restart"
-lock=" Lock"
-suspend=" Sleep"
-logout=" Logout"
+# Nerd Font glyphs from the same family used by the rest of KaliPWM.
+shutdown="󰐥  Shutdown"
+reboot="󰜉  Restart"
+lock="󰌾  Lock"
+suspend="󰤄  Sleep"
+logout="󰗽  Logout"
 
-# Confirmation
 confirm_exit() {
-	rofi -dmenu\
-        -no-config\
-		-i\
-		-no-fixed-num-lines\
-		-p "Are You Sure? : "\
-		-theme $dir/confirm.rasi
+    printf 'Yes\nNo\n' | rofi -dmenu \
+        -no-config \
+        -i \
+        -no-fixed-num-lines \
+        -p "Confirm" \
+        -theme "$dir/confirm.rasi"
 }
 
-# Message
-msg() {
-	rofi -no-config -theme "$dir/message.rasi" -e "Available Options  -  yes / y / no / n"
+message() {
+    rofi -no-config -theme "$dir/message.rasi" -e "$1"
 }
 
-# Variable passed to rofi
-options="$lock\n$suspend\n$logout\n$reboot\n$shutdown"
+confirm_action() {
+    [[ "$(confirm_exit)" == "Yes" ]]
+}
 
-chosen="$(echo -e "$options" | $rofi_command -p "Uptime: $uptime" -dmenu -selected-row 0)"
-case $chosen in
-    $shutdown)
-		ans=$(confirm_exit &)
-		if [[ $ans == "yes" || $ans == "YES" || $ans == "y" || $ans == "Y" ]]; then
-			systemctl poweroff
-		elif [[ $ans == "no" || $ans == "NO" || $ans == "n" || $ans == "N" ]]; then
-			exit 0
+chosen="$(printf '%s\n' "$lock" "$suspend" "$logout" "$reboot" "$shutdown" \
+    | "${rofi_command[@]}" -p "UPTIME  ${uptime_text:-unknown}" -dmenu -selected-row 0)"
+
+case "$chosen" in
+    "$shutdown")
+        confirm_action && systemctl poweroff
+        ;;
+    "$reboot")
+        confirm_action && systemctl reboot
+        ;;
+    "$lock")
+        if command -v betterlockscreen >/dev/null 2>&1; then
+            betterlockscreen -l
+        elif command -v i3lock >/dev/null 2>&1; then
+            i3lock
+        elif command -v loginctl >/dev/null 2>&1; then
+            loginctl lock-session
         else
-			msg
+            message "No supported screen locker is available."
         fi
         ;;
-    $reboot)
-		ans=$(confirm_exit &)
-		if [[ $ans == "yes" || $ans == "YES" || $ans == "y" || $ans == "Y" ]]; then
-			systemctl reboot
-		elif [[ $ans == "no" || $ans == "NO" || $ans == "n" || $ans == "N" ]]; then
-			exit 0
-        else
-			msg
+    "$suspend")
+        confirm_action && systemctl suspend
+        ;;
+    "$logout")
+        if confirm_action; then
+            if command -v bspc >/dev/null 2>&1; then
+                bspc quit
+            else
+                message "BSPWM control utility is unavailable."
+            fi
         fi
         ;;
-    $lock)
-		if [[ -f /usr/bin/i3lock ]]; then
-			i3lock
-		elif [[ -f /usr/bin/betterlockscreen ]]; then
-			betterlockscreen -l
-		fi
-        ;;
-    $suspend)
-		ans=$(confirm_exit &)
-		if [[ $ans == "yes" || $ans == "YES" || $ans == "y" || $ans == "Y" ]]; then
-			mpc -q pause
-			amixer set Master mute
-			systemctl suspend
-		elif [[ $ans == "no" || $ans == "NO" || $ans == "n" || $ans == "N" ]]; then
-			exit 0
-        else
-			msg
-        fi
-        ;;
-    $logout)
-		ans=$(confirm_exit &)
-		if [[ $ans == "yes" || $ans == "YES" || $ans == "y" || $ans == "Y" ]]; then
-			if [[ "$DESKTOP_SESSION" == "Openbox" ]]; then
-				openbox --exit
-			elif [[ "$DESKTOP_SESSION" == "bspwm" ]]; then
-				bspc quit
-			elif [[ "$DESKTOP_SESSION" == "i3" ]]; then
-				i3-msg exit
-			fi
-		elif [[ $ans == "no" || $ans == "NO" || $ans == "n" || $ans == "N" ]]; then
-			exit 0
-        else
-			msg
-        fi
+    '')
+        exit 0
         ;;
 esac
