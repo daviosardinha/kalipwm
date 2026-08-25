@@ -1,4 +1,4 @@
-Status: implementation baseline complete. Bare-metal preflight, power-supply detection, dynamic display/hotplug validation, the first full interactive V1 installation, and the pre-login sanity check have passed on Lenovo 83F5. First BSPWM-session validation is in progress; VM validation remains pending.
+Status: implementation baseline complete. Bare-metal preflight, power-supply detection, dynamic display/hotplug validation, the first full interactive V1 installation, pre-login sanity check, and first BSPWM login have passed on Lenovo 83F5. BSPWM application/session QA is in progress; VM validation remains pending.
 
 Validated on bare metal:
 - Kali GNU/Linux Rolling detected correctly
@@ -51,16 +51,22 @@ Telemetry regression found and fixed before first BSPWM login:
 - telemetry polling interval increased from 3 seconds to 15 seconds
 - static regression guards cover runtime-PM gating and polling interval
 
-Flameshot regression found during first BSPWM session:
-- Flameshot 14 timed out waiting for the XDG Desktop Portal Screenshot interface under BSPWM (`Screenshot portal timed out after 30 seconds`)
-- this is the documented Flameshot 14+ behavior on minimal X11 window managers when the available portal backend does not implement Screenshot
+First BSPWM session:
+- BSPWM login succeeds and the Obsidian Tactical desktop renders with Polybar and tiled applications
+- Kitty launches and normal application use is possible in the session
+- external monitor layout remains correct in-session
+
+Flameshot regressions found and fixed during first BSPWM session:
+- Flameshot 14 initially timed out waiting for the XDG Desktop Portal Screenshot interface under BSPWM (`Screenshot portal timed out after 30 seconds`)
 - KaliPWM now ships `CONFIGS/config/flameshot/flameshot.ini` with `useX11LegacyScreenshot=true`, forcing Flameshot's native X11 capture path in the BSPWM session
-- static CI guards the legacy-X11 setting so future changes do not reintroduce the portal timeout
-- live validation of the fix is pending
+- GUI capture is launched without `--path`, preserving normal Flameshot interactive behavior: `Ctrl+C` copies to clipboard without forcing a save
+- `saveAfterCopy=false` is shipped so clipboard capture remains clipboard-only by default
+- `Print` and `Ctrl+Print` both open Flameshot directly in capture mode; `Shift+Print` remains the explicit full-desktop save action
+- live validation passed: capture overlay opens, screenshots work, and clipboard copy/paste behavior works as intended
+- static CI guards the BSPWM/Flameshot behavior
 
 Pending before merge:
-- complete BSPWM login/session validation
-- validate Flameshot legacy-X11 capture fix
+- complete BSPWM application/session validation
 - Polybar, Rofi, Kitty, Picom, audio, brightness, battery and telemetry validation
 - suspend/resume validation
 - rollback exercise
