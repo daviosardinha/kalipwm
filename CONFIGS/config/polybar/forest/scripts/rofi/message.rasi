@@ -1,24 +1,32 @@
-/* Confirm Dialog */
-
-@import "colors.rasi"
+/* KaliPWM V1 — Obsidian Tactical message dialog */
 
 * {
-    background-color:       @bg;
-    text-color:             @fg;
-	font:				 	"Iosevka Nerd Font 10";
+    background:       #0F1117F2;
+    foreground:       #D7D9E0FF;
+    accent:           #9B7EDEFF;
+    border:           #303541FF;
+
+    font: "JetBrainsMono Nerd Font 11";
 }
 
 window {
-    width:      			320px;
-    padding:    			25px;
-    border:					0px 0px 1px 0px;
-    border-radius:          0px;
-    border-color:           @se;
-    location:               center;
-    y-offset:               -2em;
+    transparency: "real";
+    location: center;
+    anchor: center;
+    width: 420px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 12px;
+    padding: 18px;
+    background-color: @background;
 }
 
-entry {
-    expand: 				true;
-    text-color:				@ac;
+mainbox {
+    background-color: transparent;
+}
+
+textbox {
+    text-color: @foreground;
+    background-color: transparent;
+    vertical-align: 0.5;
 }
