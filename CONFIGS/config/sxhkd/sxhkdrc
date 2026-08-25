@@ -112,14 +112,17 @@ shift + Print
 # Audio        #
 ################
 
+# Keep multimedia keys on the same direct-command model used by upstream
+# KaliPWM and the known-good i3/BSPWM fix, but target PipeWire's current
+# default sink instead of hard-coding sink index 0.
 XF86AudioRaiseVolume
-    ~/.local/bin/kalipwm-audio up
+    wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+
 
 XF86AudioLowerVolume
-    ~/.local/bin/kalipwm-audio down
+    wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
 
 XF86AudioMute
-    ~/.local/bin/kalipwm-audio mute
+    wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
 
 ################
 # Brightness   #
