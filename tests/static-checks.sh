@@ -147,6 +147,19 @@ grep -A35 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'pgrep -u "\$UID" 
 grep -A20 '^cleanup_bspwm_session_artifacts()' SCRIPTS/kalipwm-display | grep -q '\$HOME/.config/polybar/forest/config.ini'
 echo 'PASS BSPWM display watcher exits with BSPWM and removes only KaliPWM-owned Polybar state before another desktop session starts'
 
+printf '\n== Power menu keyboard focus guard ==\n'
+for theme in \
+  CONFIGS/config/polybar/forest/scripts/rofi/powermenu.rasi \
+  CONFIGS/config/polybar/forest/scripts/rofi/confirm.rasi; do
+  grep -q 'selected-foreground:' "$theme"
+  for state in normal active urgent; do
+    grep -A5 "^element selected\.${state}" "$theme" | grep -q 'background-color: @selected;'
+    grep -A5 "^element selected\.${state}" "$theme" | grep -q 'border-color: @accent;'
+    grep -A5 "^element selected\.${state}" "$theme" | grep -q 'text-color: @selected-foreground;'
+  done
+done
+echo 'PASS power and confirmation menus expose an explicit high-contrast keyboard selection state'
+
 printf '\n== Obsidian Tactical icon/font guard ==\n'
 grep -q '^font-0 = "JetBrainsMono Nerd Font Mono:' CONFIGS/config/polybar/forest/config.ini
 grep -q '^font-1 = "Hack Nerd Font Mono:' CONFIGS/config/polybar/forest/config.ini
