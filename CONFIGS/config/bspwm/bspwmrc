@@ -86,8 +86,9 @@ bspc rule -a firefox desktop='III'
 bspc rule -a Vmware desktop='IV'
 bspc rule -a "VMware Workstation" desktop='IV'
 
-# Desktop services.
-start_once sxhkd sxhkd
+# Desktop services. Keep sxhkd aware of XKB mapping changes; this is the
+# mode validated with the laptop multimedia keys.
+start_once sxhkd sxhkd -m -1
 command -v dunst >/dev/null 2>&1 && start_once dunst dunst
 command -v nm-applet >/dev/null 2>&1 && start_once nm-applet nm-applet --indicator
 command -v xfce4-power-manager >/dev/null 2>&1 && start_once xfce4-power-manager xfce4-power-manager
