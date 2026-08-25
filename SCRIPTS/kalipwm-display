@@ -183,6 +183,21 @@ restart_polybar() {
   "$launcher" >/dev/null 2>&1 || true
 }
 
+cleanup_bspwm_session_artifacts() {
+  local pid cmdline
+  local config="$HOME/.config/polybar/forest/config.ini"
+
+  # Only stop the Polybar instance launched from KaliPWM's own configuration.
+  # Do not kill an unrelated user Polybar that may be used by another session.
+  while read -r pid; do
+    [[ -n "$pid" ]] || continue
+    cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
+    if [[ "$cmdline" == *"$config"* ]]; then
+      kill "$pid" 2>/dev/null || true
+    fi
+  done < <(pgrep -u "$UID" -x polybar 2>/dev/null || true)
+}
+
 apply_all() {
   local restart_bar="${1:-false}"
   apply_layout
@@ -201,12 +216,26 @@ topology_signature() {
 watch_layout() {
   local previous current
 
+  # The watcher belongs to the BSPWM session. If BSPWM exits (for example when
+  # the user logs out and selects XFCE), stop KaliPWM's bar before the watcher
+  # exits so no BSPWM UI leaks into the next desktop session.
+  trap cleanup_bspwm_session_artifacts EXIT
+  trap 'exit 0' HUP INT TERM
+
+  if ! pgrep -u "$UID" -x bspwm >/dev/null 2>&1; then
+    return 0
+  fi
+
   # Establish a clean baseline without restarting Polybar. BSPWM startup owns
   # the initial bar launch, avoiding a race between the first bar and watcher.
   apply_all false
   previous="$(topology_signature)"
 
   while sleep 3; do
+    if ! pgrep -u "$UID" -x bspwm >/dev/null 2>&1; then
+      return 0
+    fi
+
     current="$(topology_signature)"
     if [[ "$current" != "$previous" ]]; then
       # Give RandR a short debounce window so provider-backed USB-C outputs can
