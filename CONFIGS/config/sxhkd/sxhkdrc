@@ -8,7 +8,7 @@ super + Return
 
 # Rofi / application launcher
 super + d
-    ~/.config/polybar/forest/scripts/launcher.sh
+    bash ~/.config/polybar/forest/scripts/launcher.sh
 
 # Reload sxhkd configuration
 super + Escape
