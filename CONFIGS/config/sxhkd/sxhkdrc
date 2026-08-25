@@ -94,17 +94,19 @@ super + shift + a
 # Screenshots  #
 ################
 
-# Interactive region + annotation
+# Interactive region + annotation. Ctrl+C inside Flameshot copies the
+# selected image to the clipboard without saving it automatically.
 Print
     ~/.local/bin/screenshot.sh gui
 
-# Full desktop directly to the screenshots folder
+# Keep Ctrl+Print consistent with the screenshot workflow: open Flameshot
+# directly in capture mode rather than the separate launcher/menu.
+ctrl + Print
+    ~/.local/bin/screenshot.sh gui
+
+# Full desktop directly to the screenshots folder.
 shift + Print
     ~/.local/bin/screenshot.sh full
-
-# Flameshot launcher/menu
-ctrl + Print
-    ~/.local/bin/screenshot.sh launcher
 
 ################
 # Audio        #
