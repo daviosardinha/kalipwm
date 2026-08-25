@@ -13,12 +13,15 @@ start_once() {
 }
 
 start_polkit_agent() {
-  local agent
+  local agent process
   for agent in \
+    /usr/libexec/polkit-mate-authentication-agent-1 \
+    /usr/lib/mate-polkit/polkit-mate-authentication-agent-1 \
     /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 \
     /usr/libexec/polkit-gnome-authentication-agent-1; do
     [[ -x "$agent" ]] || continue
-    pgrep -u "$UID" -f 'polkit-gnome-authentication-agent-1' >/dev/null 2>&1 || "$agent" &
+    process="$(basename "$agent")"
+    pgrep -u "$UID" -f "$process" >/dev/null 2>&1 || "$agent" &
     return
   done
 }
