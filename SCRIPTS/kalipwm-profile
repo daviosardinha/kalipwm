@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -u
+
+if [[ -r /sys/firmware/acpi/platform_profile ]]; then
+  profile="$(cat /sys/firmware/acpi/platform_profile 2>/dev/null || true)"
+elif command -v powerprofilesctl >/dev/null 2>&1; then
+  profile="$(powerprofilesctl get 2>/dev/null || true)"
+else
+  exit 0
+fi
+
+[[ -n "$profile" ]] || exit 0
+profile="${profile//low-power/LOW}"
+profile="${profile//balanced/BAL}"
+profile="${profile//performance/PERF}"
+profile="${profile//max-power/MAX}"
+profile="${profile//custom/CUSTOM}"
+printf '%s\n' "${profile^^}"
