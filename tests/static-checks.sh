@@ -98,11 +98,13 @@ printf '\n== Dynamic display reconciliation guard ==\n'
 grep -q '^reconcile_bspwm()' SCRIPTS/kalipwm-display
 grep -q 'bspc wm -a "\$out" "\$geometry"' SCRIPTS/kalipwm-display
 grep -q 'bspc monitor "\$monitor" -r' SCRIPTS/kalipwm-display
+grep -q 'bspc desktop Desktop -r' SCRIPTS/kalipwm-display
 grep -q '^restart_polybar()' SCRIPTS/kalipwm-display
 grep -q 'apply_all true' SCRIPTS/kalipwm-display
 grep -q 'previous="\$(topology_signature)"' SCRIPTS/kalipwm-display
+grep -A12 '^apply_all()' SCRIPTS/kalipwm-display | grep -q '^  return 0$'
 ! grep -q 'pkill -USR1 -x polybar' SCRIPTS/kalipwm-display
-echo 'PASS display watcher reconciles provider-renamed outputs, stale BSPWM monitors, workspaces, and Polybar without forcing GPU providers'
+echo 'PASS display watcher reconciles provider-renamed outputs, stale BSPWM monitors, placeholder desktops, workspaces, and Polybar with a successful apply exit status'
 
 printf '\n== Obsidian Tactical icon/font guard ==\n'
 grep -q '^font-0 = "JetBrainsMono Nerd Font Mono:' CONFIGS/config/polybar/forest/config.ini
