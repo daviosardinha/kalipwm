@@ -1,0 +1,21 @@
+name: V1 static checks
+
+on:
+  push:
+    branches:
+      - main
+      - 'v1/**'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run KaliPWM static checks
+        run: bash tests/static-checks.sh
