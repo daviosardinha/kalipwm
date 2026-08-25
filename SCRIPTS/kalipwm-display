@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -u
+
+PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf"
+[[ -r "$PROFILE" ]] && source "$PROFILE"
+
+environment="${environment:-baremetal}"
+external_position="${external_position:-right}"
+internal_display="${internal_display:-}"
+
+connected_outputs() {
+  xrandr --query 2>/dev/null | awk '$2=="connected" {print $1}'
+}
+
+find_internal() {
+  local out
+  if [[ -n "$internal_display" ]] && xrandr --query 2>/dev/null | grep -q "^${internal_display} connected"; then
+    printf '%s\n' "$internal_display"
+    return
+  fi
+  while read -r out; do
+    [[ "$out" =~ ^(eDP|LVDS) ]] && { printf '%s\n' "$out"; return; }
+  done < <(connected_outputs)
+}
+
+apply_layout() {
+  command -v xrandr >/dev/null 2>&1 || return 0
+  [[ -n "${DISPLAY:-}" ]] || return 0
+
+  mapfile -t outputs < <(connected_outputs)
+  ((${#outputs[@]})) || return 0
+
+  # Virtual displays resize themselves through guest integrations. Never force
+  # a physical laptop topology inside VMware/VirtualBox/KVM.
+  if [[ "$environment" != baremetal ]]; then
+    local out
+    for out in "${outputs[@]}"; do
+      xrandr --output "$out" --auto 2>/dev/null || true
+    done
+    return 0
+  fi
+
+  local internal external previous out
+  internal="$(find_internal)"
+
+  if [[ -z "$internal" ]]; then
+    internal="${outputs[0]}"
+  fi
+
+  xrandr --output "$internal" --auto --primary 2>/dev/null || true
+
+  external=""
+  for out in "${outputs[@]}"; do
+    [[ "$out" == "$internal" ]] && continue
+    if [[ -z "$external" ]]; then
+      external="$out"
+      case "$external_position" in
+        left)   xrandr --output "$external" --auto --left-of "$internal" 2>/dev/null || true ;;
+        above)  xrandr --output "$external" --auto --above "$internal" 2>/dev/null || true ;;
+        below)  xrandr --output "$external" --auto --below "$internal" 2>/dev/null || true ;;
+        mirror) xrandr --output "$external" --auto --same-as "$internal" 2>/dev/null || true ;;
+        *)      xrandr --output "$external" --auto --right-of "$internal" 2>/dev/null || true ;;
+      esac
+      previous="$external"
+    else
+      # Additional monitors are chained to the right to avoid overlap.
+      xrandr --output "$out" --auto --right-of "$previous" 2>/dev/null || true
+      previous="$out"
+    fi
+  done
+
+  # BSPWM and Polybar need to refresh their monitor view after RandR changes.
+  bspc wm -O $(bspc query -M --names 2>/dev/null) >/dev/null 2>&1 || true
+  pkill -USR1 -x polybar 2>/dev/null || true
+}
+
+watch_layout() {
+  local previous="" current
+  while sleep 3; do
+    current="$(connected_outputs | paste -sd, -)"
+    if [[ "$current" != "$previous" ]]; then
+      apply_layout
+      previous="$current"
+    fi
+  done
+}
+
+case "${1:-apply}" in
+  apply) apply_layout ;;
+  --watch|watch) apply_layout; watch_layout ;;
+  *) echo "Usage: kalipwm-display [apply|--watch]" >&2; exit 2 ;;
+esac
