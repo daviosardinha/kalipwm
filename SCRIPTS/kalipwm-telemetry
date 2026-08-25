@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -u
+
+parts=()
+
+# CPU/package temperature: prefer common package/core thermal zones, otherwise
+# use the first plausible thermal zone. Values are reported in millidegrees C.
+cpu_temp=""
+for zone in /sys/class/thermal/thermal_zone*; do
+  [[ -r "$zone/temp" ]] || continue
+  type="$(cat "$zone/type" 2>/dev/null || true)"
+  case "$type" in
+    x86_pkg_temp|cpu-thermal|cpu_thermal|TCPU|Package*)
+      raw="$(cat "$zone/temp" 2>/dev/null || true)"
+      [[ "$raw" =~ ^[0-9]+$ ]] && { cpu_temp=$((raw / 1000)); break; }
+      ;;
+  esac
+done
+
+if [[ -z "$cpu_temp" ]]; then
+  for zone in /sys/class/thermal/thermal_zone*; do
+    [[ -r "$zone/temp" ]] || continue
+    raw="$(cat "$zone/temp" 2>/dev/null || true)"
+    if [[ "$raw" =~ ^[0-9]+$ ]] && (( raw >= 15000 && raw <= 120000 )); then
+      cpu_temp=$((raw / 1000)); break
+    fi
+  done
+fi
+[[ -n "$cpu_temp" ]] && parts+=("CPU ${cpu_temp}°")
+
+# NVIDIA temperature is shown only when the driver and GPU are actually available.
+if command -v nvidia-smi >/dev/null 2>&1; then
+  gpu_temp="$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -n1 | tr -d '[:space:]')"
+  [[ "$gpu_temp" =~ ^[0-9]+$ ]] && parts+=("GPU ${gpu_temp}°")
+fi
+
+# Use the first available fan RPM sensor. Zero is valid on laptops with fan-stop.
+fan=""
+for input in /sys/class/hwmon/hwmon*/fan*_input; do
+  [[ -r "$input" ]] || continue
+  value="$(cat "$input" 2>/dev/null || true)"
+  [[ "$value" =~ ^[0-9]+$ ]] || continue
+  fan="$value"
+  break
+done
+[[ -n "$fan" ]] && parts+=("FAN $fan")
+
+((${#parts[@]})) || exit 0
+printf '%s\n' "$(IFS=' '; echo "${parts[*]}")"
