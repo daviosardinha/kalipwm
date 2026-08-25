@@ -1,0 +1,81 @@
+# KaliPWM V1 — Obsidian Tactical Dunst
+# Near-black graphite surfaces, restrained violet interaction, compact OSD.
+
+[global]
+    monitor = 0
+    follow = mouse
+    origin = top-right
+    offset = 18x54
+    width = 360
+    height = 300
+    notification_limit = 5
+
+    font = JetBrainsMono Nerd Font Mono 10
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    vertical_alignment = center
+    word_wrap = yes
+    ellipsize = middle
+    ignore_newline = no
+    stack_duplicates = true
+    hide_duplicate_count = true
+    show_indicators = no
+
+    frame_width = 1
+    frame_color = "#5A526B"
+    separator_height = 1
+    separator_color = frame
+    corner_radius = 9
+    gap_size = 7
+    padding = 12
+    horizontal_padding = 14
+    text_icon_padding = 10
+
+    background = "#0F1117"
+    foreground = "#D7D9E0"
+    highlight = "#9B7EDE"
+
+    icon_position = left
+    min_icon_size = 18
+    max_icon_size = 28
+
+    progress_bar = true
+    progress_bar_height = 7
+    progress_bar_frame_width = 0
+    progress_bar_min_width = 180
+    progress_bar_max_width = 300
+    progress_bar_corner_radius = 3
+
+    transparency = 4
+    idle_threshold = 120
+    mouse_left_click = close_current
+    mouse_middle_click = do_action, close_current
+    mouse_right_click = close_all
+
+[urgency_low]
+    background = "#0F1117"
+    foreground = "#9298A6"
+    frame_color = "#303541"
+    timeout = 3
+
+[urgency_normal]
+    background = "#0F1117"
+    foreground = "#D7D9E0"
+    frame_color = "#5A526B"
+    timeout = 4
+
+[urgency_critical]
+    background = "#171015"
+    foreground = "#F1F1F4"
+    frame_color = "#C95B6A"
+    timeout = 0
+
+# Volume/brightness OSD: compact, violet-accented, replaceable notifications.
+[obsidian-osd]
+    appname = KaliPWM
+    background = "#0F1117"
+    foreground = "#D7D9E0"
+    frame_color = "#9B7EDE"
+    highlight = "#9B7EDE"
+    timeout = 1
