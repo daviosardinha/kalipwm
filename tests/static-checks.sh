@@ -88,6 +88,12 @@ grep -q '^useX11LegacyScreenshot=true$' CONFIGS/config/flameshot/flameshot.ini
 grep -q '^saveAfterCopy=false$' CONFIGS/config/flameshot/flameshot.ini
 echo 'PASS BSPWM screenshots use native X11 capture, Ctrl+Print opens capture UI, and Ctrl+C remains clipboard-only'
 
+printf '\n== BSPWM startup process guard ==\n'
+! grep -nE 'pgrep[^\n]*\|\|[^\n]*&' CONFIGS/config/bspwm/bspwmrc >/dev/null
+grep -q '^start_once()' CONFIGS/config/bspwm/bspwmrc
+grep -q 'if pgrep -u "\$UID" -x "\$process"' CONFIGS/config/bspwm/bspwmrc
+echo 'PASS BSPWM session startup does not leave conditional background shell wrappers'
+
 printf '\n== Entry point ==\n'
 bash kalipwm.sh --help >/dev/null
 echo 'PASS kalipwm.sh --help'
