@@ -77,9 +77,9 @@ super + ctrl + {Left,Down,Up,Right}
 super + alt + {Left,Down,Up,Right}
     ~/.config/bspwm/scripts/bspwm_resize {west,south,north,east}
 
-####################
+#####################
 # Operator launchers #
-####################
+#####################
 
 super + shift + f
     firefox
@@ -111,13 +111,13 @@ ctrl + Print
 ################
 
 XF86AudioRaiseVolume
-    kalipwm-audio up
+    ~/.local/bin/kalipwm-audio up
 
 XF86AudioLowerVolume
-    kalipwm-audio down
+    ~/.local/bin/kalipwm-audio down
 
 XF86AudioMute
-    kalipwm-audio mute
+    ~/.local/bin/kalipwm-audio mute
 
 ################
 # Brightness   #
