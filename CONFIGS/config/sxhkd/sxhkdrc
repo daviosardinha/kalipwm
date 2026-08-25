@@ -112,24 +112,23 @@ shift + Print
 # Audio        #
 ################
 
-# Use the exact command form validated on bare metal. The explicit shell and
-# absolute wpctl path avoid depending on sxhkd's command environment while
-# still targeting PipeWire's current default sink.
+# Use the command form validated on bare metal, then display the current
+# level through the session notification daemon.
 XF86AudioRaiseVolume
-    sh -c '/usr/bin/wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+'
+    sh -c '/usr/bin/wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ && "$HOME/.local/bin/kalipwm-osd" volume'
 
 XF86AudioLowerVolume
-    sh -c '/usr/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-'
+    sh -c '/usr/bin/wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- && "$HOME/.local/bin/kalipwm-osd" volume'
 
 XF86AudioMute
-    sh -c '/usr/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle'
+    sh -c '/usr/bin/wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle && "$HOME/.local/bin/kalipwm-osd" volume'
 
 ################
 # Brightness   #
 ################
 
 XF86MonBrightnessDown
-    brightnessctl set 10%-
+    sh -c '/usr/bin/brightnessctl set 10%- >/dev/null && "$HOME/.local/bin/kalipwm-osd" brightness'
 
 XF86MonBrightnessUp
-    brightnessctl set +10%
+    sh -c '/usr/bin/brightnessctl set +10% >/dev/null && "$HOME/.local/bin/kalipwm-osd" brightness'
