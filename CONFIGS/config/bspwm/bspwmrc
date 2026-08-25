@@ -3,6 +3,7 @@
 # KaliPWM V1 — Obsidian Tactical BSPWM session
 
 PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf"
+LOCAL_BIN="$HOME/.local/bin"
 [[ -r "$PROFILE" ]] && source "$PROFILE"
 environment="${environment:-baremetal}"
 
@@ -31,7 +32,7 @@ if [[ "$environment" == vmware ]] && command -v vmware-user-suid-wrapper >/dev/n
 fi
 
 # Apply the current display topology before BSPWM assigns workspaces.
-command -v kalipwm-display >/dev/null 2>&1 && kalipwm-display apply
+[[ -x "$LOCAL_BIN/kalipwm-display" ]] && "$LOCAL_BIN/kalipwm-display" apply
 sleep 0.3
 
 mapfile -t monitors < <(bspc query -M --names 2>/dev/null)
@@ -50,11 +51,11 @@ case "${#monitors[@]}" in
 esac
 
 # Obsidian Tactical geometry.
-bspc config border_width         2
-bspc config window_gap           9
-bspc config split_ratio          0.52
-bspc config borderless_monocle   true
-bspc config gapless_monocle      true
+bspc config border_width          2
+bspc config window_gap            9
+bspc config split_ratio           0.52
+bspc config borderless_monocle    true
+bspc config gapless_monocle       true
 bspc config focus_follows_pointer true
 
 # Graphite inactive borders, restrained violet focus, red urgency.
@@ -97,8 +98,8 @@ command -v picom >/dev/null 2>&1 && picom --config "$HOME/.config/picom/picom.co
 
 # Dynamic display hotplug watcher. It does not hard-code Virtual1, HDMI-1,
 # eDP-1, resolutions, or GPU providers.
-if command -v kalipwm-display >/dev/null 2>&1; then
-  pgrep -u "$UID" -f 'kalipwm-display --watch' >/dev/null 2>&1 || kalipwm-display --watch &
+if [[ -x "$LOCAL_BIN/kalipwm-display" ]]; then
+  pgrep -u "$UID" -f 'kalipwm-display --watch' >/dev/null 2>&1 || "$LOCAL_BIN/kalipwm-display" --watch &
 fi
 
 xsetroot -cursor_name left_ptr &
