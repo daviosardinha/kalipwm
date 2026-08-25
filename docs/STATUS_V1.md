@@ -1,4 +1,4 @@
-Status: implementation baseline complete. Bare-metal preflight, power-supply detection, dynamic display/hotplug validation, the first full interactive V1 installation, pre-login sanity check, and first BSPWM login have passed on Lenovo 83F5. BSPWM application/session QA is in progress; VM validation remains pending.
+Status: implementation baseline complete. Bare-metal preflight, power-supply detection, dynamic display/hotplug validation, the first full interactive V1 installation, pre-login sanity check, first BSPWM login, and suspend/resume validation have passed on Lenovo 83F5. BSPWM application/session QA is in progress; VM validation remains pending.
 
 Validated on bare metal:
 - Kali GNU/Linux Rolling detected correctly
@@ -12,6 +12,7 @@ Validated on bare metal:
 - external display dynamically detected when connected
 - external display placement to the right works as intended
 - live USB-C disconnect/reconnect hotplug now reconciles XRandR, BSPWM, workspaces and Polybar correctly even when the provider-backed output name changes (observed DP-1 -> DP-1-1)
+- suspend/resume with the external USB-C monitor attached preserves the eDP-1 + DP-1-1 topology, BSPWM monitor state, workspaces I-V, both Polybar instances, and the display watcher
 - hybrid XRandR providers remain modesetting + NVIDIA-G0 without forcing NVIDIA desktop ownership
 - static CI checks pass
 
@@ -73,10 +74,16 @@ Dynamic display regressions found and fixed during first BSPWM session:
 - live acceptance passed after repeated USB-C disconnect/reconnect: XRandR and BSPWM both report eDP-1 + DP-1-1, workspaces remain I-V, two Polybar processes are restored, and the display watcher remains alive
 - static CI guards the reconciliation path and prevents regression to signal-only Polybar refresh
 
+Suspend/resume validation:
+- system suspend entered deep sleep and returned successfully
+- NVIDIA suspend/resume systemd hooks completed successfully
+- after resume, XRandR still reported eDP-1 + DP-1-1 active, BSPWM still tracked those same monitors, workspaces remained I-V, both Polybar processes survived, and the display watcher remained alive
+- the kernel logged an xHCI resume reinitialization and one `spd5118` resume callback error (-6); both were non-blocking in this test because the desktop, display topology, input path and session recovered normally
+- transient Tailscale, NetworkManager and ModemManager warnings occurred during network teardown/recovery around suspend and were not associated with the BSPWM/display path
+
 Pending before merge:
 - complete BSPWM application/session validation
 - Rofi, Picom, audio, brightness, battery and telemetry validation
-- suspend/resume validation with external monitor attached
 - rollback exercise
 - VMware guest validation
 - optional VirtualBox/KVM smoke validation where available
