@@ -96,8 +96,8 @@ command -v picom >/dev/null 2>&1 && picom --config "$HOME/.config/picom/picom.co
 # Polybar.
 "$HOME/.config/polybar/forest/launch.sh" &
 
-# Dynamic display hotplug watcher. It does not hard-code Virtual1, HDMI-1,
-# eDP-1, resolutions, or GPU providers.
+# Dynamic display hotplug watcher. It does not hard-code output names,
+# resolutions, or GPU providers.
 if [[ -x "$LOCAL_BIN/kalipwm-display" ]]; then
   pgrep -u "$UID" -f 'kalipwm-display --watch' >/dev/null 2>&1 || "$LOCAL_BIN/kalipwm-display" --watch &
 fi
