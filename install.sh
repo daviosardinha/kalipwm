@@ -15,6 +15,7 @@ BACKUP_ROOT="$HOME/.local/state/kalipwm/backups"
 PROFILE_DIR="$HOME/.config/kalipwm"
 PROFILE_FILE="$PROFILE_DIR/profile.conf"
 LOCAL_BIN="$HOME/.local/bin"
+POWER_SUPPLY_ROOT="${KALIPWM_POWER_SUPPLY_ROOT:-/sys/class/power_supply}"
 
 MANAGED_PATHS=(
   .config/bspwm
@@ -85,12 +86,13 @@ require_normal_user() {
 latest_backup() {
   [[ -d "$BACKUP_ROOT" ]] || return 1
   find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
-    | sort -nr | head -n1 | cut -d' ' -f2-
+    | sort -nr | awk 'NR==1 {sub(/^[^ ]+ /, ""); print}'
 }
 
 create_backup() {
   local stamp backup rel
   local -a tar_args=()
+
   stamp="$(date +%Y%m%d-%H%M%S)"
   backup="$BACKUP_ROOT/$stamp"
   mkdir -p "$backup"
@@ -113,6 +115,7 @@ create_backup() {
 
 restore_backup() {
   local backup="${1:-}" rel old_shell current_shell
+
   [[ -n "$backup" ]] || backup="$(latest_backup || true)"
   [[ -n "$backup" && -d "$backup" ]] || die "No KaliPWM backup was found under $BACKUP_ROOT"
   [[ -f "$backup/managed-paths.txt" ]] || die "Backup is missing managed-paths.txt: $backup"
@@ -152,26 +155,83 @@ detect_environment() {
   esac
 }
 
+# Prefer a system battery and explicitly ignore peripheral Battery-class
+# power supplies (phones, controllers and other USB/MFi devices frequently
+# expose scope=Device and must never become the Polybar laptop battery).
 detect_battery() {
-  local p type
-  for p in /sys/class/power_supply/*; do
+  local p type scope present name
+  local system_candidate='' capacity_candidate='' fallback=''
+
+  for p in "$POWER_SUPPLY_ROOT"/*; do
     [[ -r "$p/type" ]] || continue
     read -r type < "$p/type"
-    [[ "$type" == Battery ]] && { basename "$p"; return 0; }
+    [[ "$type" == Battery ]] || continue
+
+    scope="$(cat "$p/scope" 2>/dev/null || true)"
+    [[ "$scope" == Device ]] && continue
+
+    present="$(cat "$p/present" 2>/dev/null || printf '1')"
+    [[ "$present" == 0 ]] && continue
+
+    name="$(basename "$p")"
+    if [[ "$scope" == System ]]; then
+      [[ -n "$system_candidate" ]] || system_candidate="$name"
+    elif [[ -r "$p/capacity" ]]; then
+      [[ -n "$capacity_candidate" ]] || capacity_candidate="$name"
+    else
+      [[ -n "$fallback" ]] || fallback="$name"
+    fi
   done
-  return 1
+
+  if [[ -n "$system_candidate" ]]; then
+    printf '%s\n' "$system_candidate"
+  elif [[ -n "$capacity_candidate" ]]; then
+    printf '%s\n' "$capacity_candidate"
+  elif [[ -n "$fallback" ]]; then
+    printf '%s\n' "$fallback"
+  else
+    return 1
+  fi
 }
 
+# Prefer a real mains adapter. On USB-C-only laptops, fall back to a
+# system-scoped USB/USB_C power supply, never a device-scoped peripheral.
 detect_adapter() {
-  local p type
-  for p in /sys/class/power_supply/*; do
+  local p type scope name
+  local system_usb='' fallback_usb=''
+
+  for p in "$POWER_SUPPLY_ROOT"/*; do
     [[ -r "$p/type" ]] || continue
     read -r type < "$p/type"
-    case "$type" in
-      Mains|USB|USB_C) basename "$p"; return 0 ;;
-    esac
+    if [[ "$type" == Mains ]]; then
+      basename "$p"
+      return 0
+    fi
   done
-  return 1
+
+  for p in "$POWER_SUPPLY_ROOT"/*; do
+    [[ -r "$p/type" ]] || continue
+    read -r type < "$p/type"
+    case "$type" in USB|USB_C) ;; *) continue ;; esac
+
+    scope="$(cat "$p/scope" 2>/dev/null || true)"
+    [[ "$scope" == Device ]] && continue
+    name="$(basename "$p")"
+
+    if [[ "$scope" == System ]]; then
+      [[ -n "$system_usb" ]] || system_usb="$name"
+    else
+      [[ -n "$fallback_usb" ]] || fallback_usb="$name"
+    fi
+  done
+
+  if [[ -n "$system_usb" ]]; then
+    printf '%s\n' "$system_usb"
+  elif [[ -n "$fallback_usb" ]]; then
+    printf '%s\n' "$fallback_usb"
+  else
+    return 1
+  fi
 }
 
 detect_backlight() {
@@ -251,6 +311,7 @@ choose_environment() {
   local detected choice
   detected="$(detect_environment)"
   printf '\nDetected environment: %s\n' "$detected"
+
   if confirm "Is this correct?" Y; then
     ENVIRONMENT="$detected"
     return
@@ -328,6 +389,7 @@ EOF
 install_packages() {
   local -a common guest available
   local pkg
+
   common=(
     git curl wget unzip bspwm vim feh zsh rofi xclip xsel plocate wmname acpi sxhkd
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython fastfetch
@@ -361,12 +423,14 @@ install_packages() {
 install_fonts() {
   local tmp="$HOME/.cache/kalipwm-fonts" version=v3.0.2 font zip
   mkdir -p "$tmp" "$HOME/.local/share/fonts"
+
   for font in Hack JetBrainsMono; do
     zip="$tmp/$font.zip"
     wget -q --show-progress "https://github.com/ryanoasis/nerd-fonts/releases/download/$version/$font.zip" -O "$zip"
     unzip -oq "$zip" -d "$tmp/$font"
     find "$tmp/$font" -type f -name '*.ttf' -exec cp -f {} "$HOME/.local/share/fonts/" \;
   done
+
   fc-cache -f >/dev/null
   rm -rf "$tmp"
 }
@@ -424,24 +488,24 @@ install_configs() {
 write_profile() {
   mkdir -p "$PROFILE_DIR"
   cat > "$PROFILE_FILE" <<EOF
-# Generated by KaliPWM V1. Safe to edit.
-environment=$(printf '%q' "$ENVIRONMENT")
-vendor=$(printf '%q' "$VENDOR")
-product=$(printf '%q' "$PRODUCT")
-battery=$(printf '%q' "$BATTERY")
-adapter=$(printf '%q' "$ADAPTER")
-backlight=$(printf '%q' "$BACKLIGHT")
-wifi_interface=$(printf '%q' "$WIFI_IFACE")
-wired_interface=$(printf '%q' "$WIRED_IFACE")
-internal_display=$(printf '%q' "$INTERNAL_DISPLAY")
-connected_displays=$(printf '%q' "$CONNECTED_DISPLAYS")
-external_position=$(printf '%q' "$EXTERNAL_POSITION")
-editor=vim
-cat_override=false
-screenshots=flameshot
-telemetry=true
-plymouth=false
-EOF
++# Generated by KaliPWM V1. Safe to edit.
++environment=$(printf '%q' "$ENVIRONMENT")
++vendor=$(printf '%q' "$VENDOR")
++product=$(printf '%q' "$PRODUCT")
++battery=$(printf '%q' "$BATTERY")
++adapter=$(printf '%q' "$ADAPTER")
++backlight=$(printf '%q' "$BACKLIGHT")
++wifi_interface=$(printf '%q' "$WIFI_IFACE")
++wired_interface=$(printf '%q' "$WIRED_IFACE")
++internal_display=$(printf '%q' "$INTERNAL_DISPLAY")
++connected_displays=$(printf '%q' "$CONNECTED_DISPLAYS")
++external_position=$(printf '%q' "$EXTERNAL_POSITION")
++editor=vim
++cat_override=false
++screenshots=flameshot
++telemetry=true
++plymouth=false
++EOF
 }
 
 print_summary() {
@@ -470,8 +534,17 @@ EOF
 
 main() {
   local mode="${1:-}"
+
   case "$mode" in
-    --help|-h) usage; exit 0 ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    --detect-power)
+      printf 'battery=%s\n' "$(detect_battery || true)"
+      printf 'adapter=%s\n' "$(detect_adapter || true)"
+      exit 0
+      ;;
     --rollback|--uninstall)
       require_normal_user
       sudo -v
