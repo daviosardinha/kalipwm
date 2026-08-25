@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -u
+
+PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf"
+[[ -r "$PROFILE" ]] && source "$PROFILE"
+battery="${battery:-}"
+
+if [[ -z "$battery" || ! -d "/sys/class/power_supply/$battery" ]]; then
+  for path in /sys/class/power_supply/*; do
+    [[ -r "$path/type" ]] || continue
+    [[ "$(cat "$path/type" 2>/dev/null)" == Battery ]] || continue
+    battery="$(basename "$path")"
+    break
+  done
+fi
+
+[[ -n "$battery" ]] || exit 0
+base="/sys/class/power_supply/$battery"
+capacity="$(cat "$base/capacity" 2>/dev/null || true)"
+status="$(cat "$base/status" 2>/dev/null || true)"
+[[ "$capacity" =~ ^[0-9]+$ ]] || exit 0
+
+case "$status" in
+  Charging) glyph='+' ;;
+  Full) glyph='=' ;;
+  *) glyph='' ;;
+esac
+
+printf 'BAT%s %s%%\n' "$glyph" "$capacity"
