@@ -94,6 +94,13 @@ grep -q '^start_once()' CONFIGS/config/bspwm/bspwmrc
 grep -q 'if pgrep -u "\$UID" -x "\$process"' CONFIGS/config/bspwm/bspwmrc
 echo 'PASS BSPWM session startup does not leave conditional background shell wrappers'
 
+printf '\n== Rollback session rehydration guard ==\n'
+grep -q '^rehydrate_bspwm_session()' SCRIPTS/kalipwm-state
+grep -q 'pkill -USR1 -u "\$UID" -x sxhkd' SCRIPTS/kalipwm-state
+grep -q 'setsid -f sxhkd -m -1' SCRIPTS/kalipwm-state
+grep -A8 '^rollback()' SCRIPTS/kalipwm-state | grep -q '^  rehydrate_bspwm_session$'
+echo 'PASS rollback reloads or detaches sxhkd from the invoking terminal when BSPWM stays active'
+
 printf '\n== Dynamic display reconciliation guard ==\n'
 grep -q '^reconcile_bspwm()' SCRIPTS/kalipwm-display
 grep -q 'bspc wm -a "\$out" "\$geometry"' SCRIPTS/kalipwm-display
