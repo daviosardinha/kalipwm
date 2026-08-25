@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -u
+
+action="${1:-}"
+
+if command -v wpctl >/dev/null 2>&1; then
+  case "$action" in
+    up)   wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+ ;;
+    down) wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%- ;;
+    mute) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle ;;
+    *) echo "Usage: kalipwm-audio {up|down|mute}" >&2; exit 2 ;;
+  esac
+  exit $?
+fi
+
+if command -v pactl >/dev/null 2>&1; then
+  case "$action" in
+    up)   pactl set-sink-volume @DEFAULT_SINK@ +5% ;;
+    down) pactl set-sink-volume @DEFAULT_SINK@ -5% ;;
+    mute) pactl set-sink-mute @DEFAULT_SINK@ toggle ;;
+    *) echo "Usage: kalipwm-audio {up|down|mute}" >&2; exit 2 ;;
+  esac
+  exit $?
+fi
+
+echo "No supported PipeWire/PulseAudio control utility was found." >&2
+exit 1
