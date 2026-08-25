@@ -84,6 +84,7 @@ start_once sxhkd sxhkd
 command -v dunst >/dev/null 2>&1 && start_once dunst dunst
 command -v nm-applet >/dev/null 2>&1 && start_once nm-applet nm-applet --indicator
 command -v xfce4-power-manager >/dev/null 2>&1 && start_once xfce4-power-manager xfce4-power-manager
+command -v flameshot >/dev/null 2>&1 && start_once flameshot flameshot
 start_polkit_agent
 
 # Wallpaper.
