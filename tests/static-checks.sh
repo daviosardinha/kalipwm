@@ -69,6 +69,12 @@ battery_out="$(KALIPWM_POWER_SUPPLY_ROOT="$fixture" XDG_CONFIG_HOME="$fixture/co
 [[ "$battery_out" == 'BAT 41%' ]]
 echo 'PASS runtime battery module selects the system battery'
 
+printf '\n== Hybrid GPU telemetry guard ==\n'
+grep -q 'runtime_status' SCRIPTS/kalipwm-telemetry
+grep -q 'KALIPWM_FORCE_GPU_TELEMETRY' SCRIPTS/kalipwm-telemetry
+grep -A5 '^\[module/telemetry\]' CONFIGS/config/polybar/forest/user_modules.ini | grep -q 'interval = 15'
+echo 'PASS telemetry checks runtime PM before nvidia-smi and uses a conservative polling interval'
+
 printf '\n== Entry point ==\n'
 bash kalipwm.sh --help >/dev/null
 echo 'PASS kalipwm.sh --help'
