@@ -96,15 +96,15 @@ super + shift + a
 
 # Interactive region + annotation
 Print
-    flameshot gui
+    ~/.local/bin/screenshot.sh gui
 
 # Full desktop directly to the screenshots folder
 shift + Print
-    flameshot full -p "$HOME/Pictures/Screenshots"
+    ~/.local/bin/screenshot.sh full
 
 # Flameshot launcher/menu
 ctrl + Print
-    flameshot launcher
+    ~/.local/bin/screenshot.sh launcher
 
 ################
 # Audio        #
