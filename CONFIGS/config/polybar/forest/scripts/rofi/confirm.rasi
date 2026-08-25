@@ -1,24 +1,71 @@
-/* Confirm Dialog */
-
-@import "colors.rasi"
+/* KaliPWM V1 — Obsidian Tactical confirmation dialog */
 
 * {
-    background-color:       @bg;
-    text-color:             @fg;
-	font:				 	"Iosevka Nerd Font 10";
+    background:       #0F1117F2;
+    background-alt:   #171A22F2;
+    selected:         #2B2638F2;
+    foreground:       #D7D9E0FF;
+    muted:            #9298A6FF;
+    accent:           #9B7EDEFF;
+    border:           #303541FF;
+
+    font: "JetBrainsMono Nerd Font 11";
 }
 
 window {
-    width:      			210px;
-    padding:    			25px;
-    border:					0px 0px 1px 0px;
-    border-radius:          0px;
-    border-color:           @se;
-    location:               center;
-    y-offset:               -2em;
+    transparency: "real";
+    location: center;
+    anchor: center;
+    width: 320px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 12px;
+    background-color: @background;
 }
 
-entry {
-    expand: 				true;
-    text-color:				@ac;
+mainbox {
+    spacing: 10px;
+    padding: 16px;
+    background-color: transparent;
+    children: [ inputbar, listview ];
+}
+
+inputbar {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background-color: @background-alt;
+    children: [ prompt ];
+}
+
+prompt {
+    text-color: @accent;
+    background-color: transparent;
+}
+
+listview {
+    lines: 2;
+    columns: 1;
+    fixed-height: true;
+    cycle: true;
+    scrollbar: false;
+    spacing: 5px;
+    background-color: transparent;
+}
+
+element {
+    padding: 10px 12px;
+    border-radius: 8px;
+    background-color: transparent;
+    text-color: @foreground;
+}
+
+element selected.normal {
+    background-color: @selected;
+    text-color: @foreground;
+}
+
+element-text {
+    vertical-align: 0.5;
+    background-color: transparent;
+    text-color: inherit;
 }
