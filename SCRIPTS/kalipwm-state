@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# KaliPWM V1 — rollback / uninstall state manager
+#
+# A transaction checkpoint restores the state that existed immediately before
+# an install/update. A trusted baseline is created only for a fresh install and
+# is reserved for uninstall. Legacy installs are never guessed into a baseline:
+# older installers did not track every path KaliPWM later started managing.
+
+STATE_ROOT="${KALIPWM_STATE_ROOT:-$HOME/.local/state/kalipwm}"
+TRANSACTION_ROOT="$STATE_ROOT/transactions"
+BASELINE_DIR="$STATE_ROOT/baseline"
+LEGACY_BACKUP_ROOT="$STATE_ROOT/backups"
+LEGACY_MARKER="$STATE_ROOT/legacy-baseline-unavailable"
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/../install.sh" ]]; then
+  REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+else
+  REPO_ROOT="${KALIPWM_REPO_ROOT:-}"
+fi
+
+log()  { printf '[+] %s\n' "$*"; }
+info() { printf '[*] %s\n' "$*"; }
+warn() { printf '[!] %s\n' "$*" >&2; }
+die()  { printf '[-] %s\n' "$*" >&2; exit 1; }
+
+require_repo() {
+  [[ -n "$REPO_ROOT" && -d "$REPO_ROOT/CONFIGS" && -d "$REPO_ROOT/SCRIPTS" ]] \
+    || die "KaliPWM repository root is unavailable. Run this through ./kalipwm.sh from the repository."
+}
+
+validate_relpath() {
+  local rel="$1"
+  [[ -n "$rel" && "$rel" != /* && "$rel" != '..' && "$rel" != ../* && "$rel" != */../* && "$rel" != */.. ]]
+}
+
+managed_paths() {
+  local path base
+  require_repo
+
+  # Configuration/shell paths written by the installer.
+  cat <<'EOF'
+.config/bspwm
+.config/sxhkd
+.config/polybar
+.config/kitty
+.config/picom
+.config/rofi
+.config/flameshot
+.config/dunst
+.config/kalipwm
+.zshrc
+.p10k.zsh
+.tmux
+.tmux.conf
+.tmux.conf.local
+.oh-my-zsh
+EOF
+
+  # Every user-local helper shipped by the current tree, plus the target alias.
+  for path in "$REPO_ROOT"/SCRIPTS/*; do
+    [[ -f "$path" ]] || continue
+    printf '.local/bin/%s\n' "$(basename "$path")"
+  done
+  printf '.local/bin/target\n'
+
+  # KaliPWM only owns the wallpaper files it ships, never the whole directory.
+  for path in "$REPO_ROOT"/WALLPAPERS/*; do
+    [[ -f "$path" ]] || continue
+    base="$(basename "$path")"
+    printf 'Wallpapers/%s\n' "$base"
+  done
+}
+
+write_manifest() {
+  local dest="$1"
+  managed_paths | awk 'NF && !seen[$0]++' | sort > "$dest/managed-paths.txt"
+}
+
+snapshot_into() {
+  local dest="$1" kind="$2" rel
+  local -a tar_args=()
+
+  mkdir -p "$dest"
+  write_manifest "$dest"
+  getent passwd "$USER" | cut -d: -f7 > "$dest/login-shell.txt" || true
+  printf 'format=2\nkind=%s\ncreated=%s\n' "$kind" "$(date --iso-8601=seconds)" > "$dest/metadata"
+
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] || continue
+    validate_relpath "$rel" || die "Unsafe managed path refused: $rel"
+    if [[ -e "$HOME/$rel" || -L "$HOME/$rel" ]]; then
+      tar_args+=("$rel")
+    fi
+  done < "$dest/managed-paths.txt"
+
+  if ((${#tar_args[@]})); then
+    tar -czf "$dest/home-configs.tar.gz" -C "$HOME" "${tar_args[@]}"
+  else
+    tar -czf "$dest/home-configs.tar.gz" --files-from /dev/null
+  fi
+}
+
+new_transaction() {
+  local stamp dest
+  stamp="$(date +%Y%m%d-%H%M%S)-$$"
+  dest="$TRANSACTION_ROOT/$stamp"
+  snapshot_into "$dest" transaction
+  printf '%s\n' "$dest"
+}
+
+legacy_backups_exist() {
+  [[ -d "$LEGACY_BACKUP_ROOT" ]] &&
+    find "$LEGACY_BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -print -quit 2>/dev/null | grep -q .
+}
+
+ensure_baseline() {
+  if [[ -f "$BASELINE_DIR/trusted" ]]; then
+    return 0
+  fi
+
+  if legacy_backups_exist; then
+    mkdir -p "$STATE_ROOT"
+    : > "$LEGACY_MARKER"
+    warn "This machine already has legacy KaliPWM backups, so an original baseline cannot be reconstructed safely."
+    warn "Rollback checkpoints remain available, but --uninstall will refuse rather than guess what pre-KaliPWM files looked like."
+    return 0
+  fi
+
+  info "Creating trusted pre-KaliPWM uninstall baseline"
+  rm -rf "$BASELINE_DIR"
+  snapshot_into "$BASELINE_DIR" baseline
+  : > "$BASELINE_DIR/trusted"
+  log "Trusted uninstall baseline created: $BASELINE_DIR"
+}
+
+latest_transaction() {
+  [[ -d "$TRANSACTION_ROOT" ]] || return 1
+  find "$TRANSACTION_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2>/dev/null \
+    | sort -nr | awk 'NR==1 {sub(/^[^ ]+ /, ""); print}'
+}
+
+restore_snapshot() {
+  local snapshot="$1" label="$2" rel old_shell current_shell
+
+  [[ -d "$snapshot" ]] || die "$label snapshot does not exist: $snapshot"
+  [[ -f "$snapshot/managed-paths.txt" ]] || die "$label snapshot is missing managed-paths.txt"
+  [[ -f "$snapshot/home-configs.tar.gz" ]] || die "$label snapshot is missing home-configs.tar.gz"
+
+  info "Restoring $label snapshot: $snapshot"
+
+  while IFS= read -r rel; do
+    [[ -n "$rel" ]] || continue
+    validate_relpath "$rel" || die "Unsafe managed path refused: $rel"
+    rm -rf -- "$HOME/$rel"
+  done < "$snapshot/managed-paths.txt"
+
+  tar -xzf "$snapshot/home-configs.tar.gz" -C "$HOME"
+
+  old_shell="$(cat "$snapshot/login-shell.txt" 2>/dev/null || true)"
+  current_shell="$(getent passwd "$USER" | cut -d: -f7)"
+  if [[ -n "$old_shell" && -x "$old_shell" && "$old_shell" != "$current_shell" ]]; then
+    info "Restoring login shell to $old_shell"
+    sudo chsh -s "$old_shell" "$USER" || warn "Could not restore the previous login shell automatically."
+  fi
+
+  log "$label restore complete. Log out and back in before validating the restored desktop session."
+}
+
+prepare_install() {
+  require_repo
+  mkdir -p "$STATE_ROOT" "$TRANSACTION_ROOT"
+  ensure_baseline
+  local checkpoint
+  checkpoint="$(new_transaction)"
+  log "Transaction checkpoint created: $checkpoint"
+}
+
+checkpoint() {
+  require_repo
+  mkdir -p "$STATE_ROOT" "$TRANSACTION_ROOT"
+  local dest
+  dest="$(new_transaction)"
+  log "Checkpoint created: $dest"
+}
+
+rollback() {
+  local snapshot
+  snapshot="$(latest_transaction || true)"
+  [[ -n "$snapshot" ]] || die "No V1 transaction checkpoint is available. Create one with ./kalipwm.sh --checkpoint before testing rollback."
+  sudo -v
+  restore_snapshot "$snapshot" rollback
+}
+
+uninstall() {
+  [[ -f "$BASELINE_DIR/trusted" ]] || {
+    if [[ -e "$LEGACY_MARKER" ]] || legacy_backups_exist; then
+      die "Trusted pre-KaliPWM baseline unavailable: this installation predates complete state tracking. Refusing destructive uninstall. Validate uninstall on a fresh install/VM instead."
+    fi
+    die "No trusted uninstall baseline exists. Refusing destructive uninstall."
+  }
+  sudo -v
+  restore_snapshot "$BASELINE_DIR" uninstall
+}
+
+status() {
+  local latest=''
+  latest="$(latest_transaction || true)"
+  printf 'baseline=%s\n' "$([[ -f "$BASELINE_DIR/trusted" ]] && echo trusted || echo unavailable)"
+  printf 'legacy_backups=%s\n' "$(legacy_backups_exist && echo yes || echo no)"
+  printf 'latest_transaction=%s\n' "${latest:-none}"
+}
+
+usage() {
+  cat <<'EOF'
+Usage: kalipwm-state <prepare|checkpoint|rollback|uninstall|status>
+
+prepare     Create a trusted baseline on a fresh machine and a transaction checkpoint.
+checkpoint  Create a transaction checkpoint without installing anything.
+rollback    Restore the latest transaction checkpoint.
+uninstall   Restore the trusted pre-KaliPWM baseline; refuses legacy/unknown baselines.
+status      Show state-tracking status.
+EOF
+}
+
+case "${1:-}" in
+  prepare) prepare_install ;;
+  checkpoint) checkpoint ;;
+  rollback) rollback ;;
+  uninstall) uninstall ;;
+  status) status ;;
+  -h|--help|'') usage ;;
+  *) usage >&2; exit 2 ;;
+esac
