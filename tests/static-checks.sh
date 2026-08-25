@@ -94,6 +94,16 @@ grep -q '^start_once()' CONFIGS/config/bspwm/bspwmrc
 grep -q 'if pgrep -u "\$UID" -x "\$process"' CONFIGS/config/bspwm/bspwmrc
 echo 'PASS BSPWM session startup does not leave conditional background shell wrappers'
 
+printf '\n== Dynamic display reconciliation guard ==\n'
+grep -q '^reconcile_bspwm()' SCRIPTS/kalipwm-display
+grep -q 'bspc wm -a "\$out" "\$geometry"' SCRIPTS/kalipwm-display
+grep -q 'bspc monitor "\$monitor" -r' SCRIPTS/kalipwm-display
+grep -q '^restart_polybar()' SCRIPTS/kalipwm-display
+grep -q 'apply_all true' SCRIPTS/kalipwm-display
+grep -q 'previous="\$(topology_signature)"' SCRIPTS/kalipwm-display
+! grep -q 'pkill -USR1 -x polybar' SCRIPTS/kalipwm-display
+echo 'PASS display watcher reconciles provider-renamed outputs, stale BSPWM monitors, workspaces, and Polybar without forcing GPU providers'
+
 printf '\n== Obsidian Tactical icon/font guard ==\n'
 grep -q '^font-0 = "JetBrainsMono Nerd Font Mono:' CONFIGS/config/polybar/forest/config.ini
 grep -q '^font-1 = "Hack Nerd Font Mono:' CONFIGS/config/polybar/forest/config.ini
