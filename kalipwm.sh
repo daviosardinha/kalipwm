@@ -24,8 +24,32 @@ bspwm_socket_for_pid() {
   return 1
 }
 
+cleanup_stale_kalipwm_helpers() {
+  local pid cmdline
+
+  # The display watcher is a long-running Bash process and can survive after
+  # its script file has been removed during uninstall. Stop it explicitly.
+  while read -r pid; do
+    [[ -n "$pid" ]] || continue
+    kill -TERM "$pid" 2>/dev/null || true
+  done < <(pgrep -u "$UID" -f 'kalipwm-display --watch' 2>/dev/null || true)
+
+  # Stop only Polybar instances launched from KaliPWM's forest configuration;
+  # do not kill unrelated Polybar sessions the user may run elsewhere.
+  while read -r pid; do
+    [[ -n "$pid" ]] || continue
+    cmdline="$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null || true)"
+    [[ "$cmdline" == *"$HOME/.config/polybar/forest/config.ini"* ]] || continue
+    kill -TERM "$pid" 2>/dev/null || true
+  done < <(pgrep -u "$UID" -x polybar 2>/dev/null || true)
+}
+
 end_stale_bspwm_session() {
   local pid socket
+
+  # Helper processes can outlive BSPWM itself, so always clean them even when
+  # the window manager has already exited or LightDM has switched sessions.
+  cleanup_stale_kalipwm_helpers
 
   pid="$(pgrep -u "$UID" -x bspwm 2>/dev/null | head -1 || true)"
   [[ -n "$pid" ]] || return 0
