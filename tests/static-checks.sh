@@ -25,6 +25,21 @@ if grep -RInE "$legacy_regex" CONFIGS SCRIPTS install.sh kalipwm.sh; then
 fi
 echo 'PASS no forbidden legacy assumptions'
 
+printf '\n== Recovery state ownership guard ==\n'
+! grep -q '^BACKUP_ROOT=' install.sh
+! grep -q '^MANAGED_PATHS=' install.sh
+! grep -q '^create_backup()' install.sh
+! grep -q '^restore_backup()' install.sh
+grep -q 'Recovery state is managed by SCRIPTS/kalipwm-state' install.sh
+grep -q 'Recovery          : trusted baseline + transaction checkpoint state' install.sh
+echo 'PASS installer no longer creates a duplicate legacy backup path'
+
+printf '\n== VM display preference guard ==\n'
+grep -A8 '^choose_display_preferences()' install.sh | grep -q "EXTERNAL_POSITION=''"
+grep -q 'External position  : ${EXTERNAL_POSITION:-n/a}' install.sh
+grep -q 'External position : ${EXTERNAL_POSITION:-n/a}' install.sh
+echo 'PASS VM profiles report external display positioning as n/a'
+
 printf '\n== Kali rolling package guard ==\n'
 if grep -nE '^[[:space:]]*network-manager-gnome([[:space:]]|$)|^[[:space:]]*policykit-1-gnome([[:space:]]|$)' install.sh; then
   echo 'FAIL: obsolete/no-candidate Kali package name is present in installer list.' >&2
