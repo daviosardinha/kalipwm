@@ -7,6 +7,7 @@ FOREST="$CONFIG_HOME/polybar/forest"
 CONFIG="$FOREST/config.ini"
 BASE_MODULES="$FOREST/modules.ini"
 MODULES="$FOREST/kalipwm-operator.ini"
+PROFILE="$CONFIG_HOME/kalipwm/profile.conf"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DEST="$FOREST/scripts"
 STATE_ROOT="${KALIPWM_STATE_ROOT:-$HOME/.local/state/kalipwm-rebuild}"
@@ -15,7 +16,8 @@ LEFT_UPSTREAM='modules-left = launcher sep wired-network vpn target'
 LEFT_OPERATOR='modules-left = launcher sep kalipwm-network kalipwm-vpn kalipwm-target'
 RIGHT_UPSTREAM='modules-right = cpu memory volume date sep sysmenu'
 RIGHT_OPERATOR_V1='modules-right = cpu memory volume kalipwm-battery date sep sysmenu'
-RIGHT_OPERATOR='modules-right = cpu memory kalipwm-audio kalipwm-battery date sep sysmenu'
+RIGHT_OPERATOR_BASE='modules-right = cpu memory kalipwm-audio kalipwm-battery date sep sysmenu'
+RIGHT_OPERATOR_TELEMETRY='modules-right = cpu memory kalipwm-audio kalipwm-telemetry kalipwm-battery date sep sysmenu'
 ANCHOR='include-file = ~/.config/polybar/forest/user_modules.ini'
 INCLUDE='include-file = ~/.config/polybar/forest/kalipwm-operator.ini'
 WORKSPACE_COLOR_BAD='label-empty-foreground = ${color.lime} # color.foreground para dejar en blanco'
@@ -32,12 +34,20 @@ Adds validated KaliPWM operator helpers to the working upstream Polybar config
 without modifying the repository's protected upstream Polybar files. The live
 runtime copy also receives narrowly-scoped compatibility fixes for known
 upstream Polybar parsing/module issues.
+
+When ~/.config/kalipwm/profile.conf contains telemetry=true, the validated
+read-only CPU/fan/GPU-safe telemetry helper is added to the right side of the bar.
 EOF
 }
 
 require_live_config() {
   [[ -f "$CONFIG" ]] || die "Polybar config not found: $CONFIG"
   [[ -f "$BASE_MODULES" ]] || die "Polybar modules file not found: $BASE_MODULES"
+}
+
+telemetry_enabled() {
+  [[ -f "$PROFILE" ]] || return 1
+  grep -Eq '^[[:space:]]*telemetry=true[[:space:]]*$' "$PROFILE"
 }
 
 write_modules() {
@@ -67,6 +77,11 @@ type = custom/script
 exec = ~/.config/polybar/forest/scripts/kalipwm-audio status
 interval = 1
 
+[module/kalipwm-telemetry]
+type = custom/script
+exec = ~/.config/polybar/forest/scripts/kalipwm-telemetry
+interval = 3
+
 [module/kalipwm-battery]
 type = custom/script
 exec = ~/.config/polybar/forest/scripts/kalipwm-battery
@@ -78,7 +93,7 @@ EOF
 copy_helpers() {
   local helper
   mkdir -p "$SCRIPT_DEST" "$HOME/.local/bin"
-  for helper in kalipwm-network kalipwm-vpn kalipwm-audio kalipwm-battery target.sh; do
+  for helper in kalipwm-network kalipwm-vpn kalipwm-audio kalipwm-telemetry kalipwm-battery target.sh; do
     [[ -f "$SCRIPT_DIR/$helper" ]] || die "Missing helper: $SCRIPT_DIR/$helper"
     cp -f "$SCRIPT_DIR/$helper" "$SCRIPT_DEST/$helper"
     chmod +x "$SCRIPT_DEST/$helper"
@@ -94,6 +109,7 @@ backup_config() {
   cp -a "$CONFIG" "$dest/config.ini"
   cp -a "$BASE_MODULES" "$dest/modules.ini"
   [[ -f "$MODULES" ]] && cp -a "$MODULES" "$dest/kalipwm-operator.ini" || true
+  [[ -f "$PROFILE" ]] && cp -a "$PROFILE" "$dest/profile.conf" || true
   printf '%s\n' "$dest"
 }
 
@@ -124,14 +140,28 @@ ensure_left_modules() {
 }
 
 ensure_right_modules() {
-  if grep -Fxq "$RIGHT_OPERATOR" "$CONFIG"; then
-    return 0
+  local desired
+  if telemetry_enabled; then
+    desired="$RIGHT_OPERATOR_TELEMETRY"
+  else
+    desired="$RIGHT_OPERATOR_BASE"
   fi
-  if grep -Fxq "$RIGHT_OPERATOR_V1" "$CONFIG"; then
-    replace_exact_line_in "$CONFIG" "$RIGHT_OPERATOR_V1" "$RIGHT_OPERATOR"
-    return 0
-  fi
-  replace_exact_line_in "$CONFIG" "$RIGHT_UPSTREAM" "$RIGHT_OPERATOR"
+
+  grep -Fxq "$desired" "$CONFIG" && return 0
+
+  local candidate
+  for candidate in \
+    "$RIGHT_OPERATOR_TELEMETRY" \
+    "$RIGHT_OPERATOR_BASE" \
+    "$RIGHT_OPERATOR_V1" \
+    "$RIGHT_UPSTREAM"; do
+    if grep -Fxq "$candidate" "$CONFIG"; then
+      replace_exact_line_in "$CONFIG" "$candidate" "$desired"
+      return 0
+    fi
+  done
+
+  die "Expected Polybar right-module layout not found."
 }
 
 ensure_workspace_color_fix() {
@@ -177,10 +207,14 @@ PY
 
 status() {
   require_live_config
-  local state=inactive workspace_fix=inactive
+  local state=inactive workspace_fix=inactive telemetry=disabled expected_right="$RIGHT_OPERATOR_BASE"
   grep -Fxq "$WORKSPACE_COLOR_FIXED" "$BASE_MODULES" && workspace_fix=active
+  if telemetry_enabled; then
+    telemetry=enabled
+    expected_right="$RIGHT_OPERATOR_TELEMETRY"
+  fi
   if grep -Fxq "$LEFT_OPERATOR" "$CONFIG" \
-    && grep -Fxq "$RIGHT_OPERATOR" "$CONFIG" \
+    && grep -Fxq "$expected_right" "$CONFIG" \
     && grep -Fxq "$INCLUDE" "$CONFIG" \
     && [[ -f "$MODULES" ]] \
     && [[ "$workspace_fix" == active ]]; then
@@ -188,6 +222,7 @@ status() {
   fi
   printf 'operator_overlay=%s\n' "$state"
   printf 'workspace_color_fix=%s\n' "$workspace_fix"
+  printf 'telemetry=%s\n' "$telemetry"
   printf 'config=%s\n' "$CONFIG"
   printf 'modules=%s\n' "$MODULES"
 }
@@ -212,11 +247,15 @@ remove_overlay() {
   local backup
   backup="$(backup_config)"
   replace_exact_line_in "$CONFIG" "$LEFT_OPERATOR" "$LEFT_UPSTREAM"
-  if grep -Fxq "$RIGHT_OPERATOR" "$CONFIG"; then
-    replace_exact_line_in "$CONFIG" "$RIGHT_OPERATOR" "$RIGHT_UPSTREAM"
-  elif grep -Fxq "$RIGHT_OPERATOR_V1" "$CONFIG"; then
-    replace_exact_line_in "$CONFIG" "$RIGHT_OPERATOR_V1" "$RIGHT_UPSTREAM"
-  fi
+
+  local candidate
+  for candidate in "$RIGHT_OPERATOR_TELEMETRY" "$RIGHT_OPERATOR_BASE" "$RIGHT_OPERATOR_V1"; do
+    if grep -Fxq "$candidate" "$CONFIG"; then
+      replace_exact_line_in "$CONFIG" "$candidate" "$RIGHT_UPSTREAM"
+      break
+    fi
+  done
+
   restore_workspace_color
   remove_include
   rm -f "$MODULES"
