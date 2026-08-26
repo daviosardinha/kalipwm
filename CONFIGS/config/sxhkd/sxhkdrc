@@ -154,16 +154,18 @@ super + shift + a
         screenshot window
 
 # Volume
-#XF86AudioRaiseVolume
-#    pactl set-sink-volume 0 +5%
-#XF86AudioLowerVolume
-#    pactl set-sink-volume 0 -5%
-#XF86AudioMute
-#    pactl set-sink-mute 0 toggle
+XF86AudioRaiseVolume
+	bash ~/.config/polybar/forest/scripts/kalipwm-audio up && bash ~/.config/polybar/forest/scripts/kalipwm-osd volume
+
+XF86AudioLowerVolume
+	bash ~/.config/polybar/forest/scripts/kalipwm-audio down && bash ~/.config/polybar/forest/scripts/kalipwm-osd volume
+
+XF86AudioMute
+	bash ~/.config/polybar/forest/scripts/kalipwm-audio mute && bash ~/.config/polybar/forest/scripts/kalipwm-osd volume
 
 # Screen Brightness
-#XF86MonBrightness{Up,Down}  
-#    brightnessctl -c backlight s 10{+,-}
+XF86MonBrightness{Up,Down}
+	bash ~/.config/polybar/forest/scripts/kalipwm-brightness {up,down} && bash ~/.config/polybar/forest/scripts/kalipwm-osd brightness
 
 # Keyboard backlight
 #XF86KbdBrightness{Up,Down}
