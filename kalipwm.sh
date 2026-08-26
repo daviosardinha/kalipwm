@@ -106,7 +106,7 @@ echo -e "\n${BLUE}[*] Actualizando paquetes..${RESET}\n"
 sudo apt update
 
 echo -e "\n${BLUE}[*] Instalando paquetes..${RESET}\n"
-sudo apt install -y git bspwm vim feh scrot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
+sudo apt install -y git bspwm vim feh flameshot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython open-vm-tools-desktop open-vm-tools fastfetch \
     dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq
 
