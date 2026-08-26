@@ -211,7 +211,7 @@ show_plan() {
 backup_user_state() {
   local stamp dest rel
   local -a paths=(
-    .config/bspwm .config/sxhkd .config/polybar .config/kitty .config/picom .config/rofi
+    .config/bspwm .config/sxhkd .config/polybar .config/kitty .config/picom .config/rofi .config/flameshot
     .config/kalipwm .zshrc .p10k.zsh .tmux .tmux.conf .tmux.conf.local .oh-my-zsh .fzf
   )
 
@@ -310,6 +310,11 @@ copy_known_good_desktop() {
     rm -rf "$HOME/.config/$dir"
     cp -a "$REPO_ROOT/CONFIGS/config/$dir" "$HOME/.config/$dir"
   done
+
+  # Flameshot 14 needs the known-good native X11 capture path in BSPWM. This
+  # configuration is intentionally additive and does not alter the upstream WM.
+  rm -rf "$HOME/.config/flameshot"
+  cp -a "$REPO_ROOT/CONFIGS/config/flameshot" "$HOME/.config/flameshot"
 
   cp -f "$REPO_ROOT/CONFIGS/zshrc" "$HOME/.zshrc"
   cp -f "$REPO_ROOT/CONFIGS/p10k.zsh" "$HOME/.p10k.zsh"
