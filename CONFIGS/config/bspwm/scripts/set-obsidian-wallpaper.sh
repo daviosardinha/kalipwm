@@ -3,6 +3,7 @@ set -euo pipefail
 
 WALL_DIR="$HOME/Wallpapers/obsidian"
 CACHE_DIR="$HOME/.cache/kalipwm"
+CHOICE_FILE="$CACHE_DIR/wallpaper-choice"
 
 CITY_16="$WALL_DIR/obsidian-city-16x9.jpg"
 CITY_WIDE="$WALL_DIR/obsidian-city-ultrawide.jpg"
@@ -31,6 +32,10 @@ require_wallpaper() {
         echo "Obsidian wallpaper missing: $wallpaper" >&2
         exit 1
     fi
+}
+
+save_choice() {
+    printf '%s\n' "$1" > "$CHOICE_FILE"
 }
 
 apply_one() {
@@ -83,28 +88,42 @@ apply_auto() {
     exec feh --bg-fill "${wallpapers[@]}"
 }
 
-choice="${1:-auto}"
+if [ $# -gt 0 ]; then
+    choice="$1"
+else
+    choice="auto"
+    if [ -s "$CHOICE_FILE" ]; then
+        choice="$(/usr/bin/cat "$CHOICE_FILE")"
+    fi
+fi
 
 case "$choice" in
     auto|city)
+        save_choice "auto"
         apply_auto
         ;;
     city-16x9|16|16:9|standard)
+        save_choice "city-16x9"
         apply_one "$CITY_16"
         ;;
     city-ultrawide|wide|ultrawide|21:9|32:9)
+        save_choice "city-ultrawide"
         apply_one "$CITY_WIDE"
         ;;
     nomad-monolith|nomad-monolith-standard)
+        save_choice "nomad-monolith"
         apply_one "$MONOLITH_STANDARD"
         ;;
     nomad-monolith-16x9)
+        save_choice "nomad-monolith-16x9"
         apply_one "$MONOLITH_16"
         ;;
     nomad-emblem|nomad-emblem-standard)
+        save_choice "nomad-emblem"
         apply_one "$EMBLEM_STANDARD"
         ;;
     nomad-emblem-16x9)
+        save_choice "nomad-emblem-16x9"
         apply_one "$EMBLEM_16"
         ;;
     list|--list)
