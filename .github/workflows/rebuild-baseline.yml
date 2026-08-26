@@ -63,3 +63,7 @@ jobs:
       - name: Audio brightness and OSD regression test
         shell: bash
         run: bash tests/audio-brightness-osd.sh
+
+      - name: Polybar operator overlay regression test
+        shell: bash
+        run: bash tests/polybar-operator-overlay.sh
