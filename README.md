@@ -1,92 +1,110 @@
-# KaliPWM
+# KaliPWM — Obsidian
 
-Despliega un entorno de hacking profesional para Kali Linux ejecutando solo un script.
-
-![kalipwm-1](https://github.com/user-attachments/assets/0e11571f-7c71-416f-9bb8-32ab9c47d015)
-![kalipwm-2](https://github.com/user-attachments/assets/b67853d2-922d-4303-90a8-4fbc2564555a)
+Fork modificado de KaliPWN con el tema **Obsidian** para Kali Linux, BSPWM, Polybar, Rofi y Kitty.
 
 ## Instalación y uso
 
-- Se recomienda el uso de una instalación nueva/limpia de Kali Linux.
-- Testado en Kali Linux 2025.1 con VMware, VirtualBox y Bare Metal.
+Se recomienda una instalación nueva/limpia de Kali Linux.
 
-```
-git clone https://github.com/afsh4ck/kalipwm.git
+```bash
+git clone https://github.com/daviosardinha/kalipwm.git
 cd kalipwm
 bash kalipwm.sh
 sudo reboot
 ```
-- Una vez reiniciado cambia a bspwm en la pantalla de inicio de sesión
-- El fondo de pantalla se toma de ~/Wallpapers/wallpaper.*
-- Video completo del entorno: https://youtu.be/3clLjO8W7Q4?si=GupOi6Bqwuu2O9Wk
+
+Para elegir el wallpaper durante la instalación:
+
+```bash
+bash kalipwm.sh --list-wallpapers
+bash kalipwm.sh --wallpaper nomad-monolith
+bash kalipwm.sh --wallpaper nomad-monolith-16x9
+bash kalipwm.sh --wallpaper nomad-emblem
+bash kalipwm.sh --wallpaper nomad-emblem-16x9
+bash kalipwm.sh --wallpaper city-16x9
+bash kalipwm.sh --wallpaper city-ultrawide
+```
+
+`auto` sigue siendo la opción por defecto y selecciona automáticamente el wallpaper City adecuado según la geometría del monitor. La elección realizada con `--wallpaper` se guarda y se restaura al iniciar BSPWM.
+
+También puedes cambiarlo después de instalar:
+
+```bash
+~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-emblem-16x9
+```
+
+Una vez reiniciado, cambia a BSPWM en la pantalla de inicio de sesión.
+
+## Wallpapers Obsidian
+
+Los wallpapers incluidos se instalan en `~/Wallpapers/obsidian/`:
+
+- `obsidian-city-16x9.jpg`
+- `obsidian-city-ultrawide.jpg`
+- `obsidian-nomad-monolith-standard.png`
+- `obsidian-nomad-monolith-16x9.png`
+- `obsidian-nomad-emblem-standard.png`
+- `obsidian-nomad-emblem-16x9.png`
 
 ## Comandos
 
 > [!NOTE]
-> En MacOS, cambia Windows por Command, y Alt por Option.
+> En macOS, cambia Windows por Command, y Alt por Option.
 
-| Comando                     | Descripción                                                 |
-|-----------------------------|-------------------------------------------------------------|
-| Clic derecho en Polybar     | Cambia el tema de Polybar usando el menú del clic derecho   |
-| Windows + 1,2,3,4           | Navega entre escritorios                                    |
-| Windows + Enter             | Abre una nueva terminal                                     |
-| Windows + Enter             | Divide la terminal actual                                   |
-| Windows + Flechas           | Navega entre ventanas abiertas                              |
-| Windows + Tab               | Cambia entre los dos escritorios más recientes              |
-| Windows + + Shift + W       | Cierra la terminal actual                                   |
-| Windows + Alt + R           | Recarga el entorno de escritorio                            |
-| Windows + Alt + Q           | Reiniciar BSPWM                                             |
-| Windows + Alt + Flechas     | Redimensiona la ventana actual                              |
-| Windows + Shift + F         | Abre Firefox                                                |
-| Windows + Shift + B         | Abre Burp Suite                                             |
-| Windows + Shift + A         | Abre el gestor de archivos Thunar                           |
-| Windows + Shift + 1,2,3,4   | Mueve la ventana actual a otro escritorio                   |
-| Windows + Shift + Flechas   | Mueve la ventana actual                                     |
-| Ctrl + Shift + -+           | Cambia el tamaño del texto en la terminal                   |
-| Ctrl + T                    | Abre un buscador avanzado desde la terminal                 |
-| .config/sxhkd/sxhkdrc       | Archivo de configuración de atajos (sxhkd)                  |
-| .config/bspwm/bspwmrc       | Archivo de configuración de BSPWM                           |
-| .config/polybar             | Carpeta con temas de Polybar                                |
-| .config/kitty/kitty.conf    | Archivo de configuración predeterminado para el terminal Kitty  |
-| ~/Wallpapers                | Carpeta de fondos de pantalla. Solo se permite un archivo llamado wallpaper.jpg  |
-| target 10.0.0.1             | Selecciona una IP de destino y se muestra en la Polybar     |
-| target reset                | Elimina el objetivo seleccionado                            |
-| tmux                        | Cambia la terminal a tmux                                   |
-| tmux —help                  | Muestra la ayuda de tmux                                    |
-| p10k configure              | Configura el tema de terminal Powerlevel10K                 |
-| .zshrc                      | Archivo de configuración de ZSH y alias de comandos         |
-| bpython                     | Python interactivo en la terminal                           |
+| Comando | Descripción |
+|---|---|
+| `Windows + Enter` | Abre una nueva terminal |
+| `Windows + Flechas` | Navega entre ventanas abiertas |
+| `Windows + Tab` | Cambia entre los dos escritorios más recientes |
+| `Windows + Alt + R` | Recarga el entorno de escritorio |
+| `Windows + Alt + Q` | Reinicia BSPWM |
+| `Windows + Alt + Flechas` | Redimensiona la ventana actual |
+| `Windows + Shift + F` | Abre Firefox |
+| `Windows + Shift + B` | Abre Burp Suite |
+| `Windows + Shift + A` | Abre Thunar |
+| `Windows + Shift + Flechas` | Mueve la ventana actual |
+| `target 10.0.0.1` | Selecciona una IP de destino y la muestra en Polybar |
+| `target reset` | Elimina el objetivo seleccionado |
+| `tmux` | Inicia tmux |
+| `p10k configure` | Configura Powerlevel10K |
 
-## Paquetes incluídos:
+## Obsidian Polybar
 
-```
-Bspwm
-Polybar
-Oh my zsh + Plugins
-Powerlevel10k
-Hack Nerd Fonts
-JetBrains Font
-Python + pip + bpython
-Tmux + Oh my tmux
-Kitty
-lsd
-Batcat
-Fastfetch
-Scrot
-feh
-Rofi
-Sxhkd
-Picom
-Neovim
-```
+La barra Obsidian muestra, entre otros datos:
+
+- Wi-Fi e IP local
+- VPN e IP
+- Target actual
+- CPU y temperatura
+- GPU y temperatura
+- RAM
+- ventilador
+- volumen
+- batería / alimentación
+- hora
+
+## Paquetes principales
+
+- BSPWM
+- Polybar
+- Oh My Zsh + plugins
+- Powerlevel10k
+- Hack Nerd Font
+- JetBrainsMono Nerd Font
+- Python + pip + bpython
+- tmux
+- Kitty
+- lsd
+- Vim
+- Fastfetch
+- feh
+- Rofi
+- sxhkd
+- Picom
 
 ## Créditos
-- Autor:       afsh4ck 
-- Instagram:   <a href="https://www.instagram.com/afsh4ck">afsh4ck</a>
-- Youtube:     <a href="https://youtube.com/@afsh4ck">afsh4ck</a>
 
-## Soporte
+Este repositorio es un fork y una versión modificada de KaliPWN de **afsh4ck**.
 
-<a href="https://www.buymeacoffee.com/afsh4ck" rel="nofollow"><img width="250" align="left">
-![buy-me-a-coffe](https://github.com/user-attachments/assets/8c8f9e81-334e-469e-b25e-29888cfc9fcc)
-</a>
+- Proyecto original: `afsh4ck/kalipwm`
+- Autor original: afsh4ck
