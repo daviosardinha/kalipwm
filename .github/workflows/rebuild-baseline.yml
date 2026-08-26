@@ -44,3 +44,7 @@ jobs:
           while IFS= read -r script; do
             bash -n "$script"
           done < <(find SCRIPTS -maxdepth 1 -type f -print | sort)
+
+      - name: Profile generation regression test
+        shell: bash
+        run: bash tests/profile-generation.sh
