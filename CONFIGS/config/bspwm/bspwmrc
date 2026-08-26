@@ -104,10 +104,18 @@ wallpapers=("$HOME"/Wallpapers/wallpaper.*)
 ((${#wallpapers[@]})) && feh --no-fehbg --bg-fill "${wallpapers[0]}" &
 shopt -u nullglob
 
-# Compositor.
+# Compositor. VMware SVGA has a reproducible rendering failure with the V1
+# GLX/blur profile (Kitty can render as an empty black surface and Rofi menus
+# can fail visually). The XRender path was validated in the VMware guest and
+# keeps terminal transparency/menu usability without touching bare metal or
+# the already-validated KVM compositor path.
 pkill -x picom >/dev/null 2>&1 || true
 if command -v picom >/dev/null 2>&1; then
-  picom --config "$HOME/.config/picom/picom.conf" >/dev/null 2>&1 &
+  if [[ "$environment" == vmware ]]; then
+    picom --config /dev/null --backend xrender >/dev/null 2>&1 &
+  else
+    picom --config "$HOME/.config/picom/picom.conf" >/dev/null 2>&1 &
+  fi
 fi
 
 # Polybar.
