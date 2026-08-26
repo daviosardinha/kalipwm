@@ -2,16 +2,46 @@
 set -euo pipefail
 
 WALL_DIR="$HOME/Wallpapers/obsidian"
-WP_16="$WALL_DIR/obsidian-city-16x9.jpg"
-WP_WIDE="$WALL_DIR/obsidian-city-ultrawide.jpg"
+WP_16_SRC="$WALL_DIR/obsidian-city-16x9.jpg"
+WP_WIDE_SRC="$WALL_DIR/obsidian-city-ultrawide.jpg"
 CACHE_DIR="$HOME/.cache/kalipwm"
+WP_16="$CACHE_DIR/obsidian-city-16x9.png"
+WP_WIDE="$CACHE_DIR/obsidian-city-ultrawide.png"
 
-for wallpaper in "$WP_16" "$WP_WIDE"; do
+mkdir -p "$CACHE_DIR"
+
+for wallpaper in "$WP_16_SRC" "$WP_WIDE_SRC"; do
     if [ ! -s "$wallpaper" ]; then
         echo "Obsidian wallpaper missing: $wallpaper" >&2
         exit 1
     fi
 done
+
+normalize_wallpaper() {
+    local src="$1" dst="$2"
+
+    # Imlib2/feh can reject some valid JPEG encodings. ImageMagick is already
+    # part of KaliPWN, so normalize the bundled asset once to a plain RGB PNG.
+    if [ ! -s "$dst" ] || [ "$src" -nt "$dst" ]; then
+        rm -f "$dst"
+        if command -v magick >/dev/null 2>&1; then
+            magick "$src" -auto-orient -strip -colorspace sRGB "$dst"
+        elif command -v convert >/dev/null 2>&1; then
+            convert "$src" -auto-orient -strip -colorspace sRGB "$dst"
+        else
+            echo "ImageMagick is required to prepare the Obsidian wallpaper." >&2
+            exit 1
+        fi
+    fi
+
+    if [ ! -s "$dst" ]; then
+        echo "Failed to prepare Obsidian wallpaper: $src" >&2
+        exit 1
+    fi
+}
+
+normalize_wallpaper "$WP_16_SRC" "$WP_16"
+normalize_wallpaper "$WP_WIDE_SRC" "$WP_WIDE"
 
 wallpaper_for_geometry() {
     local width="$1" height="$2" ratio
@@ -48,7 +78,6 @@ apply_auto() {
         wallpapers=("$WP_16")
     fi
 
-    mkdir -p "$CACHE_DIR"
     printf '%s\n' "${wallpapers[@]}" > "$CACHE_DIR/current-wallpaper"
     exec feh --bg-fill "${wallpapers[@]}"
 }
@@ -58,12 +87,10 @@ case "${1:-auto}" in
         apply_auto
         ;;
     16|16:9|standard)
-        mkdir -p "$CACHE_DIR"
         printf '%s\n' "$WP_16" > "$CACHE_DIR/current-wallpaper"
         exec feh --bg-fill "$WP_16"
         ;;
     wide|ultrawide|21:9|32:9)
-        mkdir -p "$CACHE_DIR"
         printf '%s\n' "$WP_WIDE" > "$CACHE_DIR/current-wallpaper"
         exec feh --bg-fill "$WP_WIDE"
         ;;
