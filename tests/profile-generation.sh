@@ -37,6 +37,8 @@ grep -Fq 'product=VMware\ Virtual\ Platform' <<<"$OUT"
 grep -Fq 'wired_interface=eth0' <<<"$OUT"
 grep -Fq 'connected_displays=Virtual-1' <<<"$OUT"
 grep -Fq 'external_position=right' <<<"$OUT"
+grep -Fq 'external_mode=auto' <<<"$OUT"
+grep -Fq 'external_rate=auto' <<<"$OUT"
 grep -Fq 'screenshots=flameshot' <<<"$OUT"
 grep -Fq 'telemetry=false' <<<"$OUT"
 
