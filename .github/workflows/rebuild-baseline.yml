@@ -32,7 +32,7 @@ jobs:
             CONFIGS/config/kitty \
             CONFIGS/config/rofi
 
-      - name: Verify sxhkd only contains approved media-key delta
+      - name: Verify sxhkd only contains approved screenshot and media-key deltas
         shell: bash
         run: bash tests/sxhkd-media-bindings.sh
 
@@ -63,6 +63,10 @@ jobs:
       - name: Audio brightness and OSD regression test
         shell: bash
         run: bash tests/audio-brightness-osd.sh
+
+      - name: Flameshot screenshot regression test
+        shell: bash
+        run: bash tests/screenshot-flameshot.sh
 
       - name: Polybar operator overlay regression test
         shell: bash
