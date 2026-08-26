@@ -5,17 +5,21 @@ ACTION="${1:-status}"
 CONFIG_HOME="${KALIPWM_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}"
 FOREST="$CONFIG_HOME/polybar/forest"
 CONFIG="$FOREST/config.ini"
+BASE_MODULES="$FOREST/modules.ini"
 MODULES="$FOREST/kalipwm-operator.ini"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_DEST="$FOREST/scripts"
 STATE_ROOT="${KALIPWM_STATE_ROOT:-$HOME/.local/state/kalipwm-rebuild}"
 
-LEFT_OLD='modules-left = launcher sep wired-network vpn target'
-LEFT_NEW='modules-left = launcher sep kalipwm-network kalipwm-vpn kalipwm-target'
-RIGHT_OLD='modules-right = cpu memory volume date sep sysmenu'
-RIGHT_NEW='modules-right = cpu memory volume kalipwm-battery date sep sysmenu'
+LEFT_UPSTREAM='modules-left = launcher sep wired-network vpn target'
+LEFT_OPERATOR='modules-left = launcher sep kalipwm-network kalipwm-vpn kalipwm-target'
+RIGHT_UPSTREAM='modules-right = cpu memory volume date sep sysmenu'
+RIGHT_OPERATOR_V1='modules-right = cpu memory volume kalipwm-battery date sep sysmenu'
+RIGHT_OPERATOR='modules-right = cpu memory kalipwm-audio kalipwm-battery date sep sysmenu'
 ANCHOR='include-file = ~/.config/polybar/forest/user_modules.ini'
 INCLUDE='include-file = ~/.config/polybar/forest/kalipwm-operator.ini'
+WORKSPACE_COLOR_BAD='label-empty-foreground = ${color.lime} # color.foreground para dejar en blanco'
+WORKSPACE_COLOR_FIXED='label-empty-foreground = ${color.lime}'
 
 log() { printf '[+] %s\n' "$*"; }
 die() { printf '[-] %s\n' "$*" >&2; exit 1; }
@@ -24,13 +28,16 @@ usage() {
   cat <<'EOF'
 Usage: kalipwm-polybar-operator-overlay {status|apply|remove}
 
-Adds the validated KaliPWM operator helpers to a working upstream Polybar config
-without modifying the repository's protected upstream Polybar files.
+Adds validated KaliPWM operator helpers to the working upstream Polybar config
+without modifying the repository's protected upstream Polybar files. The live
+runtime copy also receives narrowly-scoped compatibility fixes for known
+upstream Polybar parsing/module issues.
 EOF
 }
 
 require_live_config() {
   [[ -f "$CONFIG" ]] || die "Polybar config not found: $CONFIG"
+  [[ -f "$BASE_MODULES" ]] || die "Polybar modules file not found: $BASE_MODULES"
 }
 
 write_modules() {
@@ -55,6 +62,11 @@ type = custom/script
 exec = ~/.config/polybar/forest/scripts/target.sh
 interval = 1
 
+[module/kalipwm-audio]
+type = custom/script
+exec = ~/.config/polybar/forest/scripts/kalipwm-audio status
+interval = 1
+
 [module/kalipwm-battery]
 type = custom/script
 exec = ~/.config/polybar/forest/scripts/kalipwm-battery
@@ -66,7 +78,7 @@ EOF
 copy_helpers() {
   local helper
   mkdir -p "$SCRIPT_DEST" "$HOME/.local/bin"
-  for helper in kalipwm-network kalipwm-vpn kalipwm-battery target.sh; do
+  for helper in kalipwm-network kalipwm-vpn kalipwm-audio kalipwm-battery target.sh; do
     [[ -f "$SCRIPT_DIR/$helper" ]] || die "Missing helper: $SCRIPT_DIR/$helper"
     cp -f "$SCRIPT_DIR/$helper" "$SCRIPT_DEST/$helper"
     chmod +x "$SCRIPT_DEST/$helper"
@@ -80,39 +92,102 @@ backup_config() {
   dest="$STATE_ROOT/live-backups/$stamp"
   mkdir -p "$dest"
   cp -a "$CONFIG" "$dest/config.ini"
+  cp -a "$BASE_MODULES" "$dest/modules.ini"
   [[ -f "$MODULES" ]] && cp -a "$MODULES" "$dest/kalipwm-operator.ini" || true
   printf '%s\n' "$dest"
 }
 
-replace_exact_line() {
-  local old="$1" new="$2"
-  if grep -Fxq "$new" "$CONFIG"; then
+replace_exact_line_in() {
+  local file="$1" old="$2" new="$3"
+  if grep -Fxq "$new" "$file"; then
     return 0
   fi
-  grep -Fxq "$old" "$CONFIG" || die "Expected Polybar line not found: $old"
-  sed -i "s|^${old//|/\\|}$|${new//|/\\|}|" "$CONFIG"
+  grep -Fxq "$old" "$file" || die "Expected Polybar line not found in $file: $old"
+  python3 - "$file" "$old" "$new" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+old = sys.argv[2]
+new = sys.argv[3]
+text = path.read_text()
+needle = old + "\n"
+replacement = new + "\n"
+if needle not in text:
+    raise SystemExit(f"expected exact line not found: {old}")
+path.write_text(text.replace(needle, replacement, 1))
+PY
+}
+
+ensure_left_modules() {
+  replace_exact_line_in "$CONFIG" "$LEFT_UPSTREAM" "$LEFT_OPERATOR"
+}
+
+ensure_right_modules() {
+  if grep -Fxq "$RIGHT_OPERATOR" "$CONFIG"; then
+    return 0
+  fi
+  if grep -Fxq "$RIGHT_OPERATOR_V1" "$CONFIG"; then
+    replace_exact_line_in "$CONFIG" "$RIGHT_OPERATOR_V1" "$RIGHT_OPERATOR"
+    return 0
+  fi
+  replace_exact_line_in "$CONFIG" "$RIGHT_UPSTREAM" "$RIGHT_OPERATOR"
+}
+
+ensure_workspace_color_fix() {
+  replace_exact_line_in "$BASE_MODULES" "$WORKSPACE_COLOR_BAD" "$WORKSPACE_COLOR_FIXED"
+}
+
+restore_workspace_color() {
+  if grep -Fxq "$WORKSPACE_COLOR_BAD" "$BASE_MODULES"; then
+    return 0
+  fi
+  replace_exact_line_in "$BASE_MODULES" "$WORKSPACE_COLOR_FIXED" "$WORKSPACE_COLOR_BAD"
 }
 
 ensure_include() {
   grep -Fxq "$INCLUDE" "$CONFIG" && return 0
   grep -Fxq "$ANCHOR" "$CONFIG" || die "Expected Polybar include anchor not found."
-  sed -i "/^${ANCHOR//\//\\/}$/a $INCLUDE" "$CONFIG"
+  python3 - "$CONFIG" "$ANCHOR" "$INCLUDE" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+anchor = sys.argv[2]
+include = sys.argv[3]
+text = path.read_text()
+needle = anchor + "\n"
+if needle not in text:
+    raise SystemExit('expected include anchor not found')
+path.write_text(text.replace(needle, needle + include + "\n", 1))
+PY
 }
 
 remove_include() {
-  sed -i "\|^${INCLUDE//|/\\|}$|d" "$CONFIG"
+  python3 - "$CONFIG" "$INCLUDE" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+include = sys.argv[2]
+lines = path.read_text().splitlines()
+path.write_text("\n".join(line for line in lines if line != include) + "\n")
+PY
 }
 
 status() {
   require_live_config
-  local state=inactive
-  if grep -Fxq "$LEFT_NEW" "$CONFIG" \
-    && grep -Fxq "$RIGHT_NEW" "$CONFIG" \
+  local state=inactive workspace_fix=inactive
+  grep -Fxq "$WORKSPACE_COLOR_FIXED" "$BASE_MODULES" && workspace_fix=active
+  if grep -Fxq "$LEFT_OPERATOR" "$CONFIG" \
+    && grep -Fxq "$RIGHT_OPERATOR" "$CONFIG" \
     && grep -Fxq "$INCLUDE" "$CONFIG" \
-    && [[ -f "$MODULES" ]]; then
+    && [[ -f "$MODULES" ]] \
+    && [[ "$workspace_fix" == active ]]; then
     state=active
   fi
   printf 'operator_overlay=%s\n' "$state"
+  printf 'workspace_color_fix=%s\n' "$workspace_fix"
   printf 'config=%s\n' "$CONFIG"
   printf 'modules=%s\n' "$MODULES"
 }
@@ -121,8 +196,9 @@ apply() {
   require_live_config
   local backup
   backup="$(backup_config)"
-  replace_exact_line "$LEFT_OLD" "$LEFT_NEW"
-  replace_exact_line "$RIGHT_OLD" "$RIGHT_NEW"
+  ensure_left_modules
+  ensure_right_modules
+  ensure_workspace_color_fix
   ensure_include
   write_modules
   copy_helpers
@@ -135,8 +211,13 @@ remove_overlay() {
   require_live_config
   local backup
   backup="$(backup_config)"
-  replace_exact_line "$LEFT_NEW" "$LEFT_OLD"
-  replace_exact_line "$RIGHT_NEW" "$RIGHT_OLD"
+  replace_exact_line_in "$CONFIG" "$LEFT_OPERATOR" "$LEFT_UPSTREAM"
+  if grep -Fxq "$RIGHT_OPERATOR" "$CONFIG"; then
+    replace_exact_line_in "$CONFIG" "$RIGHT_OPERATOR" "$RIGHT_UPSTREAM"
+  elif grep -Fxq "$RIGHT_OPERATOR_V1" "$CONFIG"; then
+    replace_exact_line_in "$CONFIG" "$RIGHT_OPERATOR_V1" "$RIGHT_UPSTREAM"
+  fi
+  restore_workspace_color
   remove_include
   rm -f "$MODULES"
   log "Operator Polybar overlay removed"
