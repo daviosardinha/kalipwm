@@ -6,6 +6,68 @@ BLUE=$(tput setaf 4)
 RED=$(tput setaf 1)
 RESET=$(tput sgr0)
 
+WALLPAPER_CHOICE="auto"
+
+print_wallpaper_choices() {
+    cat <<'EOF'
+auto
+city-16x9
+city-ultrawide
+nomad-monolith
+nomad-monolith-16x9
+nomad-emblem
+nomad-emblem-16x9
+EOF
+}
+
+show_usage() {
+    cat <<'EOF'
+Usage: bash kalipwm.sh [--wallpaper NAME] [--list-wallpapers]
+
+Options:
+  --wallpaper NAME    Select the wallpaper applied after installation.
+  --list-wallpapers   Print available wallpaper names and exit.
+  -h, --help          Show this help.
+EOF
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --wallpaper)
+            if [ $# -lt 2 ]; then
+                echo -e "${RED}[-] --wallpaper requires a name.${RESET}"
+                exit 1
+            fi
+            WALLPAPER_CHOICE="$2"
+            shift 2
+            ;;
+        --list-wallpapers)
+            print_wallpaper_choices
+            exit 0
+            ;;
+        -h|--help)
+            show_usage
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}[-] Unknown option: $1${RESET}"
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+case "$WALLPAPER_CHOICE" in
+    auto|city-16x9|city-ultrawide|nomad-monolith|nomad-monolith-16x9|nomad-emblem|nomad-emblem-16x9)
+        ;;
+    *)
+        echo -e "${RED}[-] Unknown wallpaper: $WALLPAPER_CHOICE${RESET}"
+        echo "Available wallpapers:"
+        print_wallpaper_choices
+        exit 1
+        ;;
+esac
+
 # Comprobar si el usuario actual es root
 if [ "$UID" -eq 0 ]; then
     echo -e "${RED}[-] No se puede ejecutar como root.${RESET}"
@@ -147,7 +209,11 @@ cp -rv $RPATH/WALLPAPERS/* ~/Wallpapers/
 
 for wallpaper in \
     ~/Wallpapers/obsidian/obsidian-city-16x9.jpg \
-    ~/Wallpapers/obsidian/obsidian-city-ultrawide.jpg; do
+    ~/Wallpapers/obsidian/obsidian-city-ultrawide.jpg \
+    ~/Wallpapers/obsidian/obsidian-nomad-monolith-standard.png \
+    ~/Wallpapers/obsidian/obsidian-nomad-monolith-16x9.png \
+    ~/Wallpapers/obsidian/obsidian-nomad-emblem-standard.png \
+    ~/Wallpapers/obsidian/obsidian-nomad-emblem-16x9.png; do
     if [ ! -s "$wallpaper" ] || ! identify "$wallpaper" >/dev/null 2>&1; then
         echo -e "${RED}[-] Invalid Obsidian wallpaper: $wallpaper${RESET}"
         exit 1
@@ -164,14 +230,14 @@ chmod +x ~/.config/polybar/obsidian-v2/scripts/*.sh
 chmod +x ~/.config/polybar/forest/scripts/target.sh
 chmod +x ~/.config/polybar/forest/scripts/screenshot.sh
 
-# Apply the bundled Obsidian wallpaper immediately when installing from a graphical session.
+# Apply the selected bundled Obsidian wallpaper immediately when installing from a graphical session.
 if [ -n "${DISPLAY:-}" ] && command -v xrandr >/dev/null 2>&1 && command -v feh >/dev/null 2>&1; then
-    ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh auto || \
+    ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh "$WALLPAPER_CHOICE" || \
         echo -e "${RED}[!] Wallpaper was installed but could not be applied in the current session.${RESET}"
 fi
 
 echo -e "\n${BLUE}[+] Entorno desplegado, Happy Hacking ;)${RESET}\n"
 echo -e "${BLUE}[+] Obsidian v2 activo por defecto.${RESET}\n"
-echo -e "${BLUE}[+] Wallpapers Obsidian JPEG instalados y seleccionados automaticamente por monitor.${RESET}\n"
+echo -e "${BLUE}[+] Wallpapers Obsidian instalados. Seleccion: $WALLPAPER_CHOICE.${RESET}\n"
 echo -e "${BLUE}[+] cat usa /usr/bin/cat y vim usa /usr/bin/vim.${RESET}\n"
 echo -e "${BLUE}[+] Por favor, reinicia el equipo (sudo reboot)${RESET}\n"

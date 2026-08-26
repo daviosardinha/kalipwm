@@ -19,7 +19,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
-# a theme from this variable instead of looking in $ZSH/themes/
+# a random theme each time oh-my-zsh is loaded.
 # If set to an empty array, this variable will have no effect.
 # ZSH_THEME_RANDOM_CANDIDATES=( "robbyrussell" "agnoster" )
 
@@ -105,9 +105,11 @@ alias ls='lsd'
 unalias cat 2>/dev/null
 unalias vi 2>/dev/null
 unalias vim 2>/dev/null
+unalias target 2>/dev/null
 alias cat='/usr/bin/cat'
 alias vi='/usr/bin/vim'
 alias vim='/usr/bin/vim'
+alias target='/usr/bin/target'
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
