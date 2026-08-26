@@ -145,10 +145,14 @@ sudo ln -sf ~/.config/polybar/obsidian/scripts/screenshot.sh /usr/bin/screenshot
 mkdir -p ~/Wallpapers/
 cp -rv $RPATH/WALLPAPERS/* ~/Wallpapers/
 
-if [ ! -s ~/Wallpapers/obsidian/obsidian-city-16x9.jpg ] || [ ! -s ~/Wallpapers/obsidian/obsidian-city-ultrawide.jpg ]; then
-    echo -e "${RED}[-] Obsidian wallpapers were not installed correctly.${RESET}"
-    exit 1
-fi
+for wallpaper in \
+    ~/Wallpapers/obsidian/obsidian-city-16x9.jpg \
+    ~/Wallpapers/obsidian/obsidian-city-ultrawide.jpg; do
+    if [ ! -s "$wallpaper" ] || ! identify "$wallpaper" >/dev/null 2>&1; then
+        echo -e "${RED}[-] Invalid Obsidian wallpaper: $wallpaper${RESET}"
+        exit 1
+    fi
+done
 
 chmod +x ~/.config/bspwm/bspwmrc
 chmod +x ~/.config/bspwm/scripts/bspwm_resize
@@ -168,6 +172,6 @@ fi
 
 echo -e "\n${BLUE}[+] Entorno desplegado, Happy Hacking ;)${RESET}\n"
 echo -e "${BLUE}[+] Obsidian v2 activo por defecto.${RESET}\n"
-echo -e "${BLUE}[+] Wallpapers Obsidian instalados y seleccionados automaticamente por monitor.${RESET}\n"
+echo -e "${BLUE}[+] Wallpapers Obsidian JPEG instalados y seleccionados automaticamente por monitor.${RESET}\n"
 echo -e "${BLUE}[+] cat usa /usr/bin/cat y vim usa /usr/bin/vim.${RESET}\n"
 echo -e "${BLUE}[+] Por favor, reinicia el equipo (sudo reboot)${RESET}\n"
