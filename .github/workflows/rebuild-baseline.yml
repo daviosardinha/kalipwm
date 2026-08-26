@@ -1,0 +1,43 @@
+name: V1 rebuild baseline guard
+
+on:
+  push:
+    branches:
+      - v1/rebuild-from-upstream
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  preserve-upstream-desktop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify upstream desktop behavior files remain untouched
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          BASE=187eefe3108040f8d0f1164804ac3f0267113604
+          git diff --exit-code "$BASE" -- \
+            CONFIGS/config/bspwm \
+            CONFIGS/config/sxhkd \
+            CONFIGS/config/picom \
+            CONFIGS/config/polybar \
+            CONFIGS/config/kitty \
+            CONFIGS/config/rofi
+
+      - name: Bash syntax for installer entrypoints
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n kalipwm.sh
+          if [[ -f install.sh ]]; then
+            bash -n install.sh
+          fi
