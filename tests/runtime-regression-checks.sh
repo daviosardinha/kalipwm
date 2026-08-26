@@ -8,12 +8,12 @@ printf '== Resume display recovery guard ==\n'
 grep -q '^topology_signature()' SCRIPTS/kalipwm-display
 grep -A10 '^topology_signature()' SCRIPTS/kalipwm-display | grep -q 'output_geometry'
 grep -A10 '^topology_signature()' SCRIPTS/kalipwm-display | grep -q 'inactive'
-grep -q '^display_needs_recovery()' SCRIPTS/kalipwm-display
-grep -A12 '^display_needs_recovery()' SCRIPTS/kalipwm-display | grep -q 'environment.*baremetal'
-grep -A12 '^display_needs_recovery()' SCRIPTS/kalipwm-display | grep -q 'output_geometry'
-grep -A45 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'display_needs_recovery'
-grep -A45 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'now - last_recovery >= 15'
-echo 'PASS connected-but-inactive bare-metal outputs trigger throttled resume recovery'
+! grep -q '^display_needs_recovery()' SCRIPTS/kalipwm-display
+! grep -q 'last_recovery' SCRIPTS/kalipwm-display
+grep -A25 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'if \[\[ "\$current" != "\$previous" \]\]; then'
+grep -A25 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q '^      apply_all true$'
+grep -A25 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'previous="$(topology_signature)"'
+echo 'PASS connected-but-inactive outputs get one edge-triggered recovery attempt without an endless modeset loop'
 
 printf '\n== Arbitrary WireGuard interface guard ==\n'
 tmp="$(mktemp -d)"
