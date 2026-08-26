@@ -1,16 +1,29 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-FILE=/tmp/target
-RED='\033[0;31m'
+state_dir="${XDG_CACHE_HOME:-$HOME/.cache}/kalipwm"
+file="$state_dir/target"
+mkdir -p "$state_dir"
 
-if [ $# -eq 0 ]; then
-	if [ -e "$FILE" ]; then
-		cat $FILE
-	else
-		printf "No Target"
-	fi
-elif [ $1 == "reset" ]; then
-	rm /tmp/target
-else
-	echo $1 > $FILE
-fi
+case "${1:-}" in
+    reset)
+        rm -f "$file"
+        ;;
+    --display)
+        if [ -s "$file" ]; then
+            printf 'Target %s' "$(/usr/bin/cat "$file")"
+        else
+            printf 'No Target'
+        fi
+        ;;
+    "")
+        if [ -s "$file" ]; then
+            /usr/bin/cat "$file"
+        else
+            printf 'No Target'
+        fi
+        ;;
+    *)
+        printf '%s\n' "$1" > "$file"
+        ;;
+esac
