@@ -6,6 +6,7 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/bin" "$TMP/Pictures"
 LOG="$TMP/flameshot.log"
+CONFIG="$ROOT/CONFIGS/config/flameshot/flameshot.ini"
 
 cat > "$TMP/bin/flameshot" <<'EOF'
 #!/usr/bin/env bash
@@ -36,5 +37,10 @@ bash "$ROOT/SCRIPTS/screenshot.sh" screen
 [[ "$(sed -n '4p' "$LOG")" == launcher ]]
 [[ "$(sed -n '5p' "$LOG")" == "screen --path $TMP/Pictures/Screenshots" ]]
 [[ -d "$TMP/Pictures/Screenshots" ]]
+
+[[ -f "$CONFIG" ]]
+grep -Fxq 'useX11LegacyScreenshot=true' "$CONFIG"
+grep -Fxq 'saveAfterCopy=false' "$CONFIG"
+grep -Fxq 'copyPathAfterSave=false' "$CONFIG"
 
 echo 'screenshot-flameshot: PASS'
