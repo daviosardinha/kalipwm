@@ -4,29 +4,17 @@ set -euo pipefail
 WALL_DIR="$HOME/Wallpapers/obsidian"
 WP_16="$WALL_DIR/obsidian-city-16x9.jpg"
 WP_WIDE="$WALL_DIR/obsidian-city-ultrawide.jpg"
+CACHE_DIR="$HOME/.cache/kalipwm"
 
-pick_wallpaper() {
-    local output mode width height ratio
-
-    output=$(xrandr --query | awk '/ connected primary / {print $1; exit} / connected / {print $1; exit}')
-    mode=$(xrandr --query | awk -v out="$output" '
-        $1 == out && $2 == "connected" {
-            for (i=1; i<=NF; i++) {
-                if ($i ~ /^[0-9]+x[0-9]+\+/) {
-                    split($i, a, "+")
-                    print a[1]
-                    exit
-                }
-            }
-        }')
-
-    if [ -z "${mode:-}" ]; then
-        printf '%s\n' "$WP_16"
-        return
+for wallpaper in "$WP_16" "$WP_WIDE"; do
+    if [ ! -s "$wallpaper" ]; then
+        echo "Obsidian wallpaper missing: $wallpaper" >&2
+        exit 1
     fi
+done
 
-    width=${mode%x*}
-    height=${mode#*x}
+wallpaper_for_geometry() {
+    local width="$1" height="$2" ratio
     ratio=$(( width * 100 / height ))
 
     if [ "$ratio" -ge 200 ]; then
@@ -36,21 +24,51 @@ pick_wallpaper() {
     fi
 }
 
+apply_auto() {
+    local geometry width height
+    local -a wallpapers=()
+
+    while read -r geometry; do
+        [ -n "$geometry" ] || continue
+
+        if [[ "$geometry" =~ ^([0-9]+)/[0-9]+x([0-9]+)/[0-9]+\+ ]]; then
+            width="${BASH_REMATCH[1]}"
+            height="${BASH_REMATCH[2]}"
+        elif [[ "$geometry" =~ ^([0-9]+)x([0-9]+)\+ ]]; then
+            width="${BASH_REMATCH[1]}"
+            height="${BASH_REMATCH[2]}"
+        else
+            continue
+        fi
+
+        wallpapers+=("$(wallpaper_for_geometry "$width" "$height")")
+    done < <(xrandr --listmonitors 2>/dev/null | awk 'NR > 1 {print $3}')
+
+    if [ "${#wallpapers[@]}" -eq 0 ]; then
+        wallpapers=("$WP_16")
+    fi
+
+    mkdir -p "$CACHE_DIR"
+    printf '%s\n' "${wallpapers[@]}" > "$CACHE_DIR/current-wallpaper"
+    exec feh --bg-fill "${wallpapers[@]}"
+}
+
 case "${1:-auto}" in
-    auto) wallpaper=$(pick_wallpaper) ;;
-    16|16:9|standard) wallpaper="$WP_16" ;;
-    wide|ultrawide|21:9) wallpaper="$WP_WIDE" ;;
+    auto)
+        apply_auto
+        ;;
+    16|16:9|standard)
+        mkdir -p "$CACHE_DIR"
+        printf '%s\n' "$WP_16" > "$CACHE_DIR/current-wallpaper"
+        exec feh --bg-fill "$WP_16"
+        ;;
+    wide|ultrawide|21:9|32:9)
+        mkdir -p "$CACHE_DIR"
+        printf '%s\n' "$WP_WIDE" > "$CACHE_DIR/current-wallpaper"
+        exec feh --bg-fill "$WP_WIDE"
+        ;;
     *)
         echo "Usage: $0 [auto|16:9|ultrawide]" >&2
         exit 1
         ;;
 esac
-
-if [ ! -f "$wallpaper" ]; then
-    echo "Obsidian wallpaper missing: $wallpaper" >&2
-    exit 1
-fi
-
-mkdir -p "$HOME/.cache/kalipwm"
-printf '%s\n' "$wallpaper" > "$HOME/.cache/kalipwm/current-wallpaper"
-exec feh --bg-fill "$wallpaper"
