@@ -20,8 +20,8 @@ bspc rule -a mplayer2 state=floating
 bspc rule -a Kupfer.py focus=on
 bspc rule -a Screenkey manage=off
 
-# WALLPAPER
-feh --bg-fill ~/Wallpapers/wallpaper.*
+# WALLPAPER - Obsidian v2
+~/.config/bspwm/scripts/set-obsidian-wallpaper.sh auto
 
 # POLYBAR - Obsidian v2
 ~/.config/polybar/obsidian-v2/launch.sh
