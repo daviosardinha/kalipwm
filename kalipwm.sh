@@ -104,7 +104,7 @@ ln -s -f ~/.tmux/.tmux.conf ~/
 cp -v $RPATH/CONFIGS/tmux.conf.local ~/.tmux.conf.local
 
 echo -e "\n${BLUE}[*] Instalando terminal kitty..${RESET}\n"
-cat $RPATH/kitty-installer.sh | sh /dev/stdin
+/usr/bin/cat $RPATH/kitty-installer.sh | sh /dev/stdin
 
 mkdir -p ~/github
 git clone --recursive https://github.com/polybar/polybar ~/github/polybar
@@ -145,8 +145,14 @@ sudo ln -sf ~/.config/polybar/obsidian/scripts/screenshot.sh /usr/bin/screenshot
 mkdir -p ~/Wallpapers/
 cp -rv $RPATH/WALLPAPERS/* ~/Wallpapers/
 
+if [ ! -s ~/Wallpapers/obsidian/obsidian-city-16x9.jpg ] || [ ! -s ~/Wallpapers/obsidian/obsidian-city-ultrawide.jpg ]; then
+    echo -e "${RED}[-] Obsidian wallpapers were not installed correctly.${RESET}"
+    exit 1
+fi
+
 chmod +x ~/.config/bspwm/bspwmrc
 chmod +x ~/.config/bspwm/scripts/bspwm_resize
+chmod +x ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh
 chmod +x ~/.config/polybar/obsidian/launch.sh
 chmod +x ~/.config/polybar/obsidian/scripts/*.sh
 chmod +x ~/.config/polybar/obsidian-v2/launch.sh
@@ -154,7 +160,14 @@ chmod +x ~/.config/polybar/obsidian-v2/scripts/*.sh
 chmod +x ~/.config/polybar/forest/scripts/target.sh
 chmod +x ~/.config/polybar/forest/scripts/screenshot.sh
 
+# Apply the bundled Obsidian wallpaper immediately when installing from a graphical session.
+if [ -n "${DISPLAY:-}" ] && command -v xrandr >/dev/null 2>&1 && command -v feh >/dev/null 2>&1; then
+    ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh auto || \
+        echo -e "${RED}[!] Wallpaper was installed but could not be applied in the current session.${RESET}"
+fi
+
 echo -e "\n${BLUE}[+] Entorno desplegado, Happy Hacking ;)${RESET}\n"
 echo -e "${BLUE}[+] Obsidian v2 activo por defecto.${RESET}\n"
+echo -e "${BLUE}[+] Wallpapers Obsidian instalados y seleccionados automaticamente por monitor.${RESET}\n"
 echo -e "${BLUE}[+] cat usa /usr/bin/cat y vim usa /usr/bin/vim.${RESET}\n"
 echo -e "${BLUE}[+] Por favor, reinicia el equipo (sudo reboot)${RESET}\n"
