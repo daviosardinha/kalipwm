@@ -11,12 +11,51 @@ read_temp() {
     printf '%s' "$v"
 }
 
+pick_hottest() {
+    local current="$1" candidate="$2"
+    if [ -z "$current" ] || [ "$candidate" -gt "$current" ] 2>/dev/null; then
+        printf '%s' "$candidate"
+    else
+        printf '%s' "$current"
+    fi
+}
+
 cpu=""
-for f in /sys/class/thermal/thermal_zone*/temp /sys/class/hwmon/hwmon*/temp*_input; do
-    [ -r "$f" ] || continue
-    v=$(read_temp "$f") || continue
-    if [ -z "$cpu" ] || [ "$v" -gt "$cpu" ] 2>/dev/null; then cpu="$v"; fi
+
+# Prefer thermal zones that explicitly identify themselves as CPU/package sensors.
+for zone in /sys/class/thermal/thermal_zone*; do
+    [ -d "$zone" ] || continue
+    type=$(cat "$zone/type" 2>/dev/null || true)
+    case "$type" in
+        x86_pkg_temp|cpu_thermal|cpu-thermal|soc_thermal|acpitz)
+            v=$(read_temp "$zone/temp") || continue
+            cpu=$(pick_hottest "$cpu" "$v")
+            ;;
+    esac
 done
+
+# CPU hwmon drivers are more reliable on many Intel/AMD laptops.
+for hw in /sys/class/hwmon/hwmon*; do
+    [ -d "$hw" ] || continue
+    name=$(cat "$hw/name" 2>/dev/null || true)
+    case "$name" in
+        coretemp|k10temp|zenpower|cpu_thermal)
+            for f in "$hw"/temp*_input; do
+                [ -r "$f" ] || continue
+                v=$(read_temp "$f") || continue
+                cpu=$(pick_hottest "$cpu" "$v")
+            done
+            ;;
+    esac
+done
+
+# Conservative fallback if the platform exposes no named CPU sensor.
+if [ -z "$cpu" ]; then
+    for zone in /sys/class/thermal/thermal_zone*; do
+        [ -r "$zone/temp" ] || continue
+        cpu=$(read_temp "$zone/temp") && break
+    done
+fi
 
 gpu=""
 if command -v nvidia-smi >/dev/null 2>&1; then
