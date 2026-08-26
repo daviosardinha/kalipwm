@@ -109,6 +109,12 @@ grep -q '^start_once()' CONFIGS/config/bspwm/bspwmrc
 grep -q 'if pgrep -u "\$UID" -x "\$process"' CONFIGS/config/bspwm/bspwmrc
 echo 'PASS BSPWM session startup does not leave conditional background shell wrappers'
 
+printf '\n== VMware compositor guard ==\n'
+grep -q 'if \[\[ "\$environment" == vmware \]\]; then' CONFIGS/config/bspwm/bspwmrc
+grep -q 'picom --config /dev/null --backend xrender' CONFIGS/config/bspwm/bspwmrc
+grep -q 'picom --config "\$HOME/.config/picom/picom.conf"' CONFIGS/config/bspwm/bspwmrc
+echo 'PASS VMware guests use the validated XRender compositor path while other environments retain the Obsidian GLX profile'
+
 printf '\n== BSPWM rule reload guard ==\n'
 grep -q "^bspc rule -r '\*'$" CONFIGS/config/bspwm/bspwmrc
 ! grep -nEi '^bspc rule -a .*vmware.*desktop=' CONFIGS/config/bspwm/bspwmrc >/dev/null
