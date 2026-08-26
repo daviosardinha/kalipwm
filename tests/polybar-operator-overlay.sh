@@ -11,7 +11,8 @@ FOREST="$CONFIG_HOME/polybar/forest"
 STATE="$TMP/state"
 mkdir -p "$FOREST" "$HOME_DIR/.local/bin"
 
-cat > "$FOREST/config.ini" <<'EOF'
+write_upstream_fixture() {
+  cat > "$FOREST/config.ini" <<'EOF'
 include-file = ~/.config/polybar/forest/bars.ini
 include-file = ~/.config/polybar/forest/colors.ini
 include-file = ~/.config/polybar/forest/modules.ini
@@ -23,6 +24,13 @@ modules-center = workspaces
 modules-right = cpu memory volume date sep sysmenu
 EOF
 
+  cat > "$FOREST/modules.ini" <<'EOF'
+[module/workspaces]
+label-empty = 󰯈
+label-empty-foreground = ${color.lime} # color.foreground para dejar en blanco
+EOF
+}
+
 run_overlay() {
   HOME="$HOME_DIR" \
   KALIPWM_CONFIG_HOME="$CONFIG_HOME" \
@@ -30,33 +38,69 @@ run_overlay() {
   bash "$ROOT/SCRIPTS/kalipwm-polybar-operator-overlay" "$@"
 }
 
+write_upstream_fixture
 run_overlay apply >/dev/null
 
 grep -Fxq 'include-file = ~/.config/polybar/forest/kalipwm-operator.ini' "$FOREST/config.ini"
 grep -Fxq 'modules-left = launcher sep kalipwm-network kalipwm-vpn kalipwm-target' "$FOREST/config.ini"
-grep -Fxq 'modules-right = cpu memory volume kalipwm-battery date sep sysmenu' "$FOREST/config.ini"
+grep -Fxq 'modules-right = cpu memory kalipwm-audio kalipwm-battery date sep sysmenu' "$FOREST/config.ini"
 [[ "$(grep -Fxc 'include-file = ~/.config/polybar/forest/kalipwm-operator.ini' "$FOREST/config.ini")" -eq 1 ]]
+grep -Fxq 'label-empty-foreground = ${color.lime}' "$FOREST/modules.ini"
+! grep -Fq '# color.foreground para dejar en blanco' "$FOREST/modules.ini"
 
-for module in kalipwm-network kalipwm-vpn kalipwm-target kalipwm-battery; do
+for module in kalipwm-network kalipwm-vpn kalipwm-target kalipwm-audio kalipwm-battery; do
   grep -Fq "[module/$module]" "$FOREST/kalipwm-operator.ini"
 done
 
-for helper in kalipwm-network kalipwm-vpn kalipwm-battery target.sh; do
+grep -Fxq 'exec = ~/.config/polybar/forest/scripts/kalipwm-audio status' "$FOREST/kalipwm-operator.ini"
+
+for helper in kalipwm-network kalipwm-vpn kalipwm-audio kalipwm-battery target.sh; do
   [[ -x "$FOREST/scripts/$helper" ]]
 done
 [[ -L "$HOME_DIR/.local/bin/target" ]]
 
-cp "$FOREST/config.ini" "$TMP/after-first"
+cp "$FOREST/config.ini" "$TMP/after-first-config"
+cp "$FOREST/modules.ini" "$TMP/after-first-modules"
 run_overlay apply >/dev/null
-cmp -s "$FOREST/config.ini" "$TMP/after-first"
+cmp -s "$FOREST/config.ini" "$TMP/after-first-config"
+cmp -s "$FOREST/modules.ini" "$TMP/after-first-modules"
 [[ "$(grep -Fxc 'include-file = ~/.config/polybar/forest/kalipwm-operator.ini' "$FOREST/config.ini")" -eq 1 ]]
 grep -Fq 'operator_overlay=active' < <(run_overlay status)
+grep -Fq 'workspace_color_fix=active' < <(run_overlay status)
 
 run_overlay remove >/dev/null
 grep -Fxq 'modules-left = launcher sep wired-network vpn target' "$FOREST/config.ini"
 grep -Fxq 'modules-right = cpu memory volume date sep sysmenu' "$FOREST/config.ini"
+grep -Fxq 'label-empty-foreground = ${color.lime} # color.foreground para dejar en blanco' "$FOREST/modules.ini"
 ! grep -Fq 'kalipwm-operator.ini' "$FOREST/config.ini"
 [[ ! -e "$FOREST/kalipwm-operator.ini" ]]
 grep -Fq 'operator_overlay=inactive' < <(run_overlay status)
+
+# Upgrade regression: the first operator overlay shipped with upstream `volume`
+# still present. A subsequent apply must migrate it without requiring removal.
+cat > "$FOREST/config.ini" <<'EOF'
+include-file = ~/.config/polybar/forest/bars.ini
+include-file = ~/.config/polybar/forest/colors.ini
+include-file = ~/.config/polybar/forest/modules.ini
+include-file = ~/.config/polybar/forest/user_modules.ini
+include-file = ~/.config/polybar/forest/kalipwm-operator.ini
+
+[bar/main]
+modules-left = launcher sep kalipwm-network kalipwm-vpn kalipwm-target
+modules-center = workspaces
+modules-right = cpu memory volume kalipwm-battery date sep sysmenu
+EOF
+cat > "$FOREST/modules.ini" <<'EOF'
+[module/workspaces]
+label-empty = 󰯈
+label-empty-foreground = ${color.lime} # color.foreground para dejar en blanco
+EOF
+printf '; legacy overlay\n' > "$FOREST/kalipwm-operator.ini"
+
+run_overlay apply >/dev/null
+grep -Fxq 'modules-right = cpu memory kalipwm-audio kalipwm-battery date sep sysmenu' "$FOREST/config.ini"
+grep -Fxq 'label-empty-foreground = ${color.lime}' "$FOREST/modules.ini"
+grep -Fq '[module/kalipwm-audio]' "$FOREST/kalipwm-operator.ini"
+grep -Fq 'operator_overlay=active' < <(run_overlay status)
 
 echo 'polybar-operator-overlay: PASS'
