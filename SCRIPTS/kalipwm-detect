@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+# Read-only environment and hardware discovery for the V1 rebuild.
+# This script must not install packages, change XRandR state, touch GPU routing,
+# or modify any user/system configuration.
+
+POWER_SUPPLY_ROOT="${KALIPWM_POWER_SUPPLY_ROOT:-/sys/class/power_supply}"
+
+detect_environment() {
+  local virt
+  virt="$(systemd-detect-virt 2>/dev/null || true)"
+  case "$virt" in
+    vmware) echo vmware ;;
+    oracle) echo virtualbox ;;
+    kvm|qemu) echo kvm ;;
+    none|'') echo baremetal ;;
+    *) echo "$virt" ;;
+  esac
+}
+
+detect_battery() {
+  local p type scope present name
+  local system_candidate='' capacity_candidate='' fallback=''
+
+  for p in "$POWER_SUPPLY_ROOT"/*; do
+    [[ -r "$p/type" ]] || continue
+    read -r type < "$p/type"
+    [[ "$type" == Battery ]] || continue
+
+    scope="$(cat "$p/scope" 2>/dev/null || true)"
+    [[ "$scope" == Device ]] && continue
+
+    present="$(cat "$p/present" 2>/dev/null || printf '1')"
+    [[ "$present" == 0 ]] && continue
+
+    name="$(basename "$p")"
+    if [[ "$scope" == System ]]; then
+      [[ -n "$system_candidate" ]] || system_candidate="$name"
+    elif [[ -r "$p/capacity" ]]; then
+      [[ -n "$capacity_candidate" ]] || capacity_candidate="$name"
+    else
+      [[ -n "$fallback" ]] || fallback="$name"
+    fi
+  done
+
+  if [[ -n "$system_candidate" ]]; then
+    printf '%s\n' "$system_candidate"
+  elif [[ -n "$capacity_candidate" ]]; then
+    printf '%s\n' "$capacity_candidate"
+  elif [[ -n "$fallback" ]]; then
+    printf '%s\n' "$fallback"
+  else
+    return 1
+  fi
+}
+
+detect_adapter() {
+  local p type scope name
+  local system_usb='' fallback_usb=''
+
+  for p in "$POWER_SUPPLY_ROOT"/*; do
+    [[ -r "$p/type" ]] || continue
+    read -r type < "$p/type"
+    if [[ "$type" == Mains ]]; then
+      basename "$p"
+      return 0
+    fi
+  done
+
+  for p in "$POWER_SUPPLY_ROOT"/*; do
+    [[ -r "$p/type" ]] || continue
+    read -r type < "$p/type"
+    case "$type" in USB|USB_C) ;; *) continue ;; esac
+
+    scope="$(cat "$p/scope" 2>/dev/null || true)"
+    [[ "$scope" == Device ]] && continue
+    name="$(basename "$p")"
+
+    if [[ "$scope" == System ]]; then
+      [[ -n "$system_usb" ]] || system_usb="$name"
+    else
+      [[ -n "$fallback_usb" ]] || fallback_usb="$name"
+    fi
+  done
+
+  if [[ -n "$system_usb" ]]; then
+    printf '%s\n' "$system_usb"
+  elif [[ -n "$fallback_usb" ]]; then
+    printf '%s\n' "$fallback_usb"
+  else
+    return 1
+  fi
+}
+
+detect_backlight() {
+  local p
+  for p in /sys/class/backlight/*; do
+    [[ -e "$p" ]] && { basename "$p"; return 0; }
+  done
+  return 1
+}
+
+detect_wifi() {
+  local p
+  for p in /sys/class/net/*/wireless; do
+    [[ -d "$p" ]] && { basename "$(dirname "$p")"; return 0; }
+  done
+  return 1
+}
+
+detect_wired() {
+  local dev path
+  while read -r dev; do
+    [[ -n "$dev" ]] || continue
+    case "$dev" in lo|tun*|tap*|wg*|docker*|br-*|virbr*|vmnet*|vboxnet*) continue ;; esac
+    path="/sys/class/net/$dev"
+    [[ -e "$path" ]] || continue
+    [[ -d "$path/wireless" ]] && continue
+    printf '%s\n' "$dev"
+    return 0
+  done < <(find /sys/class/net -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | sort)
+  return 1
+}
+
+detect_internal_display() {
+  command -v xrandr >/dev/null 2>&1 || return 1
+  [[ -n ${DISPLAY:-} ]] || return 1
+  xrandr --query 2>/dev/null | awk '$2=="connected" && $1 ~ /^(eDP|LVDS)/ {print $1; exit}'
+}
+
+detect_connected_displays() {
+  command -v xrandr >/dev/null 2>&1 || return 0
+  [[ -n ${DISPLAY:-} ]] || return 0
+  xrandr --query 2>/dev/null | awk '$2=="connected" {print $1}' | paste -sd, -
+}
+
+detect_nvidia_runtime() {
+  local dev vendor runtime
+  for dev in /sys/bus/pci/devices/*; do
+    [[ -r "$dev/vendor" ]] || continue
+    vendor="$(cat "$dev/vendor" 2>/dev/null || true)"
+    [[ "$vendor" == 0x10de ]] || continue
+    runtime="$(cat "$dev/power/runtime_status" 2>/dev/null || true)"
+    printf '%s\n' "${runtime:-unknown}"
+    return 0
+  done
+  return 1
+}
+
+main() {
+  local environment vendor product battery adapter backlight wifi wired internal displays nvidia_runtime
+
+  environment="$(detect_environment)"
+  vendor="$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || true)"
+  product="$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)"
+  battery="$(detect_battery || true)"
+  adapter="$(detect_adapter || true)"
+  backlight="$(detect_backlight || true)"
+  wifi="$(detect_wifi || true)"
+  wired="$(detect_wired || true)"
+  internal="$(detect_internal_display || true)"
+  displays="$(detect_connected_displays || true)"
+  nvidia_runtime="$(detect_nvidia_runtime || true)"
+
+  cat <<EOF
+KaliPWM V1 read-only detection
+----------------------------------------
+environment=${environment:-unknown}
+vendor=${vendor:-unknown}
+product=${product:-unknown}
+battery=${battery:-none}
+adapter=${adapter:-none}
+backlight=${backlight:-none}
+wifi_interface=${wifi:-none}
+wired_interface=${wired:-none}
+internal_display=${internal:-none}
+connected_displays=${displays:-none}
+nvidia_runtime=${nvidia_runtime:-none}
+----------------------------------------
+EOF
+}
+
+main "$@"
