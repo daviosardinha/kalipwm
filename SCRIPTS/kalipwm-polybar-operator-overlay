@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ACTION="${1:-status}"
+CONFIG_HOME="${KALIPWM_CONFIG_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}}"
+FOREST="$CONFIG_HOME/polybar/forest"
+CONFIG="$FOREST/config.ini"
+MODULES="$FOREST/kalipwm-operator.ini"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DEST="$FOREST/scripts"
+STATE_ROOT="${KALIPWM_STATE_ROOT:-$HOME/.local/state/kalipwm-rebuild}"
+
+LEFT_OLD='modules-left = launcher sep wired-network vpn target'
+LEFT_NEW='modules-left = launcher sep kalipwm-network kalipwm-vpn kalipwm-target'
+RIGHT_OLD='modules-right = cpu memory volume date sep sysmenu'
+RIGHT_NEW='modules-right = cpu memory volume kalipwm-battery date sep sysmenu'
+ANCHOR='include-file = ~/.config/polybar/forest/user_modules.ini'
+INCLUDE='include-file = ~/.config/polybar/forest/kalipwm-operator.ini'
+
+log() { printf '[+] %s\n' "$*"; }
+die() { printf '[-] %s\n' "$*" >&2; exit 1; }
+
+usage() {
+  cat <<'EOF'
+Usage: kalipwm-polybar-operator-overlay {status|apply|remove}
+
+Adds the validated KaliPWM operator helpers to a working upstream Polybar config
+without modifying the repository's protected upstream Polybar files.
+EOF
+}
+
+require_live_config() {
+  [[ -f "$CONFIG" ]] || die "Polybar config not found: $CONFIG"
+}
+
+write_modules() {
+  mkdir -p "$FOREST" "$SCRIPT_DEST"
+  local tmp
+  tmp="$(mktemp "$FOREST/.kalipwm-operator.ini.XXXXXX")"
+  cat > "$tmp" <<'EOF'
+; KaliPWM V1 operator overlay. Generated; do not hand-edit.
+
+[module/kalipwm-network]
+type = custom/script
+exec = ~/.config/polybar/forest/scripts/kalipwm-network
+interval = 2
+
+[module/kalipwm-vpn]
+type = custom/script
+exec = ~/.config/polybar/forest/scripts/kalipwm-vpn
+interval = 2
+
+[module/kalipwm-target]
+type = custom/script
+exec = ~/.config/polybar/forest/scripts/target.sh
+interval = 1
+
+[module/kalipwm-battery]
+type = custom/script
+exec = ~/.config/polybar/forest/scripts/kalipwm-battery
+interval = 5
+EOF
+  mv -f "$tmp" "$MODULES"
+}
+
+copy_helpers() {
+  local helper
+  mkdir -p "$SCRIPT_DEST" "$HOME/.local/bin"
+  for helper in kalipwm-network kalipwm-vpn kalipwm-battery target.sh; do
+    [[ -f "$SCRIPT_DIR/$helper" ]] || die "Missing helper: $SCRIPT_DIR/$helper"
+    cp -f "$SCRIPT_DIR/$helper" "$SCRIPT_DEST/$helper"
+    chmod +x "$SCRIPT_DEST/$helper"
+  done
+  ln -sfn "$SCRIPT_DEST/target.sh" "$HOME/.local/bin/target"
+}
+
+backup_config() {
+  local stamp dest
+  stamp="$(date +%Y%m%d-%H%M%S)-$$"
+  dest="$STATE_ROOT/live-backups/$stamp"
+  mkdir -p "$dest"
+  cp -a "$CONFIG" "$dest/config.ini"
+  [[ -f "$MODULES" ]] && cp -a "$MODULES" "$dest/kalipwm-operator.ini" || true
+  printf '%s\n' "$dest"
+}
+
+replace_exact_line() {
+  local old="$1" new="$2"
+  if grep -Fxq "$new" "$CONFIG"; then
+    return 0
+  fi
+  grep -Fxq "$old" "$CONFIG" || die "Expected Polybar line not found: $old"
+  sed -i "s|^${old//|/\\|}$|${new//|/\\|}|" "$CONFIG"
+}
+
+ensure_include() {
+  grep -Fxq "$INCLUDE" "$CONFIG" && return 0
+  grep -Fxq "$ANCHOR" "$CONFIG" || die "Expected Polybar include anchor not found."
+  sed -i "/^${ANCHOR//\//\\/}$/a $INCLUDE" "$CONFIG"
+}
+
+remove_include() {
+  sed -i "\|^${INCLUDE//|/\\|}$|d" "$CONFIG"
+}
+
+status() {
+  require_live_config
+  local state=inactive
+  if grep -Fxq "$LEFT_NEW" "$CONFIG" \
+    && grep -Fxq "$RIGHT_NEW" "$CONFIG" \
+    && grep -Fxq "$INCLUDE" "$CONFIG" \
+    && [[ -f "$MODULES" ]]; then
+    state=active
+  fi
+  printf 'operator_overlay=%s\n' "$state"
+  printf 'config=%s\n' "$CONFIG"
+  printf 'modules=%s\n' "$MODULES"
+}
+
+apply() {
+  require_live_config
+  local backup
+  backup="$(backup_config)"
+  replace_exact_line "$LEFT_OLD" "$LEFT_NEW"
+  replace_exact_line "$RIGHT_OLD" "$RIGHT_NEW"
+  ensure_include
+  write_modules
+  copy_helpers
+  log "Operator Polybar overlay applied"
+  printf 'backup=%s\n' "$backup"
+  status
+}
+
+remove_overlay() {
+  require_live_config
+  local backup
+  backup="$(backup_config)"
+  replace_exact_line "$LEFT_NEW" "$LEFT_OLD"
+  replace_exact_line "$RIGHT_NEW" "$RIGHT_OLD"
+  remove_include
+  rm -f "$MODULES"
+  log "Operator Polybar overlay removed"
+  printf 'backup=%s\n' "$backup"
+  status
+}
+
+case "$ACTION" in
+  status) status ;;
+  apply) apply ;;
+  remove) remove_overlay ;;
+  -h|--help|help) usage ;;
+  *) usage >&2; exit 2 ;;
+esac
