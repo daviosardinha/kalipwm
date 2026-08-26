@@ -209,12 +209,35 @@ apply_all() {
   return 0
 }
 
+# Include active geometry in the signature, not only connector names. After a
+# suspend/resume cycle RandR can report an HDMI/DP connector as "connected"
+# while leaving it inactive (no WIDTHxHEIGHT+X+Y geometry). A name-only
+# signature misses that failure and never re-enables the display.
 topology_signature() {
-  connected_outputs | paste -sd, -
+  local out geometry
+  while read -r out; do
+    [[ -n "$out" ]] || continue
+    geometry="$(output_geometry "$out")"
+    printf '%s:%s\n' "$out" "${geometry:-inactive}"
+  done < <(connected_outputs) | paste -sd, -
+}
+
+# Bare-metal health check for the resume case above. Virtual displays are
+# intentionally excluded because guest tools own their resize lifecycle.
+display_needs_recovery() {
+  local out
+  [[ "$environment" == baremetal ]] || return 1
+
+  while read -r out; do
+    [[ -n "$out" ]] || continue
+    [[ -n "$(output_geometry "$out")" ]] || return 0
+  done < <(connected_outputs)
+
+  return 1
 }
 
 watch_layout() {
-  local previous current
+  local previous current now last_recovery=0
 
   # The watcher belongs to the BSPWM session. If BSPWM exits (for example when
   # the user logs out and selects XFCE), stop KaliPWM's bar before the watcher
@@ -237,11 +260,16 @@ watch_layout() {
     fi
 
     current="$(topology_signature)"
-    if [[ "$current" != "$previous" ]]; then
-      # Give RandR a short debounce window so provider-backed USB-C outputs can
-      # settle before BSPWM and Polybar are reconciled.
+    now="$(date +%s)"
+
+    if [[ "$current" != "$previous" ]] || \
+       { display_needs_recovery && (( now - last_recovery >= 15 )); }; then
+      # Give RandR a short debounce window so provider-backed outputs can
+      # settle, then re-apply --auto and reconcile BSPWM/Polybar. If a connector
+      # remains connected-but-inactive, retry at most once every 15 seconds.
       sleep 1
       apply_all true
+      last_recovery="$now"
       previous="$(topology_signature)"
     fi
   done
