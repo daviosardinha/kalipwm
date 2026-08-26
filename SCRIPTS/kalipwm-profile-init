@@ -86,7 +86,7 @@ generate_profile() {
   printf 'external_position=right\n'
   printf 'editor=vim\n'
   printf 'cat_override=false\n'
-  printf 'screenshots=scrot\n'
+  printf 'screenshots=flameshot\n'
   printf 'telemetry=false\n'
   printf 'plymouth=false\n'
 }
