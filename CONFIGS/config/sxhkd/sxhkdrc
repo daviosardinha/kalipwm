@@ -95,9 +95,10 @@ super + ctrl + alt + space
 super + ctrl + {Left,Down,Up,Right}
     bspc node -v {-20 0,0 20,0 -20,20 0}
 
-# Resize current window using the upstream-tested split-boundary helper.
+# Resize current window using the upstream-tested split-boundary helper. Invoke
+# it through Bash so a lost executable bit cannot silently break the binding.
 super + alt + {Left,Down,Up,Right}
-    ~/.config/bspwm/scripts/bspwm_resize {west,south,north,east}
+    bash ~/.config/bspwm/scripts/bspwm_resize {west,south,north,east}
 
 #####################
 # Operator launchers #
