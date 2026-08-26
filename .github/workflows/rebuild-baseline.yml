@@ -75,3 +75,7 @@ jobs:
       - name: Thermal telemetry regression test
         shell: bash
         run: bash tests/telemetry.sh
+
+      - name: Conservative display planning regression test
+        shell: bash
+        run: bash tests/display-plan.sh
