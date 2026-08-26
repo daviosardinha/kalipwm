@@ -52,3 +52,7 @@ jobs:
       - name: Operator context regression test
         shell: bash
         run: bash tests/operator-context.sh
+
+      - name: Network and battery regression test
+        shell: bash
+        run: bash tests/network-battery.sh
