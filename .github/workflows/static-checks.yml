@@ -19,3 +19,6 @@ jobs:
 
       - name: Run KaliPWM static checks
         run: bash tests/static-checks.sh
+
+      - name: Run upstream compatibility checks
+        run: bash tests/upstream-compat-checks.sh
