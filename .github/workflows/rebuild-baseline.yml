@@ -56,3 +56,7 @@ jobs:
       - name: Network and battery regression test
         shell: bash
         run: bash tests/network-battery.sh
+
+      - name: Audio brightness and OSD regression test
+        shell: bash
+        run: bash tests/audio-brightness-osd.sh
