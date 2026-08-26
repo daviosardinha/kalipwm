@@ -10,6 +10,8 @@ XRANDR="${KALIPWM_XRANDR_BIN:-xrandr}"
 environment=unknown
 internal_display=none
 external_position=right
+external_mode=auto
+external_rate=auto
 
 if [[ -r "$PROFILE" ]]; then
   # shellcheck disable=SC1090
@@ -23,6 +25,10 @@ command -v "$XRANDR" >/dev/null 2>&1 || {
 
 query() {
   "$XRANDR" --query
+}
+
+props() {
+  "$XRANDR" --props
 }
 
 connected_outputs() {
@@ -70,6 +76,48 @@ preferred_mode_rate() {
   '
 }
 
+output_has_mode() {
+  local output="$1" wanted_mode="$2"
+  query 2>/dev/null | awk -v out="$output" -v mode="$wanted_mode" '
+    $1==out && $2=="connected" {inside=1; next}
+    inside && /^[^[:space:]]/ {exit}
+    inside && $1==mode {found=1; exit}
+    END {exit found?0:1}
+  '
+}
+
+output_has_mode_rate() {
+  local output="$1" wanted_mode="$2" wanted_rate="$3"
+  query 2>/dev/null | awk -v out="$output" -v mode="$wanted_mode" -v rate="$wanted_rate" '
+    $1==out && $2=="connected" {inside=1; next}
+    inside && /^[^[:space:]]/ {exit}
+    inside && $1==mode {
+      for (i=2;i<=NF;i++) {
+        candidate=$i
+        gsub(/[+*]/,"",candidate)
+        if (candidate==rate) {found=1; exit}
+      }
+    }
+    END {exit found?0:1}
+  '
+}
+
+output_has_edid() {
+  local output="$1"
+  props 2>/dev/null | awk -v out="$output" '
+    $1==out && $2=="connected" {inside=1; in_edid=0; next}
+    inside && /^[^[:space:]]/ {exit}
+    inside && /^[[:space:]]+EDID:/ {in_edid=1; next}
+    in_edid {
+      line=$0
+      gsub(/[[:space:]]/,"",line)
+      if (line ~ /^[0-9A-Fa-f]+$/ && length(line) >= 32) {found=1; exit}
+      if ($0 ~ /^[[:space:]]+[A-Za-z][A-Za-z0-9 _-]*:/) {in_edid=0}
+    }
+    END {exit found?0:1}
+  '
+}
+
 find_internal() {
   local out
   if [[ -n "${internal_display:-}" && "$internal_display" != none ]] && output_connected "$internal_display"; then
@@ -110,6 +158,9 @@ build_plan() {
   PLAN_ACTION=noop
   PLAN_REASON=unknown
   PLAN_CMD=()
+  PLAN_EXTERNAL=""
+  PLAN_MODE=""
+  PLAN_RATE=""
 
   mapfile -t outputs < <(connected_outputs)
 
@@ -142,12 +193,49 @@ build_plan() {
   fi
 
   external="$(find_external "$internal" || true)"
+  PLAN_EXTERNAL="$external"
   if [[ -z "$external" ]]; then
     PLAN_REASON=no_external_display_identified
     return 0
   fi
 
-  read -r mode rate < <(preferred_mode_rate "$external" || true)
+  # An inactive connector with no readable EDID is commonly represented by
+  # XRandR with generic fallback modes such as 1024x768. Never treat those as
+  # a trustworthy native mode. This is especially important on hybrid-GPU
+  # laptops where the external connector may belong to a different provider.
+  if [[ -z "$(output_geometry "$external")" ]] && ! output_has_edid "$external"; then
+    PLAN_REASON=external_edid_unavailable
+    return 0
+  fi
+
+  read -r preferred_mode preferred_rate < <(preferred_mode_rate "$external" || true)
+
+  if [[ "${external_mode:-auto}" != auto ]]; then
+    PLAN_MODE="$external_mode"
+    if ! output_has_mode "$external" "$PLAN_MODE"; then
+      PLAN_REASON=requested_external_mode_unavailable
+      return 0
+    fi
+
+    if [[ "${external_rate:-auto}" != auto ]]; then
+      PLAN_RATE="$external_rate"
+      if ! output_has_mode_rate "$external" "$PLAN_MODE" "$PLAN_RATE"; then
+        PLAN_REASON=requested_external_rate_unavailable
+        return 0
+      fi
+    elif [[ "$preferred_mode" == "$PLAN_MODE" ]]; then
+      PLAN_RATE="$preferred_rate"
+    fi
+  else
+    PLAN_MODE="$preferred_mode"
+    PLAN_RATE="$preferred_rate"
+  fi
+
+  if [[ -z "$PLAN_MODE" ]]; then
+    PLAN_REASON=no_trusted_external_mode
+    return 0
+  fi
+
   flag="$(position_flag)"
 
   PLAN_CMD=("$XRANDR" --output "$internal")
@@ -157,13 +245,8 @@ build_plan() {
     PLAN_CMD+=(--auto --primary)
   fi
 
-  PLAN_CMD+=(--output "$external")
-  if [[ -n "${mode:-}" ]]; then
-    PLAN_CMD+=(--mode "$mode")
-    [[ -n "${rate:-}" ]] && PLAN_CMD+=(--rate "$rate")
-  else
-    PLAN_CMD+=(--auto)
-  fi
+  PLAN_CMD+=(--output "$external" --mode "$PLAN_MODE")
+  [[ -n "$PLAN_RATE" ]] && PLAN_CMD+=(--rate "$PLAN_RATE")
   PLAN_CMD+=("$flag" "$internal")
 
   PLAN_ACTION=apply
@@ -184,6 +267,8 @@ print_status() {
   printf 'internal_display=%s\n' "${internal:-none}"
   printf 'external_display=%s\n' "${external:-none}"
   printf 'external_position=%s\n' "${external_position:-right}"
+  printf 'external_mode=%s\n' "${external_mode:-auto}"
+  printf 'external_rate=%s\n' "${external_rate:-auto}"
 
   for out in "${outputs[@]}"; do
     geometry="$(output_geometry "$out")"
@@ -195,6 +280,9 @@ print_plan() {
   build_plan
   printf 'display_action=%s\n' "$PLAN_ACTION"
   printf 'display_reason=%s\n' "$PLAN_REASON"
+  [[ -n "$PLAN_EXTERNAL" ]] && printf 'display_external=%s\n' "$PLAN_EXTERNAL"
+  [[ -n "$PLAN_MODE" ]] && printf 'display_mode=%s\n' "$PLAN_MODE"
+  [[ -n "$PLAN_RATE" ]] && printf 'display_rate=%s\n' "$PLAN_RATE"
   if [[ "$PLAN_ACTION" == apply ]]; then
     printf 'display_command='
     printf '%q ' "${PLAN_CMD[@]}"
@@ -221,6 +309,7 @@ apply_plan() {
   backup="$STATE_ROOT/display-backups/$stamp"
   mkdir -p "$backup"
   query > "$backup/xrandr-before.txt"
+  props > "$backup/xrandr-props-before.txt" 2>/dev/null || true
   [[ -r "$PROFILE" ]] && cp -a "$PROFILE" "$backup/profile.conf"
 
   printf 'display_backup=%s\n' "$backup"
@@ -244,6 +333,14 @@ Usage: kalipwm-display {status|plan|apply --confirm}
 status  Read-only display discovery.
 plan    Read-only proposed layout. Virtual machines are always a no-op.
 apply   Explicit bare-metal two-display apply. Requires --confirm.
+
+Optional profile controls:
+  external_mode=auto       # or an explicit advertised mode, e.g. 3840x1080
+  external_rate=auto       # or an explicit advertised rate, e.g. 119.97
+
+Inactive external connectors must expose a readable EDID before automatic mode
+selection is trusted. An explicit mode/rate must already be advertised by
+XRandR; this helper will not create modelines or change provider routing.
 
 There is intentionally no watcher, provider routing, NVIDIA power handling,
 BSPWM monitor reconciliation, or automatic resume logic in this phase.
