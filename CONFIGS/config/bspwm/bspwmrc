@@ -23,8 +23,8 @@ bspc rule -a Screenkey manage=off
 # WALLPAPER
 feh --bg-fill ~/Wallpapers/wallpaper.*
 
-# POLYBAR
-~/.config/polybar/launch.sh --forest
+# POLYBAR - Obsidian
+~/.config/polybar/obsidian/launch.sh
 
 # CUSTOM
 bspc config focus_follows_pointer true
