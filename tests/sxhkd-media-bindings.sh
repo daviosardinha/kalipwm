@@ -32,11 +32,10 @@ new_screenshot = '''# Interactive region + annotation. Ctrl+C inside Flameshot c
 Print
 \tbash ~/.config/polybar/forest/scripts/screenshot.sh gui
 
-# Ctrl is a Flameshot in-GUI modifier too. Trigger this binding on Print
-# release and add a tiny grace period so the launch does not inherit the
-# shortcut modifier state.
-ctrl + @Print
-\tsleep 0.20; bash ~/.config/polybar/forest/scripts/screenshot.sh gui
+# Preserve the known-good old KaliPWM workflow: Ctrl+Print opens the same
+# interactive Flameshot capture UI directly.
+ctrl + Print
+\tbash ~/.config/polybar/forest/scripts/screenshot.sh gui
 
 # Explicit full-desktop save to ~/Pictures/Screenshots.
 shift + Print
@@ -89,8 +88,7 @@ fi
 
 for token in \
   'Print' \
-  'ctrl + @Print' \
-  'sleep 0.20; bash ~/.config/polybar/forest/scripts/screenshot.sh gui' \
+  'ctrl + Print' \
   'shift + Print' \
   'screenshot.sh gui' \
   'screenshot.sh full' \
@@ -103,5 +101,10 @@ for token in \
   kalipwm-osd; do
   grep -Fq "$token" "$CURRENT"
 done
+
+if grep -Fq 'ctrl + @Print' "$CURRENT"; then
+  echo 'deferred Ctrl+Print binding must not be present' >&2
+  exit 1
+fi
 
 echo 'sxhkd-approved-bindings: PASS'
