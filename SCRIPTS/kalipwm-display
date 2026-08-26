@@ -1,0 +1,256 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ACTION="${1:-status}"
+CONFIRM="${2:-}"
+PROFILE="${KALIPWM_PROFILE:-${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf}"
+STATE_ROOT="${KALIPWM_STATE_ROOT:-$HOME/.local/state/kalipwm-rebuild}"
+XRANDR="${KALIPWM_XRANDR_BIN:-xrandr}"
+
+environment=unknown
+internal_display=none
+external_position=right
+
+if [[ -r "$PROFILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$PROFILE"
+fi
+
+command -v "$XRANDR" >/dev/null 2>&1 || {
+  printf 'display_error=xrandr_not_found\n' >&2
+  exit 1
+}
+
+query() {
+  "$XRANDR" --query
+}
+
+connected_outputs() {
+  query 2>/dev/null | awk '$2=="connected" {print $1}'
+}
+
+output_connected() {
+  local output="$1"
+  query 2>/dev/null | awk -v out="$output" '$1==out && $2=="connected" {found=1} END {exit found?0:1}'
+}
+
+output_geometry() {
+  local output="$1"
+  query 2>/dev/null | awk -v out="$output" '
+    $1==out && $2=="connected" {
+      for (i=3; i<=NF; i++) {
+        if ($i ~ /^[0-9]+x[0-9]+\+[0-9-]+\+[0-9-]+$/) {
+          print $i
+          exit
+        }
+      }
+    }
+  '
+}
+
+primary_output() {
+  query 2>/dev/null | awk '$2=="connected" {for (i=3;i<=NF;i++) if ($i=="primary") {print $1; exit}}'
+}
+
+preferred_mode_rate() {
+  local output="$1"
+  query 2>/dev/null | awk -v out="$output" '
+    $1==out && $2=="connected" {inside=1; next}
+    inside && /^[^[:space:]]/ {exit}
+    inside && $1 ~ /^[0-9]+x[0-9]+$/ {
+      for (i=2;i<=NF;i++) {
+        if ($i ~ /\+/) {
+          rate=$i
+          gsub(/[+*]/,"",rate)
+          print $1, rate
+          exit
+        }
+      }
+    }
+  '
+}
+
+find_internal() {
+  local out
+  if [[ -n "${internal_display:-}" && "$internal_display" != none ]] && output_connected "$internal_display"; then
+    printf '%s\n' "$internal_display"
+    return 0
+  fi
+
+  while read -r out; do
+    [[ "$out" =~ ^(eDP|LVDS) ]] || continue
+    printf '%s\n' "$out"
+    return 0
+  done < <(connected_outputs)
+
+  return 1
+}
+
+find_external() {
+  local internal="$1" out
+  while read -r out; do
+    [[ "$out" == "$internal" ]] && continue
+    printf '%s\n' "$out"
+    return 0
+  done < <(connected_outputs)
+  return 1
+}
+
+position_flag() {
+  case "${external_position:-right}" in
+    left)   printf '%s\n' --left-of ;;
+    above)  printf '%s\n' --above ;;
+    below)  printf '%s\n' --below ;;
+    mirror) printf '%s\n' --same-as ;;
+    *)      printf '%s\n' --right-of ;;
+  esac
+}
+
+build_plan() {
+  PLAN_ACTION=noop
+  PLAN_REASON=unknown
+  PLAN_CMD=()
+
+  mapfile -t outputs < <(connected_outputs)
+
+  if [[ "${environment:-unknown}" != baremetal ]]; then
+    PLAN_REASON=virtual_display_managed_by_guest_tools
+    return 0
+  fi
+
+  case "${#outputs[@]}" in
+    0)
+      PLAN_REASON=no_connected_display
+      return 0
+      ;;
+    1)
+      PLAN_REASON=single_display_already_managed
+      return 0
+      ;;
+    2)
+      ;;
+    *)
+      PLAN_REASON=more_than_two_displays_requires_manual_layout
+      return 0
+      ;;
+  esac
+
+  internal="$(find_internal || true)"
+  if [[ -z "$internal" ]]; then
+    PLAN_REASON=no_internal_display_identified
+    return 0
+  fi
+
+  external="$(find_external "$internal" || true)"
+  if [[ -z "$external" ]]; then
+    PLAN_REASON=no_external_display_identified
+    return 0
+  fi
+
+  read -r mode rate < <(preferred_mode_rate "$external" || true)
+  flag="$(position_flag)"
+
+  PLAN_CMD=("$XRANDR" --output "$internal")
+  if [[ -n "$(output_geometry "$internal")" ]]; then
+    PLAN_CMD+=(--primary)
+  else
+    PLAN_CMD+=(--auto --primary)
+  fi
+
+  PLAN_CMD+=(--output "$external")
+  if [[ -n "${mode:-}" ]]; then
+    PLAN_CMD+=(--mode "$mode")
+    [[ -n "${rate:-}" ]] && PLAN_CMD+=(--rate "$rate")
+  else
+    PLAN_CMD+=(--auto)
+  fi
+  PLAN_CMD+=("$flag" "$internal")
+
+  PLAN_ACTION=apply
+  PLAN_REASON=two_display_baremetal_layout
+}
+
+print_status() {
+  local out geometry primary internal external
+  mapfile -t outputs < <(connected_outputs)
+  primary="$(primary_output || true)"
+  internal="$(find_internal || true)"
+  external=""
+  [[ -n "$internal" ]] && external="$(find_external "$internal" || true)"
+
+  printf 'environment=%s\n' "${environment:-unknown}"
+  printf 'connected_displays=%s\n' "$(IFS=,; echo "${outputs[*]:-}")"
+  printf 'primary_display=%s\n' "${primary:-none}"
+  printf 'internal_display=%s\n' "${internal:-none}"
+  printf 'external_display=%s\n' "${external:-none}"
+  printf 'external_position=%s\n' "${external_position:-right}"
+
+  for out in "${outputs[@]}"; do
+    geometry="$(output_geometry "$out")"
+    printf 'display.%s.geometry=%s\n' "$out" "${geometry:-inactive}"
+  done
+}
+
+print_plan() {
+  build_plan
+  printf 'display_action=%s\n' "$PLAN_ACTION"
+  printf 'display_reason=%s\n' "$PLAN_REASON"
+  if [[ "$PLAN_ACTION" == apply ]]; then
+    printf 'display_command='
+    printf '%q ' "${PLAN_CMD[@]}"
+    printf '\n'
+  fi
+}
+
+apply_plan() {
+  build_plan
+
+  if [[ "$PLAN_ACTION" != apply ]]; then
+    print_plan
+    return 0
+  fi
+
+  if [[ "$CONFIRM" != --confirm ]]; then
+    print_plan
+    printf 'display_error=explicit_confirmation_required\n' >&2
+    printf 'usage=kalipwm-display apply --confirm\n' >&2
+    return 2
+  fi
+
+  stamp="$(date +%Y%m%d-%H%M%S)-$$"
+  backup="$STATE_ROOT/display-backups/$stamp"
+  mkdir -p "$backup"
+  query > "$backup/xrandr-before.txt"
+  [[ -r "$PROFILE" ]] && cp -a "$PROFILE" "$backup/profile.conf"
+
+  printf 'display_backup=%s\n' "$backup"
+  printf 'display_command='
+  printf '%q ' "${PLAN_CMD[@]}"
+  printf '\n'
+
+  "${PLAN_CMD[@]}"
+  printf 'display_apply=PASS\n'
+  print_status
+}
+
+case "$ACTION" in
+  status) print_status ;;
+  plan) print_plan ;;
+  apply) apply_plan ;;
+  -h|--help|help)
+    cat <<'EOF'
+Usage: kalipwm-display {status|plan|apply --confirm}
+
+status  Read-only display discovery.
+plan    Read-only proposed layout. Virtual machines are always a no-op.
+apply   Explicit bare-metal two-display apply. Requires --confirm.
+
+There is intentionally no watcher, provider routing, NVIDIA power handling,
+BSPWM monitor reconciliation, or automatic resume logic in this phase.
+EOF
+    ;;
+  *)
+    printf 'Usage: kalipwm-display {status|plan|apply --confirm}\n' >&2
+    exit 2
+    ;;
+esac
