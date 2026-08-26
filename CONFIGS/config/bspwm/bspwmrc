@@ -79,8 +79,14 @@ bspc config presel_feedback_color '#C95B6A'
 # duplicate rules accumulate across repeated reloads.
 bspc rule -r '*'
 
-# Useful application placement rules.
+# Useful application placement rules. Preserve upstream behavior unless V1 has
+# an explicit reason to diverge, then layer the operator-specific rules on top.
 bspc rule -a Gimp state=floating follow=on
+bspc rule -a Chromium desktop='II'
+bspc rule -a chromium desktop='II'
+bspc rule -a mplayer2 state=floating
+bspc rule -a Kupfer.py focus=on
+bspc rule -a Screenkey manage=off
 bspc rule -a Pavucontrol state=floating
 bspc rule -a Nm-connection-editor state=floating
 bspc rule -a flameshot state=floating
