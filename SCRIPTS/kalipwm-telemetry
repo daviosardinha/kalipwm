@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+THERMAL_ROOT="${KALIPWM_THERMAL_ROOT:-/sys/class/thermal}"
+HWMON_ROOT="${KALIPWM_HWMON_ROOT:-/sys/class/hwmon}"
+PCI_ROOT="${KALIPWM_PCI_ROOT:-/sys/bus/pci/devices}"
+
+parts=()
+
+valid_millidegree() {
+  [[ ${1:-} =~ ^[0-9]+$ ]] && (( $1 >= 15000 && $1 <= 120000 ))
+}
+
+cpu_temp_from_thermal() {
+  local zone type raw
+  for zone in "$THERMAL_ROOT"/thermal_zone*; do
+    [[ -r "$zone/temp" ]] || continue
+    type="$(cat "$zone/type" 2>/dev/null || true)"
+    case "$type" in
+      x86_pkg_temp|cpu-thermal|cpu_thermal|TCPU|Package*)
+        raw="$(cat "$zone/temp" 2>/dev/null || true)"
+        valid_millidegree "$raw" && { printf '%s\n' "$((raw / 1000))"; return 0; }
+        ;;
+    esac
+  done
+  return 1
+}
+
+cpu_temp_from_hwmon() {
+  local hw name input label raw
+  for hw in "$HWMON_ROOT"/hwmon*; do
+    [[ -r "$hw/name" ]] || continue
+    name="$(cat "$hw/name" 2>/dev/null || true)"
+    case "$name" in
+      coretemp|k10temp|zenpower|cpu_thermal|thinkpad) ;;
+      *) continue ;;
+    esac
+
+    for input in "$hw"/temp*_input; do
+      [[ -r "$input" ]] || continue
+      label="$(cat "${input%_input}_label" 2>/dev/null || true)"
+      case "$label" in
+        'Package id '*|Package*|Tctl|Tdie|CPU|CPU*) ;;
+        '') [[ "$name" == coretemp || "$name" == k10temp || "$name" == zenpower ]] || continue ;;
+        *) continue ;;
+      esac
+
+      raw="$(cat "$input" 2>/dev/null || true)"
+      valid_millidegree "$raw" && { printf '%s\n' "$((raw / 1000))"; return 0; }
+    done
+  done
+  return 1
+}
+
+cpu_temp_fallback() {
+  local zone raw
+  for zone in "$THERMAL_ROOT"/thermal_zone*; do
+    [[ -r "$zone/temp" ]] || continue
+    raw="$(cat "$zone/temp" 2>/dev/null || true)"
+    valid_millidegree "$raw" && { printf '%s\n' "$((raw / 1000))"; return 0; }
+  done
+  return 1
+}
+
+nvidia_runtime_active() {
+  local dev vendor runtime
+  for dev in "$PCI_ROOT"/*; do
+    [[ -r "$dev/vendor" ]] || continue
+    vendor="$(cat "$dev/vendor" 2>/dev/null || true)"
+    [[ "$vendor" == 0x10de ]] || continue
+    runtime="$(cat "$dev/power/runtime_status" 2>/dev/null || true)"
+    [[ "$runtime" == active ]] && return 0
+  done
+  return 1
+}
+
+first_fan_rpm() {
+  local input value
+  for input in "$HWMON_ROOT"/hwmon*/fan*_input; do
+    [[ -r "$input" ]] || continue
+    value="$(cat "$input" 2>/dev/null || true)"
+    [[ "$value" =~ ^[0-9]+$ ]] || continue
+    printf '%s\n' "$value"
+    return 0
+  done
+  return 1
+}
+
+cpu_temp="$(cpu_temp_from_thermal || cpu_temp_from_hwmon || cpu_temp_fallback || true)"
+[[ -n "$cpu_temp" ]] && parts+=("CPU ${cpu_temp}C")
+
+# Do not wake an idle NVIDIA dGPU just to render telemetry. Query nvidia-smi
+# only when runtime PM already reports the device active, unless explicitly
+# overridden for troubleshooting.
+if command -v nvidia-smi >/dev/null 2>&1 && \
+   { [[ ${KALIPWM_FORCE_GPU_TELEMETRY:-0} == 1 ]] || nvidia_runtime_active; }; then
+  gpu_temp="$(nvidia-smi --query-gpu=temperature.gpu --format=csv,noheader,nounits 2>/dev/null | head -n1 | tr -d '[:space:]')"
+  [[ "$gpu_temp" =~ ^[0-9]+$ ]] && parts+=("GPU ${gpu_temp}C")
+fi
+
+fan="$(first_fan_rpm || true)"
+[[ -n "$fan" ]] && parts+=("FAN ${fan}RPM")
+
+if ((${#parts[@]})); then
+  printf 'TEMP %s\n' "$(IFS=' '; echo "${parts[*]}")"
+else
+  printf 'TEMP N/A\n'
+fi
