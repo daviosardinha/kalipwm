@@ -437,6 +437,7 @@ install_configs() {
 
   find "$HOME/.config/bspwm" "$HOME/.config/polybar" -type f -name '*.sh' -exec chmod +x {} + 2>/dev/null || true
   chmod +x "$HOME/.config/bspwm/bspwmrc" 2>/dev/null || true
+  chmod +x "$HOME/.config/bspwm/scripts/bspwm_resize" 2>/dev/null || true
 }
 
 write_profile() {
