@@ -20,18 +20,21 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify upstream desktop behavior files remain untouched
+      - name: Verify protected upstream desktop files remain untouched
         shell: bash
         run: |
           set -Eeuo pipefail
           BASE=187eefe3108040f8d0f1164804ac3f0267113604
           git diff --exit-code "$BASE" -- \
             CONFIGS/config/bspwm \
-            CONFIGS/config/sxhkd \
             CONFIGS/config/picom \
             CONFIGS/config/polybar \
             CONFIGS/config/kitty \
             CONFIGS/config/rofi
+
+      - name: Verify sxhkd only contains approved media-key delta
+        shell: bash
+        run: bash tests/sxhkd-media-bindings.sh
 
       - name: Bash syntax
         shell: bash
