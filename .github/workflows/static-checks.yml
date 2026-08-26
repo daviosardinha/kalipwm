@@ -22,3 +22,6 @@ jobs:
 
       - name: Run upstream compatibility checks
         run: bash tests/upstream-compat-checks.sh
+
+      - name: Run runtime regression checks
+        run: bash tests/runtime-regression-checks.sh
