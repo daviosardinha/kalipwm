@@ -1,0 +1,470 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ACTION="${1:-status}"
+PROFILE="${KALIPWM_PROFILE:-${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf}"
+STATE_ROOT="${KALIPWM_STATE_ROOT:-$HOME/.local/state/kalipwm-rebuild}"
+NO_RESTART="${KALIPWM_THEME_NO_RESTART:-0}"
+
+BSPWMRC="$HOME/.config/bspwm/bspwmrc"
+POLYBAR_DIR="$HOME/.config/polybar/forest"
+KITTY_DIR="$HOME/.config/kitty"
+DUNST_DIR="$HOME/.config/dunst"
+ROFI_DIR="$POLYBAR_DIR/scripts/rofi"
+
+MARK_BEGIN="# >>> kalipwm-obsidian-tactical >>>"
+MARK_END="# <<< kalipwm-obsidian-tactical <<<"
+
+log() { printf '[+] %s\n' "$*"; }
+warn() { printf '[!] %s\n' "$*" >&2; }
+
+backup_file() {
+  local file="$1" root="$2" rel
+  [[ -e "$file" || -L "$file" ]] || return 0
+  rel="${file#$HOME/}"
+  mkdir -p "$root/$(dirname "$rel")"
+  cp -a "$file" "$root/$rel"
+}
+
+set_config_line() {
+  local file="$1" key="$2" value="$3"
+  [[ -f "$file" ]] || return 0
+  if grep -Eq "^[[:space:]]*${key}[[:space:]]+" "$file"; then
+    sed -Ei "s|^[[:space:]]*${key}[[:space:]]+.*|${key} ${value}|" "$file"
+  else
+    printf '\n%s %s\n' "$key" "$value" >> "$file"
+  fi
+}
+
+set_ini_line() {
+  local file="$1" key="$2" value="$3"
+  [[ -f "$file" ]] || return 0
+  if grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$file"; then
+    sed -Ei "s|^[[:space:]]*${key}[[:space:]]*=.*|${key} = ${value}|" "$file"
+  else
+    printf '\n%s = %s\n' "$key" "$value" >> "$file"
+  fi
+}
+
+write_polybar_colors() {
+  mkdir -p "$POLYBAR_DIR"
+  cat > "$POLYBAR_DIR/colors.ini" <<'EOF'
+[color]
+
+; KaliPWM V1 — Obsidian Tactical
+; Charcoal/graphite surfaces, restrained violet interaction, semantic state colors.
+background = #EE0F1117
+background-alt = #EE171A22
+surface = #EE1D2029
+foreground = #D7D9E0
+foreground-muted = #9298A6
+sep = #303541
+
+white = #F1F1F4
+black = #090A0E
+red = #C95B6A
+pink = #B86F91
+purple = #9B7EDE
+blue = #6D8FC7
+cyan = #6FAEB5
+teal = #69A9A0
+green = #7FBF9A
+lime = #9B7EDE
+yellow = #D6B66A
+amber = #D6A85F
+orange = #CC8B62
+brown = #96796F
+indigo = #7A74B8
+gray = #9298A6
+blue-gray = #74808D
+
+accent = #9B7EDE
+healthy = #7FBF9A
+warning = #D6A85F
+critical = #C95B6A
+EOF
+}
+
+write_kitty_colors() {
+  mkdir -p "$KITTY_DIR"
+  cat > "$KITTY_DIR/color.ini" <<'EOF'
+# KaliPWM V1 — Obsidian Tactical terminal palette
+foreground #D7D9E0
+background #0F1117
+
+color0  #171A22
+color8  #565D6B
+color1  #C95B6A
+color9  #E0717F
+color2  #7FBF9A
+color10 #96D3AE
+color3  #D6B66A
+color11 #E2C982
+color4  #6D8FC7
+color12 #82A4DA
+color5  #9B7EDE
+color13 #B49AEA
+color6  #6FAEB5
+color14 #85C1C7
+color7  #C5C8D0
+color15 #F1F1F4
+
+cursor #B49AEA
+cursor_text_color #0F1117
+selection_foreground #F1F1F4
+selection_background #343044
+url_color #9B7EDE
+
+active_tab_background #292438
+active_tab_foreground #F1F1F4
+inactive_tab_background #171A22
+inactive_tab_foreground #9298A6
+tab_bar_background #0F1117
+EOF
+
+  set_config_line "$KITTY_DIR/kitty.conf" window_padding_width 8
+  set_config_line "$KITTY_DIR/kitty.conf" background_opacity 0.94
+  set_config_line "$KITTY_DIR/kitty.conf" url_color '#9B7EDE'
+  set_config_line "$KITTY_DIR/kitty.conf" active_tab_background '#292438'
+  set_config_line "$KITTY_DIR/kitty.conf" active_tab_foreground '#F1F1F4'
+  set_config_line "$KITTY_DIR/kitty.conf" inactive_tab_background '#171A22'
+  set_config_line "$KITTY_DIR/kitty.conf" inactive_tab_foreground '#9298A6'
+  set_config_line "$KITTY_DIR/kitty.conf" tab_bar_margin_color '#0F1117'
+}
+
+write_rofi_launcher() {
+  mkdir -p "$ROFI_DIR"
+  cat > "$ROFI_DIR/launcher.rasi" <<'EOF'
+/* KaliPWM V1 — Obsidian Tactical Rofi launcher */
+
+* {
+    background:       #0F1117F2;
+    background-alt:   #171A22F2;
+    selected:         #2B2638F2;
+    foreground:       #D7D9E0FF;
+    muted:            #9298A6FF;
+    accent:           #9B7EDEFF;
+    border:           #303541FF;
+    font: "JetBrainsMono Nerd Font 11";
+}
+
+window {
+    transparency: "real";
+    location: center;
+    anchor: center;
+    width: 560px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 12px;
+    background-color: @background;
+}
+
+mainbox {
+    spacing: 12px;
+    padding: 18px;
+    background-color: transparent;
+    children: [ inputbar, listview ];
+}
+
+inputbar {
+    spacing: 10px;
+    padding: 12px 14px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 9px;
+    background-color: @background-alt;
+    children: [ prompt, entry ];
+}
+
+prompt {
+    text-color: @accent;
+    background-color: transparent;
+    str: "";
+}
+
+entry {
+    placeholder: "Search applications…";
+    placeholder-color: @muted;
+    text-color: @foreground;
+    background-color: transparent;
+}
+
+listview {
+    lines: 7;
+    columns: 1;
+    fixed-height: false;
+    dynamic: true;
+    cycle: true;
+    scrollbar: false;
+    spacing: 4px;
+    background-color: transparent;
+}
+
+element {
+    padding: 10px 12px;
+    spacing: 10px;
+    border-radius: 8px;
+    background-color: transparent;
+    text-color: @foreground;
+}
+
+element normal.normal {
+    background-color: transparent;
+    text-color: @foreground;
+}
+
+element selected.normal {
+    background-color: @selected;
+    text-color: @foreground;
+}
+
+element-icon {
+    size: 24px;
+    background-color: transparent;
+}
+
+element-text {
+    vertical-align: 0.5;
+    background-color: transparent;
+    text-color: inherit;
+}
+EOF
+}
+
+write_dunst() {
+  mkdir -p "$DUNST_DIR"
+  cat > "$DUNST_DIR/dunstrc" <<'EOF'
+# KaliPWM V1 — Obsidian Tactical Dunst
+[global]
+    monitor = 0
+    follow = mouse
+    origin = top-right
+    offset = 18x54
+    width = 360
+    height = 300
+    notification_limit = 5
+    font = JetBrainsMono Nerd Font Mono 10
+    markup = full
+    format = "<b>%s</b>\n%b"
+    alignment = left
+    vertical_alignment = center
+    word_wrap = yes
+    ellipsize = middle
+    stack_duplicates = true
+    hide_duplicate_count = true
+    show_indicators = no
+    frame_width = 1
+    frame_color = "#5A526B"
+    separator_height = 1
+    separator_color = frame
+    corner_radius = 9
+    gap_size = 7
+    padding = 12
+    horizontal_padding = 14
+    text_icon_padding = 10
+    background = "#0F1117"
+    foreground = "#D7D9E0"
+    highlight = "#9B7EDE"
+    icon_position = left
+    min_icon_size = 18
+    max_icon_size = 28
+    progress_bar = true
+    progress_bar_height = 7
+    progress_bar_frame_width = 0
+    progress_bar_min_width = 180
+    progress_bar_max_width = 300
+    progress_bar_corner_radius = 3
+    transparency = 4
+    idle_threshold = 120
+    mouse_left_click = close_current
+    mouse_middle_click = do_action, close_current
+    mouse_right_click = close_all
+
+[urgency_low]
+    background = "#0F1117"
+    foreground = "#9298A6"
+    frame_color = "#303541"
+    timeout = 3
+
+[urgency_normal]
+    background = "#0F1117"
+    foreground = "#D7D9E0"
+    frame_color = "#5A526B"
+    timeout = 4
+
+[urgency_critical]
+    background = "#171015"
+    foreground = "#F1F1F4"
+    frame_color = "#C95B6A"
+    timeout = 0
+
+[obsidian-osd]
+    appname = KaliPWM
+    background = "#0F1117"
+    foreground = "#D7D9E0"
+    frame_color = "#9B7EDE"
+    highlight = "#9B7EDE"
+    timeout = 1
+EOF
+}
+
+install_bspwm_visual_block() {
+  [[ -f "$BSPWMRC" ]] || return 0
+  local tmp
+  tmp="$(mktemp "${BSPWMRC}.XXXXXX")"
+  awk -v begin="$MARK_BEGIN" -v end="$MARK_END" '
+    $0 == begin {skip=1; next}
+    $0 == end {skip=0; next}
+    !skip {print}
+  ' "$BSPWMRC" > "$tmp"
+
+  cat >> "$tmp" <<'EOF'
+
+# >>> kalipwm-obsidian-tactical >>>
+# Visual-only Obsidian Tactical session overlay. No display/provider logic here.
+bspc config border_width 2
+bspc config window_gap 9
+bspc config split_ratio 0.52
+bspc config normal_border_color '#272A33'
+bspc config active_border_color '#5A526B'
+bspc config focused_border_color '#9B7EDE'
+bspc config presel_feedback_color '#C95B6A'
+# <<< kalipwm-obsidian-tactical <<<
+EOF
+  chmod --reference="$BSPWMRC" "$tmp" 2>/dev/null || true
+  mv -f "$tmp" "$BSPWMRC"
+}
+
+apply_live_bspwm() {
+  command -v bspc >/dev/null 2>&1 || return 0
+  bspc query -M >/dev/null 2>&1 || return 0
+  bspc config border_width 2
+  bspc config window_gap 9
+  bspc config split_ratio 0.52
+  bspc config normal_border_color '#272A33'
+  bspc config active_border_color '#5A526B'
+  bspc config focused_border_color '#9B7EDE'
+  bspc config presel_feedback_color '#C95B6A'
+}
+
+apply_polybar_geometry() {
+  local config="$POLYBAR_DIR/config.ini"
+  [[ -f "$config" ]] || return 0
+  set_ini_line "$config" height 38
+  set_ini_line "$config" padding 1
+}
+
+restart_visual_services() {
+  [[ "$NO_RESTART" == 1 ]] && return 0
+
+  if command -v dunst >/dev/null 2>&1; then
+    pkill -x dunst 2>/dev/null || true
+    nohup dunst >/dev/null 2>&1 &
+  fi
+
+  local overlay="$POLYBAR_DIR/scripts/kalipwm-polybar-operator-overlay"
+  if [[ -x "$overlay" ]]; then
+    "$overlay" apply >/dev/null 2>&1 || true
+  fi
+
+  local launcher="$POLYBAR_DIR/launch.sh"
+  if [[ -x "$launcher" ]]; then
+    "$launcher" >/dev/null 2>&1 || true
+  fi
+}
+
+apply_theme() {
+  local stamp backup
+  stamp="$(date +%Y%m%d-%H%M%S)-$$"
+  backup="$STATE_ROOT/theme-backups/$stamp"
+  mkdir -p "$backup"
+
+  backup_file "$BSPWMRC" "$backup"
+  backup_file "$POLYBAR_DIR/colors.ini" "$backup"
+  backup_file "$POLYBAR_DIR/config.ini" "$backup"
+  backup_file "$KITTY_DIR/color.ini" "$backup"
+  backup_file "$KITTY_DIR/kitty.conf" "$backup"
+  backup_file "$ROFI_DIR/launcher.rasi" "$backup"
+  backup_file "$DUNST_DIR/dunstrc" "$backup"
+
+  write_polybar_colors
+  apply_polybar_geometry
+  write_kitty_colors
+  write_rofi_launcher
+  write_dunst
+  install_bspwm_visual_block
+  apply_live_bspwm
+  restart_visual_services
+
+  printf 'theme_backup=%s\n' "$backup"
+  printf 'theme=obsidian-tactical\n'
+  printf 'bspwm_visual=active\n'
+  printf 'polybar_visual=active\n'
+  printf 'kitty_visual=active\n'
+  printf 'rofi_visual=active\n'
+  printf 'dunst_visual=active\n'
+  printf 'picom_visual=preserved_for_compatibility\n'
+}
+
+status_theme() {
+  local active=0
+  printf 'theme=obsidian-tactical\n'
+
+  if [[ -f "$BSPWMRC" ]] && grep -Fq "$MARK_BEGIN" "$BSPWMRC"; then
+    printf 'bspwm_visual=active\n'
+  else
+    printf 'bspwm_visual=inactive\n'
+    active=1
+  fi
+
+  if [[ -f "$POLYBAR_DIR/colors.ini" ]] && grep -Fq 'accent = #9B7EDE' "$POLYBAR_DIR/colors.ini"; then
+    printf 'polybar_visual=active\n'
+  else
+    printf 'polybar_visual=inactive\n'
+    active=1
+  fi
+
+  if [[ -f "$KITTY_DIR/color.ini" ]] && grep -Fq 'background #0F1117' "$KITTY_DIR/color.ini"; then
+    printf 'kitty_visual=active\n'
+  else
+    printf 'kitty_visual=inactive\n'
+    active=1
+  fi
+
+  if [[ -f "$ROFI_DIR/launcher.rasi" ]] && grep -Fq 'Obsidian Tactical Rofi launcher' "$ROFI_DIR/launcher.rasi"; then
+    printf 'rofi_visual=active\n'
+  else
+    printf 'rofi_visual=inactive\n'
+    active=1
+  fi
+
+  if [[ -f "$DUNST_DIR/dunstrc" ]] && grep -Fq 'Obsidian Tactical Dunst' "$DUNST_DIR/dunstrc"; then
+    printf 'dunst_visual=active\n'
+  else
+    printf 'dunst_visual=inactive\n'
+    active=1
+  fi
+
+  printf 'picom_visual=preserved_for_compatibility\n'
+  return "$active"
+}
+
+case "$ACTION" in
+  apply) apply_theme ;;
+  status) status_theme ;;
+  -h|--help|help)
+    cat <<'EOF'
+Usage: kalipwm-theme {apply|status}
+
+apply   Back up live visual configuration and apply Obsidian Tactical.
+status  Report which visual layers are active.
+
+This phase intentionally does not replace the Picom backend/blur profile and
+contains no display, provider-routing, NVIDIA, kernel, or resume logic.
+EOF
+    ;;
+  *)
+    printf 'Usage: kalipwm-theme {apply|status}\n' >&2
+    exit 2
+    ;;
+esac
