@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 THEME="$HOME/.config/polybar/obsidian/scripts/rofi/powermenu.rasi"
+CONFIRM_THEME="$HOME/.config/polybar/obsidian/scripts/rofi/confirm.rasi"
 LOCK='  Lock'
 LOGOUT='󰍃  Logout'
 SUSPEND='󰒲  Suspend'
@@ -10,7 +11,7 @@ SHUTDOWN='  Shutdown'
 choice=$(printf '%s\n%s\n%s\n%s\n%s\n' "$LOCK" "$LOGOUT" "$SUSPEND" "$REBOOT" "$SHUTDOWN" | rofi -no-config -dmenu -i -p 'Power' -theme "$THEME") || exit 0
 
 confirm() {
-    printf 'No\nYes\n' | rofi -no-config -dmenu -i -p "$1?" -theme "$THEME" | grep -qx 'Yes'
+    printf 'No\nYes\n' | rofi -no-config -dmenu -i -p "$1?" -theme "$CONFIRM_THEME" | grep -qx 'Yes'
 }
 
 case "$choice" in
