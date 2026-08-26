@@ -84,6 +84,8 @@ generate_profile() {
   emit_assignment connected_displays "${detected[connected_displays]}"
   emit_assignment nvidia_runtime "${detected[nvidia_runtime]}"
   printf 'external_position=right\n'
+  printf 'external_mode=auto\n'
+  printf 'external_rate=auto\n'
   printf 'editor=vim\n'
   printf 'cat_override=false\n'
   printf 'screenshots=flameshot\n'
