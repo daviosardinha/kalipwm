@@ -8,15 +8,15 @@ for path in /sys/class/net/*; do
 done
 
 if [ -z "$iface" ]; then
-    printf 'WLAN OFF'
+    printf 'OFF'
     exit 0
 fi
 
-state=$(cat "/sys/class/net/$iface/operstate" 2>/dev/null || printf 'down')
+state=$(/usr/bin/cat "/sys/class/net/$iface/operstate" 2>/dev/null || printf 'down')
 ip=$(ip -4 -o addr show dev "$iface" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)
 
 if [ "$state" = "up" ] && [ -n "$ip" ]; then
-    printf 'WLAN %s %s' "$iface" "$ip"
+    printf '%s %s' "$iface" "$ip"
 else
-    printf 'WLAN %s OFF' "$iface"
+    printf '%s OFF' "$iface"
 fi
