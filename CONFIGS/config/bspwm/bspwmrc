@@ -7,9 +7,25 @@ LOCAL_BIN="$HOME/.local/bin"
 [[ -r "$PROFILE" ]] && source "$PROFILE"
 environment="${environment:-baremetal}"
 
+process_running() {
+  local process="$1"
+
+  # Linux comm names are limited to 15 bytes. pgrep -x silently becomes an
+  # unreliable probe for longer names (for example xfce4-power-manager), so
+  # use the full command line only for those processes.
+  if ((${#process} <= 15)); then
+    if pgrep -u "$UID" -x "$process" >/dev/null 2>&1; then
+      return 0
+    fi
+  elif pgrep -u "$UID" -f "(^|/)$process([[:space:]]|$)" >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
 start_once() {
   local process="$1"; shift
-  if pgrep -u "$UID" -x "$process" >/dev/null 2>&1; then
+  if process_running "$process"; then
     return 0
   fi
   "$@" >/dev/null 2>&1 &
