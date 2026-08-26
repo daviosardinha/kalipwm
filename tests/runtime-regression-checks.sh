@@ -10,9 +10,9 @@ grep -A10 '^topology_signature()' SCRIPTS/kalipwm-display | grep -q 'output_geom
 grep -A10 '^topology_signature()' SCRIPTS/kalipwm-display | grep -q 'inactive'
 ! grep -q '^display_needs_recovery()' SCRIPTS/kalipwm-display
 ! grep -q 'last_recovery' SCRIPTS/kalipwm-display
-grep -A25 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'if \[\[ "\$current" != "\$previous" \]\]; then'
-grep -A25 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q '^      apply_all true$'
-grep -A25 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'previous="$(topology_signature)"'
+grep -A60 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'if \[\[ "\$current" != "\$previous" \]\]; then'
+grep -A60 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q '^      apply_all true$'
+grep -A60 '^watch_layout()' SCRIPTS/kalipwm-display | grep -q 'previous="$(topology_signature)"'
 echo 'PASS connected-but-inactive outputs get one edge-triggered recovery attempt without an endless modeset loop'
 
 printf '\n== Arbitrary WireGuard interface guard ==\n'
