@@ -71,3 +71,7 @@ jobs:
       - name: Polybar operator overlay regression test
         shell: bash
         run: bash tests/polybar-operator-overlay.sh
+
+      - name: Thermal telemetry regression test
+        shell: bash
+        run: bash tests/telemetry.sh
