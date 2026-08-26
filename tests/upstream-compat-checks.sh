@@ -78,6 +78,29 @@ grep -Fqx 'map F3 copy_to_buffer b' CONFIGS/config/kitty/kitty.conf
 grep -Fqx 'map F4 paste_from_buffer b' CONFIGS/config/kitty/kitty.conf
 echo 'PASS upstream Kitty named buffers remain available'
 
+printf '\n== Audio helper behavior ==\n'
+cat > "$tmp/wpctl" <<'EOF'
+#!/usr/bin/env bash
+set -u
+if [[ "${1:-}" == get-volume ]]; then
+  printf '%s\n' "${WPCTL_OUTPUT:-Volume: 0.42}"
+  exit 0
+fi
+printf '%s\n' "$*" >> "$AUDIO_LOG"
+EOF
+chmod +x "$tmp/wpctl"
+
+audio_out="$(WPCTL_OUTPUT='Volume: 0.42' AUDIO_LOG="$tmp/audio-log" PATH="$tmp:$PATH" bash SCRIPTS/kalipwm-audio status)"
+[[ "$audio_out" == '42%' ]]
+audio_out="$(WPCTL_OUTPUT='Volume: 0.42 [MUTED]' AUDIO_LOG="$tmp/audio-log" PATH="$tmp:$PATH" bash SCRIPTS/kalipwm-audio status)"
+[[ "$audio_out" == 'MUTE' ]]
+: > "$tmp/audio-log"
+AUDIO_LOG="$tmp/audio-log" PATH="$tmp:$PATH" bash SCRIPTS/kalipwm-audio up
+grep -Fxq 'set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+' "$tmp/audio-log"
+AUDIO_LOG="$tmp/audio-log" PATH="$tmp:$PATH" bash SCRIPTS/kalipwm-audio mute
+grep -Fxq 'set-mute @DEFAULT_AUDIO_SINK@ toggle' "$tmp/audio-log"
+echo 'PASS audio status and controls target the dynamic default PipeWire sink'
+
 printf '\n== Polybar behavior preservation ==\n'
 right="$(grep '^modules-right =' CONFIGS/config/polybar/forest/config.ini)"
 for module in cpu memory telemetry network-status vpn-status battery-status audio-status date sysmenu; do
@@ -87,9 +110,13 @@ grep -q '^\[module/audio-status\]$' CONFIGS/config/polybar/forest/user_modules.i
 grep -q '^exec = ~/.local/bin/kalipwm-audio status$' CONFIGS/config/polybar/forest/user_modules.ini
 grep -q '^scroll-up = ~/.local/bin/kalipwm-audio up$' CONFIGS/config/polybar/forest/user_modules.ini
 grep -q '^scroll-down = ~/.local/bin/kalipwm-audio down$' CONFIGS/config/polybar/forest/user_modules.ini
+grep -qw 'pavucontrol' install.sh
 launcher_block="$(awk '/^\[module\/launcher\]/{on=1; next} /^\[module\//{if(on) exit} on{print}' CONFIGS/config/polybar/forest/user_modules.ini)"
 ! grep -q 'style-switch' <<< "$launcher_block"
-echo 'PASS CPU/RAM/audio visibility is restored and the incompatible legacy style switch is no longer exposed'
+! grep -q 'sed -i' CONFIGS/config/polybar/forest/scripts/style-switch.sh
+! grep -q 'sed -i' CONFIGS/config/polybar/forest/scripts/styles.sh
+grep -q 'fixed Obsidian Tactical palette' CONFIGS/config/polybar/forest/scripts/style-switch.sh
+echo 'PASS CPU/RAM/audio visibility is restored and legacy palette scripts cannot corrupt V1 colors'
 
 printf '\n== Intentional V1 divergences remain protected ==\n'
 ! grep -RInE 'Virtual1|--mode[[:space:]]+1920x1080' CONFIGS SCRIPTS install.sh kalipwm.sh >/dev/null
