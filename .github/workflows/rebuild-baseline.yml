@@ -33,7 +33,7 @@ jobs:
             CONFIGS/config/kitty \
             CONFIGS/config/rofi
 
-      - name: Bash syntax for installer entrypoints
+      - name: Bash syntax
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -41,3 +41,6 @@ jobs:
           if [[ -f install.sh ]]; then
             bash -n install.sh
           fi
+          while IFS= read -r script; do
+            bash -n "$script"
+          done < <(find SCRIPTS -maxdepth 1 -type f -print | sort)
