@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -u
 
-# KaliPWM V1 — directional BSPWM resize helper.
-# Tiled windows resize their nearest split boundary; floating windows resize
-# their own edge. A single tiled window has no split boundary to resize.
+# KaliPWM V1 — BSPWM resize helper.
+# Keep the upstream split-boundary algorithm: it first moves the historically
+# expected edge and falls back to the opposite edge when that boundary is not
+# available. This behavior is important for tiled trees where the focused node
+# can sit on either side of its parent split.
 
 if bspc query -N -n focused.floating >/dev/null 2>&1; then
     step=20
@@ -13,26 +15,26 @@ fi
 
 case "${1:-}" in
     west)
-        primary=left
-        fallback=right
+        dir=right
+        falldir=left
         x="-$step"
         y=0
         ;;
     east)
-        primary=right
-        fallback=left
+        dir=right
+        falldir=left
         x="$step"
         y=0
         ;;
     north)
-        primary=top
-        fallback=bottom
+        dir=top
+        falldir=bottom
         x=0
         y="-$step"
         ;;
     south)
-        primary=bottom
-        fallback=top
+        dir=top
+        falldir=bottom
         x=0
         y="$step"
         ;;
@@ -42,5 +44,5 @@ case "${1:-}" in
         ;;
 esac
 
-bspc node -z "$primary" "$x" "$y" 2>/dev/null || \
-    bspc node -z "$fallback" "$x" "$y" 2>/dev/null
+bspc node -z "$dir" "$x" "$y" 2>/dev/null || \
+    bspc node -z "$falldir" "$x" "$y" 2>/dev/null
