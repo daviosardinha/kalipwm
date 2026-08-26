@@ -79,3 +79,7 @@ jobs:
       - name: Conservative display planning regression test
         shell: bash
         run: bash tests/display-plan.sh
+
+      - name: Obsidian Tactical visual overlay regression test
+        shell: bash
+        run: bash tests/obsidian-theme.sh
