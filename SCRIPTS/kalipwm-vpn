@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+NET_ROOT="${KALIPWM_NET_ROOT:-/sys/class/net}"
+
 candidate_interfaces() {
   local name iface
   declare -A seen=()
@@ -16,7 +18,7 @@ candidate_interfaces() {
   fi
 
   # Preserve conventional TUN/TAP/WireGuard discovery for OpenVPN and similar.
-  for iface in /sys/class/net/tun* /sys/class/net/tap* /sys/class/net/wg*; do
+  for iface in "$NET_ROOT"/tun* "$NET_ROOT"/tap* "$NET_ROOT"/wg*; do
     [[ -e "$iface" ]] || continue
     name="$(basename "$iface")"
     [[ -z ${seen[$name]:-} ]] || continue
@@ -28,7 +30,7 @@ candidate_interfaces() {
 while read -r name; do
   [[ -n "$name" ]] || continue
 
-  state="$(cat "/sys/class/net/$name/operstate" 2>/dev/null || true)"
+  state="$(cat "$NET_ROOT/$name/operstate" 2>/dev/null || true)"
   if [[ -n "$state" ]]; then
     [[ "$state" == up || "$state" == unknown ]] || continue
   else
