@@ -70,7 +70,14 @@ apply_layout() {
     internal="${outputs[0]}"
   fi
 
-  xrandr --output "$internal" --auto --primary 2>/dev/null || true
+  # Avoid needlessly modesetting an already-active laptop panel. Repeated
+  # --auto calls can visibly blank the eDP panel while an external provider
+  # output is failing to recover after suspend.
+  if [[ -n "$(output_geometry "$internal")" ]]; then
+    xrandr --output "$internal" --primary 2>/dev/null || true
+  else
+    xrandr --output "$internal" --auto --primary 2>/dev/null || true
+  fi
 
   external=""
   for out in "${outputs[@]}"; do
@@ -211,8 +218,7 @@ apply_all() {
 
 # Include active geometry in the signature, not only connector names. After a
 # suspend/resume cycle RandR can report an HDMI/DP connector as "connected"
-# while leaving it inactive (no WIDTHxHEIGHT+X+Y geometry). A name-only
-# signature misses that failure and never re-enables the display.
+# while leaving it inactive (no WIDTHxHEIGHT+X+Y geometry).
 topology_signature() {
   local out geometry
   while read -r out; do
@@ -222,22 +228,8 @@ topology_signature() {
   done < <(connected_outputs) | paste -sd, -
 }
 
-# Bare-metal health check for the resume case above. Virtual displays are
-# intentionally excluded because guest tools own their resize lifecycle.
-display_needs_recovery() {
-  local out
-  [[ "$environment" == baremetal ]] || return 1
-
-  while read -r out; do
-    [[ -n "$out" ]] || continue
-    [[ -n "$(output_geometry "$out")" ]] || return 0
-  done < <(connected_outputs)
-
-  return 1
-}
-
 watch_layout() {
-  local previous current now last_recovery=0
+  local previous current
 
   # The watcher belongs to the BSPWM session. If BSPWM exits (for example when
   # the user logs out and selects XFCE), stop KaliPWM's bar before the watcher
@@ -260,16 +252,15 @@ watch_layout() {
     fi
 
     current="$(topology_signature)"
-    now="$(date +%s)"
-
-    if [[ "$current" != "$previous" ]] || \
-       { display_needs_recovery && (( now - last_recovery >= 15 )); }; then
-      # Give RandR a short debounce window so provider-backed outputs can
-      # settle, then re-apply --auto and reconcile BSPWM/Polybar. If a connector
-      # remains connected-but-inactive, retry at most once every 15 seconds.
+    if [[ "$current" != "$previous" ]]; then
+      # React once to an actual connector/geometry transition. If an external
+      # provider output remains connected-but-inactive because the X server
+      # rejects its CRTC after resume, record that failed state and stop
+      # retrying. This prevents an endless modeset loop from blanking the eDP
+      # panel every few seconds. A real unplug/replug or later geometry change
+      # changes the signature and permits one fresh recovery attempt.
       sleep 1
       apply_all true
-      last_recovery="$now"
       previous="$(topology_signature)"
     fi
   done
