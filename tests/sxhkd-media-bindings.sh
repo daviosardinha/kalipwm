@@ -32,9 +32,11 @@ new_screenshot = '''# Interactive region + annotation. Ctrl+C inside Flameshot c
 Print
 \tbash ~/.config/polybar/forest/scripts/screenshot.sh gui
 
-# Keep Ctrl+Print in the same interactive capture workflow.
-ctrl + Print
-\tbash ~/.config/polybar/forest/scripts/screenshot.sh gui
+# Ctrl is a Flameshot in-GUI modifier too. Trigger this binding on Print
+# release and add a tiny grace period so the launch does not inherit the
+# shortcut modifier state.
+ctrl + @Print
+\tsleep 0.20; bash ~/.config/polybar/forest/scripts/screenshot.sh gui
 
 # Explicit full-desktop save to ~/Pictures/Screenshots.
 shift + Print
@@ -87,7 +89,8 @@ fi
 
 for token in \
   'Print' \
-  'ctrl + Print' \
+  'ctrl + @Print' \
+  'sleep 0.20; bash ~/.config/polybar/forest/scripts/screenshot.sh gui' \
   'shift + Print' \
   'screenshot.sh gui' \
   'screenshot.sh full' \
