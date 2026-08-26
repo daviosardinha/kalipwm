@@ -30,6 +30,13 @@ super + {_,shift + }w
 super + m
     bspc desktop -l next
 
+# Preserve upstream marked-node and swap workflows.
+super + y
+    bspc node newest.marked.local -n newest.!automatic.local
+
+super + g
+    bspc node -s biggest.window
+
 # Window state
 super + {t,shift + t,s,f}
     bspc node -t {tiled,pseudo_tiled,floating,fullscreen}
@@ -42,6 +49,14 @@ super + ctrl + {m,x,y,z}
 super + {_,shift + }{Left,Down,Up,Right}
     bspc node -{f,s} {west,south,north,east}
 
+# Preserve upstream tree-navigation shortcuts.
+super + {p,b,comma,period}
+    bspc node -f @{parent,brother,first,second}
+
+# Focus next / previous window on the current desktop.
+super + {_,shift + }c
+    bspc node -f {next,prev}.local.!hidden.window
+
 # Previous / next desktop
 super + bracket{left,right}
     bspc desktop -f {prev,next}.local
@@ -50,7 +65,14 @@ super + bracket{left,right}
 super + {grave,Tab}
     bspc {node,desktop} -f last
 
-# Focus or send to workspaces I–V
+# Preserve upstream focus-history navigation.
+super + {o,i}
+    bspc wm -h off; \
+    bspc node {older,newer} -f; \
+    bspc wm -h on
+
+# Focus or send to workspaces I–V. V1 intentionally keeps five canonical
+# workspaces while preserving the upstream numeric workflow.
 super + {_,shift + }{1-5}
     bspc {desktop -f,node -d} '^{1-5}'
 
@@ -73,7 +95,7 @@ super + ctrl + alt + space
 super + ctrl + {Left,Down,Up,Right}
     bspc node -v {-20 0,0 20,0 -20,20 0}
 
-# Resize current window
+# Resize current window using the upstream-tested split-boundary helper.
 super + alt + {Left,Down,Up,Right}
     ~/.config/bspwm/scripts/bspwm_resize {west,south,north,east}
 
