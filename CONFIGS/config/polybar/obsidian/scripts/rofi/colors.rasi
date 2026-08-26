@@ -1,0 +1,10 @@
+* {
+    bg:         #0F1117F2;
+    bg-alt:     #1A1E27F2;
+    fg:         #D7D9E0FF;
+    muted:      #747A88FF;
+    violet:     #9B7EDEFF;
+    violet-hi:  #B8A2F2FF;
+    red:        #E06C75FF;
+    transparent:#00000000;
+}
