@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PROFILE="${KALIPWM_PROFILE_PATH:-${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf}"
+POWER_SUPPLY_ROOT="${KALIPWM_POWER_SUPPLY_ROOT:-/sys/class/power_supply}"
+[[ -r "$PROFILE" ]] && source "$PROFILE"
+
+battery="${battery:-}"
+adapter="${adapter:-}"
+
+valid_battery() {
+  local path="$1" type scope present capacity
+  [[ -r "$path/type" ]] || return 1
+  type="$(cat "$path/type" 2>/dev/null || true)"
+  [[ "$type" == Battery ]] || return 1
+  scope="$(cat "$path/scope" 2>/dev/null || true)"
+  [[ "$scope" == Device ]] && return 1
+  present="$(cat "$path/present" 2>/dev/null || printf '1')"
+  [[ "$present" != 0 ]] || return 1
+  capacity="$(cat "$path/capacity" 2>/dev/null || true)"
+  [[ "$capacity" =~ ^[0-9]+$ ]]
+}
+
+select_battery() {
+  local path scope name system_candidate='' fallback=''
+  for path in "$POWER_SUPPLY_ROOT"/*; do
+    valid_battery "$path" || continue
+    name="$(basename "$path")"
+    scope="$(cat "$path/scope" 2>/dev/null || true)"
+    if [[ "$scope" == System ]]; then
+      [[ -n "$system_candidate" ]] || system_candidate="$name"
+    else
+      [[ -n "$fallback" ]] || fallback="$name"
+    fi
+  done
+  [[ -n "$system_candidate" ]] && { printf '%s\n' "$system_candidate"; return 0; }
+  [[ -n "$fallback" ]] && { printf '%s\n' "$fallback"; return 0; }
+  return 1
+}
+
+adapter_online() {
+  local path
+  [[ -n "$adapter" ]] || return 1
+  path="$POWER_SUPPLY_ROOT/$adapter"
+  [[ -r "$path/online" ]] || return 1
+  [[ "$(cat "$path/online" 2>/dev/null || true)" == 1 ]]
+}
+
+if [[ -z "$battery" || ! -d "$POWER_SUPPLY_ROOT/$battery" ]] || ! valid_battery "$POWER_SUPPLY_ROOT/$battery"; then
+  battery="$(select_battery || true)"
+fi
+
+[[ -n "$battery" ]] || { printf 'BAT N/A\n'; exit 0; }
+
+base="$POWER_SUPPLY_ROOT/$battery"
+capacity="$(cat "$base/capacity" 2>/dev/null || true)"
+status="$(cat "$base/status" 2>/dev/null || true)"
+[[ "$capacity" =~ ^[0-9]+$ ]] || { printf 'BAT N/A\n'; exit 0; }
+
+power="BAT"
+if adapter_online; then
+  power="AC"
+fi
+
+case "$status" in
+  Charging) state='CHG' ;;
+  Full) state='FULL' ;;
+  Discharging) state='DIS' ;;
+  Not\ charging) state='HOLD' ;;
+  *) state='UNK' ;;
+esac
+
+printf '%s %s%% %s %s\n' "$power" "$capacity" "$state" "$battery"
