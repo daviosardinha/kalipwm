@@ -21,7 +21,8 @@ bspc rule -a Kupfer.py focus=on
 bspc rule -a Screenkey manage=off
 
 # WALLPAPER - Obsidian v2
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh auto
+# No argument means: restore the wallpaper choice saved by the installer/user.
+~/.config/bspwm/scripts/set-obsidian-wallpaper.sh
 
 # POLYBAR - Obsidian v2
 ~/.config/polybar/obsidian-v2/launch.sh
