@@ -43,4 +43,9 @@ grep -Fxq 'useX11LegacyScreenshot=true' "$CONFIG"
 grep -Fxq 'saveAfterCopy=false' "$CONFIG"
 grep -Fxq 'copyPathAfterSave=false' "$CONFIG"
 
+# Fresh installs must carry the same known-good Flameshot config instead of
+# requiring a post-install manual repair.
+grep -Fq '.config/flameshot' "$ROOT/install.sh"
+grep -Fq 'CONFIGS/config/flameshot' "$ROOT/install.sh"
+
 echo 'screenshot-flameshot: PASS'
