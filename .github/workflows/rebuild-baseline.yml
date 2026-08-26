@@ -48,3 +48,7 @@ jobs:
       - name: Profile generation regression test
         shell: bash
         run: bash tests/profile-generation.sh
+
+      - name: Operator context regression test
+        shell: bash
+        run: bash tests/operator-context.sh
