@@ -25,3 +25,6 @@ jobs:
 
       - name: Run runtime regression checks
         run: bash tests/runtime-regression-checks.sh
+
+      - name: Run display resume fail-safe guard
+        run: bash tests/display-resume-guard.sh
