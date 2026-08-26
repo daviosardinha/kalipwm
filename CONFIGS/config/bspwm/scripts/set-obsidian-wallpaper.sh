@@ -2,8 +2,8 @@
 set -euo pipefail
 
 WALL_DIR="$HOME/Wallpapers/obsidian"
-WP_16="$WALL_DIR/obsidian-city-16x9.webp"
-WP_WIDE="$WALL_DIR/obsidian-city-ultrawide.webp"
+WP_16="$WALL_DIR/obsidian-city-16x9.jpg"
+WP_WIDE="$WALL_DIR/obsidian-city-ultrawide.jpg"
 CACHE_DIR="$HOME/.cache/kalipwm"
 
 mkdir -p "$CACHE_DIR"
