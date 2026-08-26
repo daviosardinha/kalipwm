@@ -149,9 +149,11 @@ super + shift + a
 Print
 	bash ~/.config/polybar/forest/scripts/screenshot.sh gui
 
-# Keep Ctrl+Print in the same interactive capture workflow.
-ctrl + Print
-	bash ~/.config/polybar/forest/scripts/screenshot.sh gui
+# Ctrl is a Flameshot in-GUI modifier too. Trigger this binding on Print
+# release and add a tiny grace period so the launch does not inherit the
+# shortcut modifier state.
+ctrl + @Print
+	sleep 0.20; bash ~/.config/polybar/forest/scripts/screenshot.sh gui
 
 # Explicit full-desktop save to ~/Pictures/Screenshots.
 shift + Print
