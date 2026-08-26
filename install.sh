@@ -345,7 +345,7 @@ install_packages() {
   common=(
     git curl wget unzip bspwm vim feh zsh rofi xclip xsel plocate suckless-tools acpi sxhkd
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython fastfetch
-    dirsearch feroxbuster gedit fzf polybar picom flameshot brightnessctl pulseaudio-utils
+    dirsearch feroxbuster gedit fzf polybar picom flameshot brightnessctl pulseaudio-utils pavucontrol
     network-manager-applet nm-connection-editor mate-polkit dunst xfce4-power-manager
     x11-xserver-utils x11-utils
   )
@@ -473,7 +473,7 @@ Platform          : ${VENDOR:-unknown} ${PRODUCT:-}
 Battery           : ${BATTERY:-not detected}
 AC adapter        : ${ADAPTER:-not detected}
 Backlight         : ${BACKLIGHT:-not detected}
-Wi-Fi             : ${WIFI_IFACE:-not detected}
+Wi-Fi              : ${WIFI_IFACE:-not detected}
 Ethernet          : ${WIRED_IFACE:-not detected}
 Displays          : ${CONNECTED_DISPLAYS:-not detected}
 External position : ${EXTERNAL_POSITION:-n/a}
