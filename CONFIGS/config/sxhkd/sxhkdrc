@@ -6,9 +6,9 @@
 super + Return
 	~/.local/kitty.app/bin/kitty	
 
-# program launcher
+# program launcher - Obsidian
 super + d
-	~/.config/polybar/forest/scripts/launcher.sh
+	~/.config/polybar/obsidian/scripts/launcher.sh
 
 # make sxhkd reload its configuration files:
 super + Escape
