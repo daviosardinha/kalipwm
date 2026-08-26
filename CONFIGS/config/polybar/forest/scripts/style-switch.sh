@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
+set -u
+
+# KaliPWM V1 has one supported visual contract: Obsidian Tactical. The upstream
+# theme switcher edited only the old color keys and can leave the V1 semantic
+# palette (accent/healthy/warning/critical) inconsistent, so do not mutate the
+# live configuration from this legacy entry point.
 
 SDIR="$HOME/.config/polybar/forest/scripts"
+message='KaliPWM V1 uses the fixed Obsidian Tactical palette.'
 
-# Launch Rofi
-MENU="$(rofi -no-config -no-lazy-grab -sep "|" -dmenu -i -p '' \
--theme $SDIR/rofi/styles.rasi \
-<<< " Default| Nord| Gruvbox| Dark| Cherry|")"
-            case "$MENU" in
-				*Default) "$SDIR"/styles.sh --default ;;
-				*Nord) "$SDIR"/styles.sh --nord ;;
-				*Gruvbox) "$SDIR"/styles.sh --gruvbox ;;
-				*Dark) "$SDIR"/styles.sh --dark ;;
-				*Cherry) "$SDIR"/styles.sh --cherry ;;
-            esac
+if command -v rofi >/dev/null 2>&1; then
+  rofi -no-config -theme "$SDIR/rofi/message.rasi" -e "$message"
+else
+  printf '%s\n' "$message"
+fi
