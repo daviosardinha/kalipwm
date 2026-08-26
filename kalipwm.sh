@@ -50,7 +50,7 @@ sudo apt update
 echo -e "\n${BLUE}[*] Instalando paquetes..${RESET}\n"
 sudo apt install -y git bspwm vim feh scrot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython open-vm-tools-desktop open-vm-tools fastfetch \
-    dirsearch feroxbuster gedit
+    dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq
 
 # Instalar dependencias del entorno
 echo -e "\n${BLUE}[*] Instalando dependencias del entorno..${RESET}\n"
@@ -130,7 +130,7 @@ echo -e "\n${BLUE}[*] Instalando terminal kitty..${RESET}\n"
 cat $RPATH/kitty-installer.sh | sh /dev/stdin
 
 # Clonar repositorios de polybar & picom
-mkdir ~/github
+mkdir -p ~/github
 git clone --recursive https://github.com/polybar/polybar ~/github/polybar
 git clone https://github.com/ibhagwan/picom.git ~/github/picom
 
@@ -160,25 +160,28 @@ sudo ninja -C build install
 
 # Cambiar zona horaria
 echo -e "\n${BLUE}[*] Instalando configuraciones..${RESET}\n"
-sudo timedatectl set-timezone "Europe/Madrid"
+sudo timedatectl set-timezone "Europe/Lisbon"
 
-mkdir ~/screenshots
+mkdir -p ~/screenshots
 
 # Copiar configuraciones
 cp -rv $RPATH/CONFIGS/config/* ~/.config/
 cp -rv $RPATH/SCRIPTS/* ~/.config/polybar/forest/scripts/
-sudo ln -s ~/.config/polybar/forest/scripts/target.sh /usr/bin/target
-sudo ln -s ~/.config/polybar/forest/scripts/screenshot.sh /usr/bin/screenshot
+cp -v $RPATH/SCRIPTS/screenshot.sh ~/.config/polybar/obsidian/scripts/screenshot.sh
+sudo ln -sf ~/.config/polybar/obsidian/scripts/target.sh /usr/bin/target
+sudo ln -sf ~/.config/polybar/obsidian/scripts/screenshot.sh /usr/bin/screenshot
 
-mkdir ~/Wallpapers/
+mkdir -p ~/Wallpapers/
 cp -rv $RPATH/WALLPAPERS/* ~/Wallpapers/
 
 chmod +x ~/.config/bspwm/bspwmrc
 chmod +x ~/.config/bspwm/scripts/bspwm_resize
-chmod +x ~/.config/polybar/launch.sh
+chmod +x ~/.config/polybar/obsidian/launch.sh
+chmod +x ~/.config/polybar/obsidian/scripts/*.sh
 chmod +x ~/.config/polybar/forest/scripts/target.sh
 chmod +x ~/.config/polybar/forest/scripts/screenshot.sh
 
 # Mensajes finales
 echo -e "\n${BLUE}[+] Entorno desplegado, Happy Hacking ;)${RESET}\n"
+echo -e "${BLUE}[+] Obsidian Polybar activo por defecto.${RESET}\n"
 echo -e "${BLUE}[+] Por favor, reinicia el equipo (sudo reboot)${RESET}\n"
