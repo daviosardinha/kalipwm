@@ -1,0 +1,66 @@
+configuration {
+    font: "JetBrainsMono Nerd Font 12";
+    show-icons: false;
+    hide-scrollbar: true;
+}
+
+@import "colors.rasi"
+
+window {
+    transparency: "real";
+    location: center;
+    anchor: center;
+    width: 360px;
+    background-color: @bg;
+    border: 2px;
+    border-color: @violet;
+    border-radius: 12px;
+}
+
+mainbox {
+    background-color: @transparent;
+    padding: 12px;
+    spacing: 8px;
+    children: [ inputbar, listview ];
+}
+
+inputbar {
+    background-color: @bg-alt;
+    text-color: @fg;
+    border-radius: 8px;
+    padding: 10px 12px;
+    children: [ prompt ];
+}
+
+prompt {
+    background-color: @transparent;
+    text-color: @violet-hi;
+    horizontal-align: 0.5;
+}
+
+listview {
+    background-color: @transparent;
+    lines: 5;
+    spacing: 5px;
+    cycle: true;
+}
+
+element {
+    background-color: @transparent;
+    text-color: @fg;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+
+element selected {
+    background-color: @bg-alt;
+    text-color: @violet-hi;
+    border: 1px;
+    border-color: @violet;
+}
+
+element-text {
+    background-color: @transparent;
+    text-color: inherit;
+    horizontal-align: 0.5;
+}
