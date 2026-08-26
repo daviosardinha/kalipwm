@@ -2,8 +2,9 @@
 set -Eeuo pipefail
 
 # KaliPWM V1 rebuild — safe installer shell.
-# Phase 1 keeps the known-good upstream desktop configuration files untouched
-# and changes only how installation is planned and performed.
+# Core upstream desktop behavior remains protected. Approved, regression-tested
+# operator bindings are layered on top without changing BSPWM/Picom/Polybar/
+# Kitty/Rofi behavior.
 
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DETECTOR="$REPO_ROOT/SCRIPTS/kalipwm-detect"
@@ -29,8 +30,9 @@ Usage:
   bash kalipwm.sh --plan          read-only environment/package plan
   bash kalipwm.sh --help
 
-Early rebuild rule: BSPWM, sxhkd, Picom, Polybar, Kitty and Rofi configuration
-is copied from the known-good upstream tree without modification.
+Rebuild rule: BSPWM, Picom, Polybar, Kitty and Rofi remain inherited from the
+known-good upstream baseline. sxhkd may contain only explicitly approved,
+regression-tested operator bindings.
 EOF
 }
 
@@ -113,6 +115,10 @@ bspwm
 vim
 feh
 scrot
+flameshot
+brightnessctl
+dunst
+wireguard-tools
 scrub
 zsh
 rofi
@@ -164,14 +170,21 @@ package_has_candidate() {
 }
 
 show_plan() {
-  local pkg
+  local pkg guest_summary
   local -a available=() missing=()
 
   info "Environment-specific installation plan"
   printf 'environment=%s\n' "$ENVIRONMENT"
   printf 'timezone=preserve-current\n'
-  printf 'desktop-config=copy-known-good-upstream-byte-for-byte\n'
-  printf 'vm-guest-tools=%s-only\n' "$ENVIRONMENT"
+  printf 'desktop-config=upstream-plus-approved-bindings\n'
+  case "$ENVIRONMENT" in
+    baremetal) guest_summary=none ;;
+    vmware) guest_summary=vmware ;;
+    virtualbox) guest_summary=virtualbox ;;
+    kvm) guest_summary=kvm ;;
+    *) guest_summary=none ;;
+  esac
+  printf 'vm-guest-tools=%s\n' "$guest_summary"
   printf 'polybar=distro-package\n'
   printf 'picom=distro-package\n'
   printf 'kitty=user-local-upstream-installer-for-binding-compatibility\n'
@@ -199,7 +212,7 @@ backup_user_state() {
   local stamp dest rel
   local -a paths=(
     .config/bspwm .config/sxhkd .config/polybar .config/kitty .config/picom .config/rofi
-    .zshrc .p10k.zsh .tmux .tmux.conf .tmux.conf.local .oh-my-zsh .fzf
+    .config/kalipwm .zshrc .p10k.zsh .tmux .tmux.conf .tmux.conf.local .oh-my-zsh .fzf
   )
 
   stamp="$(date +%Y%m%d-%H%M%S)-$$"
@@ -280,9 +293,7 @@ install_shell_stack() {
 }
 
 install_upstream_kitty_path() {
-  # The untouched upstream sxhkdrc launches ~/.local/kitty.app/bin/kitty.
-  # Preserve that behavior during the baseline-protection phases rather than
-  # modifying the working keybinding just to fit the installer.
+  # The upstream terminal binding launches ~/.local/kitty.app/bin/kitty.
   if [[ ! -x "$HOME/.local/kitty.app/bin/kitty" ]]; then
     info "Installing Kitty in the upstream-compatible user-local path"
     bash "$REPO_ROOT/kitty-installer.sh"
@@ -293,9 +304,8 @@ copy_known_good_desktop() {
   local dir
   mkdir -p "$HOME/.config"
 
-  # These directories are protected by CI against divergence from upstream.
-  # Replace the managed copy as a unit so stale files from earlier experiments
-  # cannot remain active beside the known-good baseline.
+  # Core directories remain upstream-derived. sxhkd is separately regression-
+  # guarded so only approved operator bindings may diverge from the baseline.
   for dir in bspwm sxhkd polybar kitty picom rofi; do
     rm -rf "$HOME/.config/$dir"
     cp -a "$REPO_ROOT/CONFIGS/config/$dir" "$HOME/.config/$dir"
@@ -313,6 +323,7 @@ copy_known_good_desktop() {
 
   ln -sfn "$HOME/.config/polybar/forest/scripts/target.sh" "$HOME/.local/bin/target"
   ln -sfn "$HOME/.config/polybar/forest/scripts/screenshot.sh" "$HOME/.local/bin/screenshot"
+  ln -sfn "$HOME/.config/polybar/forest/scripts/screenshot.sh" "$HOME/.local/bin/screenshot.sh"
 
   chmod +x "$HOME/.config/bspwm/bspwmrc"
   chmod +x "$HOME/.config/bspwm/scripts/bspwm_resize"
@@ -342,6 +353,7 @@ perform_install() {
   install_shell_stack
   install_upstream_kitty_path
   copy_known_good_desktop
+  bash "$REPO_ROOT/SCRIPTS/kalipwm-profile-init" --write
 
   if [[ "$(getent passwd "$USER" | cut -d: -f7)" != */zsh ]] && command -v zsh >/dev/null 2>&1; then
     sudo chsh -s "$(command -v zsh)" "$USER" || warn "Could not change login shell automatically."
@@ -353,12 +365,12 @@ KaliPWM V1 rebuild install complete
 ----------------------------------------
 environment=$ENVIRONMENT
 backup=$backup
-desktop-config=known-good-upstream
+desktop-config=upstream-plus-approved-bindings
 timezone=preserved
 gpu-routing=untouched
 ----------------------------------------
 Log out or reboot, select BSPWM, and run the baseline regression checks before
-adding any operator or visual features.
+adding any further operator or visual features.
 EOF
 }
 
