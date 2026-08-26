@@ -12,6 +12,7 @@ Fork modificado de KaliPWN con un entorno **Obsidian** para Kali Linux basado en
 - Wallpapers City y Nomad Kingdom incluidos en variantes estándar, 16:9 y ultrawide donde aplica.
 - Target persistente por usuario, independiente de la conexión VPN.
 - Rofi con launcher y menú de energía/confirmación adaptados al tema Obsidian.
+- Flameshot como herramienta principal de capturas de pantalla.
 - `cat` usa `/usr/bin/cat` y `vim` usa `/usr/bin/vim`.
 
 ## Instalación
@@ -55,27 +56,38 @@ Opciones actuales:
 | `nomad-emblem` | Nomad Emblem estándar |
 | `nomad-emblem-16x9` | Nomad Emblem 16:9 |
 
-Ejemplo durante la instalación:
+### Elegir wallpaper durante una instalación completa
+
+Usa `--install-wallpaper` solamente cuando quieras ejecutar el instalador completo:
 
 ```bash
-bash kalipwm.sh --wallpaper nomad-monolith-16x9
+bash kalipwm.sh --install-wallpaper nomad-monolith-16x9
 ```
 
-Si no indicas `--wallpaper`, se utiliza `auto`.
+Si no indicas `--install-wallpaper`, se utiliza `auto`.
+
+### Cambiar únicamente el wallpaper
+
+`--wallpaper` **no reinstala KaliPWM**. Solo cambia el wallpaper de una instalación existente y termina:
+
+```bash
+bash kalipwm.sh --wallpaper nomad-emblem-16x9
+```
+
+También se instala el comando corto `wallpaper`:
+
+```bash
+wallpaper nomad-monolith
+wallpaper nomad-monolith-16x9
+wallpaper nomad-emblem
+wallpaper nomad-emblem-16x9
+wallpaper city-16x9
+wallpaper city-ultrawide
+wallpaper auto
+wallpaper list
+```
 
 La elección se guarda y BSPWM vuelve a aplicarla al iniciar la sesión.
-
-### Cambiar wallpaper después de instalar
-
-```bash
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-monolith
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-monolith-16x9
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-emblem
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-emblem-16x9
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh city-16x9
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh city-ultrawide
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh auto
-```
 
 Los archivos se instalan en:
 
@@ -121,6 +133,24 @@ target reset
 ```
 
 El Target es estado local del escritorio y **no requiere una VPN activa**. Se almacena por usuario bajo `~/.cache/kalipwm/`.
+
+## Screenshots con Flameshot
+
+Flameshot es la herramienta de screenshots instalada por KaliPWM. `scrot` ya no forma parte de la instalación.
+
+| Atajo | Acción |
+|---|---|
+| `Print` | Abre Flameshot GUI para seleccionar/capturar una región |
+| `Ctrl + Print` | Captura todos los monitores y guarda en `~/screenshots/` |
+| `Alt + Print` | Abre Flameshot GUI para selección manual |
+
+El helper también puede ejecutarse directamente:
+
+```bash
+screenshot select
+screenshot full
+screenshot screen
+```
 
 ## Obsidian Polybar v2
 
@@ -177,6 +207,7 @@ Los iconos utilizan Nerd Fonts y el layout está diseñado para mantener la tele
 - lsd
 - Fastfetch
 - feh
+- Flameshot
 - lm-sensors
 - pavucontrol
 
