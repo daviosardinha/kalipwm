@@ -75,21 +75,27 @@ Completed outcome:
 - full/screen captures can still be saved under `~/screenshots/` through the helper;
 - the interactive workflow was validated on the representative VMware Kali VM before promotion to `main`.
 
-### 🚧 Separate wallpaper switching from installation
+### ✅ Separate wallpaper switching from installation
 
-Changing a wallpaper must never trigger a KaliPWM reinstall.
+Runtime wallpaper changes are now isolated from the full installer.
 
-Target UX:
+Completed outcome:
 
 ```bash
 wallpaper list
 wallpaper nomad-emblem-16x9
-wallpaper nomad-monolith
+wallpaper nomad-monolith-16x9
 wallpaper city-16x9
 wallpaper auto
 ```
 
-The full installer should remain a separate explicit action.
+- the installer creates the standalone `wallpaper` command;
+- `bash kalipwm.sh --wallpaper NAME` changes only the wallpaper and exits;
+- changing a wallpaper no longer triggers package installation or a KaliPWM reinstall;
+- `bash kalipwm.sh --install-wallpaper NAME` explicitly selects a wallpaper for a full installation;
+- invalid wallpaper names fail before any installation work begins;
+- the selected wallpaper remains persistent through the existing KaliPWM cache state;
+- runtime switching and installer separation were validated on the representative VMware Kali VM before promotion to `main`.
 
 ### ⏳ English-only source and CLI cleanup
 
