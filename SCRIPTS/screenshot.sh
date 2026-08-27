@@ -9,7 +9,7 @@ if ! command -v flameshot >/dev/null 2>&1; then
     exit 127
 fi
 
-case "${1:-full}" in
+case "${1:-select}" in
     select|gui)
         exec flameshot gui --path "$SCREENSHOT_DIR"
         ;;
