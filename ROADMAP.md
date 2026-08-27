@@ -177,9 +177,28 @@ kalipwm update
 - update deployment was validated on both the representative VMware Kali VM and the primary bare-metal Kali host;
 - both validation systems preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`, showed no forbidden installer activity and finished with `0 FAIL` from `kalipwm doctor`.
 
-### ⏳ `kalipwm repair`
+### ✅ `kalipwm repair`
 
-Repair only managed configuration, helpers, permissions and symlinks.
+Repair only KaliPWM-managed configuration, helper permissions and canonical command symlinks without reinstalling the complete toolchain.
+
+Completed outcome:
+
+```bash
+kalipwm repair
+kalipwm repair --dry-run
+```
+
+- managed BSPWM/Polybar/Rofi/Kitty/Picom configuration, shell files, bundled wallpapers and executable permissions are reapplied;
+- canonical `/usr/bin/target`, `/usr/bin/screenshot`, `/usr/bin/wallpaper` and `/usr/local/bin/kalipwm` are restored;
+- recognized legacy `~/.local/bin/{target,screenshot,wallpaper}` symlinks are quarantined under a timestamped `~/.cache/kalipwm/repair-backups/` directory instead of being deleted;
+- regular files and unrecognized symlink destinations are intentionally left untouched for manual review;
+- `--dry-run` reports the exact planned actions without using `sudo` or changing files;
+- APT, font installation, third-party downloads and Polybar/Picom source builds are not invoked;
+- Target state and persisted wallpaper choice are not modified;
+- the command is idempotent: a second repair run performs no additional quarantine when no recognized legacy shadows remain;
+- VMware validation removed the stale `target` PATH shadow and improved `kalipwm doctor` from `18 OK | 2 WARN | 0 FAIL | 9 INFO` to `18 OK | 1 WARN | 0 FAIL | 9 INFO`;
+- bare-metal validation quarantined stale `target` and `screenshot` Forest-era shadows and improved `kalipwm doctor` from `19 OK | 4 WARN | 0 FAIL | 7 INFO` to `19 OK | 2 WARN | 0 FAIL | 7 INFO`;
+- both validation systems preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`.
 
 ### ⏳ Configuration backup and rollback
 
