@@ -138,20 +138,24 @@ kalipwm doctor
 - one or more `FAIL` findings produce exit code `1`, while warnings alone do not fail the command;
 - diagnostic behavior was validated on both the representative VMware Kali VM and the primary bare-metal Kali host.
 
-### ⏳ Idempotent installer
+### ✅ Idempotent installer
 
-Re-running KaliPWM should repair/update the environment rather than blindly rebuilding everything.
+Re-running KaliPWM now reuses an existing installation instead of destructively rebuilding the whole environment.
 
-Areas to address:
+Completed outcome:
 
-- existing Oh My Zsh installation;
-- existing Powerlevel10k/plugins;
-- existing Polybar source/build directory;
-- existing Picom checkout/build;
-- existing fonts;
-- existing configuration directories;
-- already-installed packages;
-- safe symlink replacement.
+- existing Oh My Zsh installations are reused rather than deleted;
+- existing Powerlevel10k, Zsh plugin, fzf and tmux Git checkouts are reused;
+- installed Hack Nerd Font and JetBrainsMono Nerd Font families skip download/reinstallation;
+- an existing Kitty application bundle is reused;
+- existing Polybar and Picom installations skip source rebuilds;
+- existing Polybar themes skip bootstrap when the checkout is already present;
+- required packages and build dependencies remain ensured through APT without reinstalling already-current packages;
+- KaliPWM-managed configuration, helper symlinks, permissions and bundled wallpapers are reapplied on rerun;
+- a plain `bash kalipwm.sh` rerun preserves the persisted wallpaper choice, while a fresh install with no saved state still defaults to `auto`;
+- unexpected non-Git directories at managed source-checkout paths cause an explicit failure instead of being deleted automatically;
+- plain reruns completed with exit code `0` and no unexpected Git clones on both the representative VMware Kali VM and the primary bare-metal Kali host;
+- post-rerun `kalipwm doctor` showed `0 FAIL` on both validation systems.
 
 ### ⏳ `kalipwm update`
 
