@@ -27,8 +27,12 @@ bspc rule -a Kupfer.py focus=on
 bspc rule -a Screenkey manage=off
 
 # DISPLAY
-# Preserve the active X11 layout selected by the display manager, VMware tools
-# or the user. KaliPWM no longer forces a VM-specific output name or mode.
+# Preserve active modes and watch for live output connect/disconnect events.
+# The watcher only auto-enables newly connected inactive outputs; existing
+# active layouts and refresh rates are left untouched.
+if [ -x "$HOME/.config/bspwm/scripts/display-hotplug.sh" ]; then
+    "$HOME/.config/bspwm/scripts/display-hotplug.sh" >/dev/null 2>&1 &
+fi
 
 # WALLPAPER - Obsidian v2
 # No argument means: restore the wallpaper choice saved by the installer/user.
