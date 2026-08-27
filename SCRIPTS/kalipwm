@@ -325,14 +325,18 @@ run_doctor() {
             print_status OK "No hard-coded Virtual1 display output detected"
         fi
 
-        if grep -Eq '^[[:space:]]*vmware-user-suid-wrapper([[:space:]]|&|$)' "$bspwmrc"; then
-            if [ "$virt" = "vmware" ]; then
-                print_status INFO "VMware session helper is enabled on VMware"
+        if grep -q 'vmware-user-suid-wrapper' "$bspwmrc"; then
+            if grep -q 'systemd-detect-virt' "$bspwmrc"; then
+                if [ "$virt" = "vmware" ]; then
+                    print_status INFO "VMware session helper is guarded by virtualization detection and active only on VMware"
+                else
+                    print_status INFO "VMware session helper is guarded by virtualization detection and inactive outside VMware"
+                fi
             else
-                print_status WARN "VMware session helper is enabled but VMware was not detected"
+                print_status WARN "VMware session helper is configured without a virtualization guard"
             fi
         else
-            print_status INFO "VMware session helper is not enabled"
+            print_status INFO "VMware session helper is not configured"
         fi
     else
         print_status FAIL "Cannot inspect BSPWM configuration"
