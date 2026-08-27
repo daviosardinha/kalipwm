@@ -20,22 +20,59 @@ nomad-emblem-16x9
 EOF
 }
 
+validate_wallpaper_choice() {
+    case "$1" in
+        auto|city-16x9|city-ultrawide|nomad-monolith|nomad-monolith-16x9|nomad-emblem|nomad-emblem-16x9)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 show_usage() {
     cat <<'EOF'
-Usage: bash kalipwm.sh [--wallpaper NAME] [--list-wallpapers]
+Usage:
+  bash kalipwm.sh
+  bash kalipwm.sh --install-wallpaper NAME
+  bash kalipwm.sh --wallpaper NAME
+  bash kalipwm.sh --list-wallpapers
 
 Options:
-  --wallpaper NAME    Select the wallpaper applied after installation.
-  --list-wallpapers   Print available wallpaper names and exit.
-  -h, --help          Show this help.
+  --wallpaper NAME          Change only the wallpaper on an existing KaliPWM installation.
+  --set-wallpaper NAME      Alias for --wallpaper.
+  --install-wallpaper NAME  Select the wallpaper to apply during a full KaliPWM installation.
+  --list-wallpapers         Print available wallpaper names and exit.
+  -h, --help                Show this help.
 EOF
 }
 
 while [ $# -gt 0 ]; do
     case "$1" in
-        --wallpaper)
+        --wallpaper|--set-wallpaper)
             if [ $# -lt 2 ]; then
-                echo -e "${RED}[-] --wallpaper requires a name.${RESET}"
+                echo -e "${RED}[-] $1 requires a wallpaper name.${RESET}"
+                exit 1
+            fi
+            WALLPAPER_CHOICE="$2"
+            if ! validate_wallpaper_choice "$WALLPAPER_CHOICE"; then
+                echo -e "${RED}[-] Unknown wallpaper: $WALLPAPER_CHOICE${RESET}"
+                echo "Available wallpapers:"
+                print_wallpaper_choices
+                exit 1
+            fi
+            SELECTOR="$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh"
+            if [ ! -x "$SELECTOR" ]; then
+                echo -e "${RED}[-] KaliPWM wallpaper selector is not installed yet.${RESET}"
+                echo "Use --install-wallpaper NAME during the first installation."
+                exit 1
+            fi
+            exec "$SELECTOR" "$WALLPAPER_CHOICE"
+            ;;
+        --install-wallpaper)
+            if [ $# -lt 2 ]; then
+                echo -e "${RED}[-] --install-wallpaper requires a name.${RESET}"
                 exit 1
             fi
             WALLPAPER_CHOICE="$2"
@@ -57,16 +94,12 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-case "$WALLPAPER_CHOICE" in
-    auto|city-16x9|city-ultrawide|nomad-monolith|nomad-monolith-16x9|nomad-emblem|nomad-emblem-16x9)
-        ;;
-    *)
-        echo -e "${RED}[-] Unknown wallpaper: $WALLPAPER_CHOICE${RESET}"
-        echo "Available wallpapers:"
-        print_wallpaper_choices
-        exit 1
-        ;;
-esac
+if ! validate_wallpaper_choice "$WALLPAPER_CHOICE"; then
+    echo -e "${RED}[-] Unknown wallpaper: $WALLPAPER_CHOICE${RESET}"
+    echo "Available wallpapers:"
+    print_wallpaper_choices
+    exit 1
+fi
 
 # Comprobar si el usuario actual es root
 if [ "$UID" -eq 0 ]; then
@@ -106,7 +139,7 @@ echo -e "\n${BLUE}[*] Actualizando paquetes..${RESET}\n"
 sudo apt update
 
 echo -e "\n${BLUE}[*] Instalando paquetes..${RESET}\n"
-sudo apt install -y git bspwm vim feh scrot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
+sudo apt install -y git bspwm vim feh flameshot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython open-vm-tools-desktop open-vm-tools fastfetch \
     dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq
 
@@ -203,6 +236,7 @@ cp -rv $RPATH/SCRIPTS/* ~/.config/polybar/forest/scripts/
 cp -v $RPATH/SCRIPTS/screenshot.sh ~/.config/polybar/obsidian/scripts/screenshot.sh
 sudo ln -sf ~/.config/polybar/obsidian/scripts/target.sh /usr/bin/target
 sudo ln -sf ~/.config/polybar/obsidian/scripts/screenshot.sh /usr/bin/screenshot
+sudo ln -sf ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh /usr/bin/wallpaper
 
 mkdir -p ~/Wallpapers/
 cp -rv $RPATH/WALLPAPERS/* ~/Wallpapers/
@@ -239,5 +273,6 @@ fi
 echo -e "\n${BLUE}[+] Entorno desplegado, Happy Hacking ;)${RESET}\n"
 echo -e "${BLUE}[+] Obsidian v2 activo por defecto.${RESET}\n"
 echo -e "${BLUE}[+] Wallpapers Obsidian instalados. Seleccion: $WALLPAPER_CHOICE.${RESET}\n"
+echo -e "${BLUE}[+] Flameshot activo como herramienta principal de screenshots.${RESET}\n"
 echo -e "${BLUE}[+] cat usa /usr/bin/cat y vim usa /usr/bin/vim.${RESET}\n"
 echo -e "${BLUE}[+] Por favor, reinicia el equipo (sudo reboot)${RESET}\n"
