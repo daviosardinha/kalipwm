@@ -49,6 +49,7 @@ The current stable `main` includes:
 - Flameshot as the default interactive screenshot workflow, including region selection, annotation, clipboard copy and save actions.
 - `kalipwm doctor` as a read-only system and configuration diagnostic command.
 - `kalipwm update` for fast-forwarding the local checkout and refreshing only KaliPWM-managed files without reinstalling the toolchain.
+- `kalipwm repair` for safely refreshing managed configuration, executable permissions and helper symlinks while quarantining recognized legacy PATH shadows.
 - Idempotent installer reruns that reuse existing components instead of destructively recloning/rebuilding them.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
@@ -141,6 +142,32 @@ kalipwm update --repo /path/to/kalipwm
 ```
 
 If the checkout contains tracked or untracked local changes, the command stops before fetching/deploying and asks you to commit, stash or remove them first.
+
+## Repair workflow
+
+Repair KaliPWM-managed desktop state without rerunning the full installer:
+
+```bash
+kalipwm repair
+```
+
+The repair command refreshes managed configuration, wallpapers, executable permissions, `/usr/bin/target`, `/usr/bin/screenshot`, `/usr/bin/wallpaper` and `/usr/local/bin/kalipwm`. It does **not** run APT, reinstall packages, download fonts or rebuild third-party software.
+
+Recognized legacy `~/.local/bin` helper symlinks that shadow the canonical KaliPWM commands are moved into a timestamped quarantine under `~/.cache/kalipwm/repair-backups/` instead of being deleted. Regular files and unrecognized symlink destinations are left untouched for manual review.
+
+Preview the repair plan without `sudo` or any modifications:
+
+```bash
+kalipwm repair --dry-run
+```
+
+As with update, an alternate checkout can be selected explicitly:
+
+```bash
+kalipwm repair --repo /path/to/kalipwm
+```
+
+Target state and the persisted wallpaper choice are intentionally outside the repair path and remain unchanged.
 
 ## Wallpaper workflow
 
@@ -274,7 +301,7 @@ At a glance:
 - ✅ `kalipwm doctor` diagnostics
 - ✅ idempotent installer reruns
 - ✅ `kalipwm update`
-- ⏳ `kalipwm repair`
+- ✅ `kalipwm repair`
 - ⏳ hardware and VM auto-detection
 - ⏳ configuration backup and rollback
 - ⏳ Rofi-based KaliPWM Control Center
