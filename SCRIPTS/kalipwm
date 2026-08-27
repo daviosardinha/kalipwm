@@ -140,6 +140,7 @@ find_vpn_interface() {
 run_doctor() {
     local virt session display_name resolution default_if default_ip wifi_if vpn_if
     local os_name target_file choice_file current_wallpaper_file bspwmrc gpu_name fan_file
+    local xrandr_current display_line
     local batteries=()
 
     virt="$(virtualization_type)"
@@ -179,8 +180,16 @@ run_doctor() {
     fi
 
     if have xrandr && [ -n "${DISPLAY:-}" ]; then
-        display_name="$(xrandr --current 2>/dev/null | awk '/ connected/{print $1; exit}')"
-        resolution="$(xrandr --current 2>/dev/null | awk '/\*/{print $1; exit}')"
+        xrandr_current="$(xrandr --current 2>/dev/null)"
+        display_line="$(printf '%s\n' "$xrandr_current" | awk '/ connected primary /{print; exit}')"
+        if [ -z "$display_line" ]; then
+            display_line="$(printf '%s\n' "$xrandr_current" | awk '/ connected/{print; exit}')"
+        fi
+        display_name="$(printf '%s\n' "$display_line" | awk '{print $1}')"
+        resolution="$(printf '%s\n' "$display_line" | awk '{for (i=1; i<=NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+/) {split($i, a, "+"); print a[1]; exit}}')"
+        if [ -z "$resolution" ]; then
+            resolution="$(printf '%s\n' "$xrandr_current" | awk '/\*/{print $1; exit}')"
+        fi
         if [ -n "$display_name" ]; then
             if [ -n "$resolution" ]; then
                 print_status OK "Display: $display_name at $resolution"
