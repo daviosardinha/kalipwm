@@ -10,6 +10,33 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — `kalipwm update`
+
+### Added
+
+- `kalipwm update` for fast-forwarding the local KaliPWM checkout and refreshing managed desktop files without rerunning the complete installer.
+- `kalipwm update --repo PATH` and `KALIPWM_REPO` support for explicitly selecting an alternate checkout location.
+- Dirty-checkout protection that refuses to update when tracked or untracked local changes are present.
+
+### Changed
+
+- Updates now fetch `origin/main`, switch to local `main` when necessary and use `git pull --ff-only` so the management command never creates an implicit merge commit.
+- After the Git update, KaliPWM reapplies managed BSPWM/Polybar/Rofi/Kitty/Picom configuration, shell configuration, bundled wallpapers, helper symlinks and `/usr/local/bin/kalipwm` only.
+- Target state and persisted wallpaper choice remain outside the update deployment path and are preserved.
+
+### Safety
+
+- `kalipwm update` does not invoke APT, reinstall Nerd Fonts, rebuild Polybar/Picom or rerun `kalipwm.sh`.
+- A dirty repository stops before fetch/deployment and prints the local changes that must be committed, stashed or removed.
+- The post-fetch deployment is refused if the checkout unexpectedly becomes dirty.
+
+### Validation
+
+- `bash -n SCRIPTS/kalipwm` passed before live update testing.
+- Dirty-checkout refusal returned exit code `1` and left the representative VMware checkout unchanged.
+- VMware update validation preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`, showed no APT/build activity and finished with `18 OK | 2 WARN | 0 FAIL | 9 INFO` from `kalipwm doctor`.
+- Bare-metal update validation exited `0`, preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`, showed no APT/build activity and finished with `19 OK | 4 WARN | 0 FAIL | 7 INFO` from `kalipwm doctor`.
+
 ## 2026-08-27 — Idempotent installer reruns
 
 ### Changed
