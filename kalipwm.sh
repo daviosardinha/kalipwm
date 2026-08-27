@@ -237,6 +237,7 @@ cp -v $RPATH/SCRIPTS/screenshot.sh ~/.config/polybar/obsidian/scripts/screenshot
 sudo ln -sf ~/.config/polybar/obsidian/scripts/target.sh /usr/bin/target
 sudo ln -sf ~/.config/polybar/obsidian/scripts/screenshot.sh /usr/bin/screenshot
 sudo ln -sf ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh /usr/bin/wallpaper
+sudo install -m 0755 "$RPATH/SCRIPTS/kalipwm" /usr/local/bin/kalipwm
 
 mkdir -p ~/Wallpapers/
 cp -rv $RPATH/WALLPAPERS/* ~/Wallpapers/
@@ -274,5 +275,6 @@ echo -e "\n${BLUE}[+] KaliPWM environment deployed. Happy hacking ;)${RESET}\n"
 echo -e "${BLUE}[+] Obsidian v2 is enabled by default.${RESET}\n"
 echo -e "${BLUE}[+] Obsidian wallpapers installed. Selected: $WALLPAPER_CHOICE.${RESET}\n"
 echo -e "${BLUE}[+] Flameshot is enabled as the primary screenshot tool.${RESET}\n"
+echo -e "${BLUE}[+] KaliPWM diagnostics are available through: kalipwm doctor${RESET}\n"
 echo -e "${BLUE}[+] cat uses /usr/bin/cat and vim uses /usr/bin/vim.${RESET}\n"
 echo -e "${BLUE}[+] Please reboot the system (sudo reboot).${RESET}\n"
