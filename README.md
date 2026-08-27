@@ -50,6 +50,8 @@ The current stable `main` includes:
 - `kalipwm doctor` as a read-only system and configuration diagnostic command.
 - `kalipwm update` for fast-forwarding the local checkout and refreshing only KaliPWM-managed files without reinstalling the toolchain.
 - `kalipwm repair` for safely refreshing managed configuration, executable permissions and helper symlinks while quarantining recognized legacy PATH shadows.
+- `kalipwm backup`, `kalipwm backups` and `kalipwm rollback` for timestamped managed-configuration snapshots and reversible rollback.
+- Automatic `pre-update`, `pre-repair` and `pre-rollback` safety snapshots around destructive managed-file changes.
 - Idempotent installer reruns that reuse existing components instead of destructively recloning/rebuilding them.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
@@ -133,6 +135,8 @@ kalipwm update
 
 The update command requires a clean checkout, fetches and fast-forwards the local `main` branch from `origin/main`, then reapplies only KaliPWM-managed configuration, wallpapers, helper symlinks, shell configuration and `/usr/local/bin/kalipwm`.
 
+Immediately before managed files are replaced, update creates a timestamped configuration snapshot labeled `pre-update` under `~/.config/kalipwm/backups/`. If deployment later needs to be reversed, that snapshot can be restored with `kalipwm rollback`.
+
 It deliberately does **not** run APT, reinstall Nerd Fonts, rerun the full installer or rebuild third-party components such as Polybar and Picom. Target state and the persisted wallpaper choice under `~/.cache/kalipwm/` are preserved.
 
 By default the checkout is expected at `~/kalipwm`. A different checkout can be supplied explicitly:
@@ -153,6 +157,8 @@ kalipwm repair
 
 The repair command refreshes managed configuration, wallpapers, executable permissions, `/usr/bin/target`, `/usr/bin/screenshot`, `/usr/bin/wallpaper` and `/usr/local/bin/kalipwm`. It does **not** run APT, reinstall packages, download fonts or rebuild third-party software.
 
+Before a real repair changes managed files, KaliPWM creates a timestamped `pre-repair` snapshot under `~/.config/kalipwm/backups/`. `kalipwm repair --dry-run` only shows the plan; it does not create a snapshot, modify files or use `sudo`.
+
 Recognized legacy `~/.local/bin` helper symlinks that shadow the canonical KaliPWM commands are moved into a timestamped quarantine under `~/.cache/kalipwm/repair-backups/` instead of being deleted. Regular files and unrecognized symlink destinations are left untouched for manual review.
 
 Preview the repair plan without `sudo` or any modifications:
@@ -168,6 +174,47 @@ kalipwm repair --repo /path/to/kalipwm
 ```
 
 Target state and the persisted wallpaper choice are intentionally outside the repair path and remain unchanged.
+
+## Backup and rollback workflow
+
+Create a manual snapshot of the current KaliPWM-managed configuration:
+
+```bash
+kalipwm backup
+kalipwm backup --label before-lab-change
+```
+
+List available snapshots, newest first:
+
+```bash
+kalipwm backups
+```
+
+Snapshots are stored per user under:
+
+```text
+~/.config/kalipwm/backups/<timestamp>-<label>/
+```
+
+The snapshot scope is deliberately narrow. It includes KaliPWM-managed BSPWM, Kitty, Picom, Polybar and sxhkd configuration, `.zshrc`, `.p10k.zsh`, `.tmux.conf.local`, plus the canonical `/usr/bin/{target,screenshot,wallpaper}` helper links. It does not sweep unrelated `~/.config` content, shell history, browser data, Target state or wallpaper-choice state. Snapshot creation uses a private `umask 077`; if a user manually places a secret inside one of the managed configuration files, that content is naturally included in the private snapshot.
+
+Preview a rollback without changing anything or using `sudo`:
+
+```bash
+kalipwm rollback latest --dry-run
+kalipwm rollback 20260827-155036-baremetal-baseline --dry-run
+```
+
+Restore the latest or a specific snapshot:
+
+```bash
+kalipwm rollback latest
+kalipwm rollback 20260827-155036-baremetal-baseline
+```
+
+A real rollback first creates another timestamped snapshot labeled `pre-rollback`, then restores the requested managed state. This makes rollback itself reversible: the state that existed immediately before restoration remains available as another snapshot.
+
+Automatic safety snapshots use the labels `pre-update`, `pre-repair` and `pre-rollback`. Target and persisted wallpaper-choice state remain outside all of these snapshots and are not modified by rollback.
 
 ## Wallpaper workflow
 
@@ -302,8 +349,8 @@ At a glance:
 - ✅ idempotent installer reruns
 - ✅ `kalipwm update`
 - ✅ `kalipwm repair`
+- ✅ configuration backup and rollback
 - ⏳ hardware and VM auto-detection
-- ⏳ configuration backup and rollback
 - ⏳ Rofi-based KaliPWM Control Center
 - ⏳ reproducibility/security hardening and a tagged `v1.0.0`
 
