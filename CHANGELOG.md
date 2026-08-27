@@ -10,6 +10,30 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — Wallpaper runtime/install separation
+
+### Added
+
+- Standalone `wallpaper` command installed by KaliPWM.
+- Explicit `--install-wallpaper NAME` option for choosing a wallpaper during a full installation.
+- Runtime `--wallpaper NAME` and `--set-wallpaper NAME` actions that exit after changing the wallpaper.
+
+### Changed
+
+- Wallpaper switching is now separated from the full installer lifecycle.
+- Runtime wallpaper changes use the existing Obsidian selector and persistent cache state.
+- Invalid wallpaper names are rejected before installation work begins.
+
+### Fixed
+
+- `bash kalipwm.sh --wallpaper NAME` no longer continues into `apt update`, package installation or environment deployment.
+- Changing a wallpaper no longer risks reinstalling KaliPWM.
+
+### Validation
+
+- `wallpaper list`, multiple runtime wallpaper selections and `bash kalipwm.sh --wallpaper NAME` were validated on the representative VMware Kali VM.
+- Runtime switching returned directly to the shell without entering installer stages.
+
 ## 2026-08-27 — Flameshot screenshot workflow
 
 ### Added

@@ -45,6 +45,7 @@ The current stable `main` includes:
 - Obsidian Rofi launcher and compact power confirmation UI.
 - Selectable City and Nomad Kingdom wallpaper families.
 - Persistent wallpaper choice across BSPWM sessions.
+- Standalone runtime wallpaper switching that never starts the installer.
 - Flameshot as the default interactive screenshot workflow, including region selection, annotation, clipboard copy and save actions.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
@@ -79,18 +80,24 @@ sudo reboot
 
 After reboot, select **BSPWM** from the login session menu.
 
+To choose a wallpaper during a full installation:
+
+```bash
+bash kalipwm.sh --install-wallpaper nomad-monolith-16x9
+```
+
 To inspect installer options:
 
 ```bash
 bash kalipwm.sh --help
 ```
 
-## Wallpaper selector
+## Wallpaper workflow
 
 List the bundled choices:
 
 ```bash
-bash kalipwm.sh --list-wallpapers
+wallpaper list
 ```
 
 Current wallpaper names:
@@ -105,15 +112,24 @@ Current wallpaper names:
 | `nomad-emblem` | Nomad Emblem standard |
 | `nomad-emblem-16x9` | Nomad Emblem 16:9 |
 
-Runtime switching is currently handled by:
+Change the wallpaper at runtime:
 
 ```bash
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-monolith-16x9
+wallpaper nomad-emblem-16x9
+wallpaper nomad-monolith-16x9
+wallpaper city-16x9
+wallpaper auto
 ```
 
-The chosen wallpaper is stored under `~/.cache/kalipwm/` and restored by BSPWM.
+The installer also exposes the same runtime action explicitly:
 
-> **Development note:** a cleaner standalone `wallpaper` command and strict separation between "change wallpaper" and "run the installer" are currently being validated before they move to `main`.
+```bash
+bash kalipwm.sh --wallpaper nomad-emblem-16x9
+```
+
+`--wallpaper` changes only the wallpaper and exits. It does **not** run package installation or reinstall KaliPWM. Use `--install-wallpaper NAME` only when selecting the wallpaper for a full installation.
+
+The chosen wallpaper is stored under `~/.cache/kalipwm/` and restored automatically by BSPWM.
 
 ## Screenshot workflow
 
@@ -203,7 +219,8 @@ At a glance:
 - ✅ Obsidian wallpaper library and persistent selection
 - ✅ Rofi power-menu cleanup
 - ✅ Flameshot as the default screenshot workflow
-- 🚧 standalone wallpaper command / installer separation
+- ✅ standalone wallpaper command / installer separation
+- ⏳ English-only source and CLI cleanup
 - ⏳ `kalipwm doctor` diagnostics
 - ⏳ idempotent update/repair workflow
 - ⏳ hardware and VM auto-detection
