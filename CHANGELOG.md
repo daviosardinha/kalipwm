@@ -10,6 +10,20 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — English-only source and CLI cleanup
+
+### Changed
+
+- Maintained installer comments, progress messages, warnings, errors and completion output are now English-only.
+- Installer attribution now credits both the original `afsh4ck/kalipwm` project and the KaliPWM Obsidian fork.
+- `kalipwm.sh` is tracked as executable (`100755`) to prevent repeated local file-mode drift during testing and branch switches.
+
+### Validation
+
+- `bash -n kalipwm.sh` completed without syntax errors.
+- Installer credit lines were verified on the representative VMware Kali VM.
+- A repository-wide language audit returned no matches for the legacy non-English strings checked by the project.
+
 ## 2026-08-27 — Wallpaper runtime/install separation
 
 ### Added
