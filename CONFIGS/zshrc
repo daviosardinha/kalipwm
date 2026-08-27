@@ -5,13 +5,8 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
-# KaliPWM installs its management command under /usr/local/bin. Some Kali
-# environments do not include that directory in interactive Zsh PATH by default.
-# Prepend it once so `kalipwm` is consistently available across VM and bare metal.
-case ":$PATH:" in
-  *:/usr/local/bin:*) ;;
-  *) export PATH="/usr/local/bin:$PATH" ;;
-esac
+# If you come from bash you might have to change your $PATH.
+# export PATH=$HOME/bin:/usr/local/bin:$PATH
 
 # Path to your oh-my-zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
@@ -54,6 +49,7 @@ ZSH_THEME="powerlevel10k/powerlevel10k"
 # ENABLE_CORRECTION="true"
 
 # Uncomment the following line to display red dots whilst waiting for completion.
+# You can also set it to another string instead of the default red dots.
 # e.g. COMPLETION_WAITING_DOTS="true"
 
 # Uncomment the following line if you want to disable marking untracked files
