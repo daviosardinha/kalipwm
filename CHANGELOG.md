@@ -10,6 +10,37 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — `kalipwm repair`
+
+### Added
+
+- `kalipwm repair` for refreshing KaliPWM-managed configuration, executable permissions and canonical helper symlinks without rerunning the full installer.
+- `kalipwm repair --dry-run` for showing the exact repair plan without using `sudo` or modifying files.
+- `kalipwm repair --repo PATH` support for explicitly selecting an alternate KaliPWM checkout.
+- Timestamped quarantine under `~/.cache/kalipwm/repair-backups/` for recognized legacy `~/.local/bin/{target,screenshot,wallpaper}` helper symlinks.
+
+### Changed
+
+- Repair now restores `/usr/bin/target`, `/usr/bin/screenshot`, `/usr/bin/wallpaper` and `/usr/local/bin/kalipwm` from the current checkout.
+- Managed BSPWM/Polybar/Rofi/Kitty/Picom configuration, shell files, wallpapers and executable permissions are reapplied without reinstalling the toolchain.
+- Recognized legacy PATH-shadow symlinks are moved into quarantine instead of being deleted.
+
+### Safety
+
+- Regular files and unrecognized symlink destinations under `~/.local/bin` are left untouched for manual review.
+- Repair does not invoke APT, reinstall fonts, download third-party components or rebuild Polybar/Picom.
+- Target state and persisted wallpaper choice under `~/.cache/kalipwm/` are not modified.
+- A second repair run is idempotent and performs no additional quarantine when no recognized legacy shadows remain.
+
+### Validation
+
+- Syntax validation passed for both `SCRIPTS/kalipwm` and `SCRIPTS/kalipwm-repair`.
+- VMware dry-run identified only the stale `target` PATH shadow; the real repair quarantined it, preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`, showed no forbidden installer activity and improved diagnostics from `18 OK | 2 WARN | 0 FAIL | 9 INFO` to `18 OK | 1 WARN | 0 FAIL | 9 INFO`.
+- The installed `kalipwm repair` command, help output, dry-run and real execution were validated directly on the representative VMware Kali VM.
+- Bare-metal dry-run identified the stale Forest-era `target` and `screenshot` PATH shadows; the real repair quarantined both, preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`, showed no forbidden installer activity and improved diagnostics from `19 OK | 4 WARN | 0 FAIL | 7 INFO` to `19 OK | 2 WARN | 0 FAIL | 7 INFO`.
+- Second repair runs on both validation systems completed with exit code `0` and no additional quarantine actions.
+- `SCRIPTS/kalipwm-repair` is tracked executable (`100755`).
+
 ## 2026-08-27 — `kalipwm update`
 
 ### Added
