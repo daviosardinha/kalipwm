@@ -19,6 +19,9 @@ Recognized legacy ~/.local/bin helper symlinks are quarantined instead of
 deleted so /usr/bin/target, /usr/bin/screenshot and /usr/bin/wallpaper can be
 the canonical managed commands.
 
+A real repair creates a pre-repair configuration snapshot before replacing
+managed files. Dry-run mode does not create a snapshot or use sudo.
+
 Options:
   --dry-run     Show what would change without modifying the system.
   --repo PATH   Use a KaliPWM checkout other than ~/kalipwm.
@@ -35,7 +38,7 @@ validate_repo() {
         return 1
     fi
 
-    for path in CONFIGS/config CONFIGS/zshrc CONFIGS/p10k.zsh CONFIGS/tmux.conf.local SCRIPTS/kalipwm SCRIPTS/screenshot.sh WALLPAPERS; do
+    for path in CONFIGS/config CONFIGS/zshrc CONFIGS/p10k.zsh CONFIGS/tmux.conf.local SCRIPTS/kalipwm SCRIPTS/kalipwm-backup SCRIPTS/screenshot.sh WALLPAPERS; do
         if [ ! -e "$repo/$path" ]; then
             printf 'KaliPWM repair repository is missing: %s\n' "$repo/$path" >&2
             return 1
@@ -128,9 +131,14 @@ apply_repair() {
         printf '[PLAN] Managed screenshot: /usr/bin/screenshot -> %s\n' "$HOME/.config/polybar/obsidian/scripts/screenshot.sh"
         printf '[PLAN] Managed wallpaper: /usr/bin/wallpaper -> %s\n' "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh"
         printf '[PLAN] Management command: /usr/local/bin/kalipwm\n'
+        printf '[PLAN] Automatic configuration snapshot label: pre-repair\n'
         printf '\nDry-run complete.\n'
         return 0
     fi
+
+    printf 'Creating automatic pre-repair configuration snapshot...\n'
+    KALIPWM_REPO="$repo" bash "$repo/SCRIPTS/kalipwm-backup" backup --label pre-repair || return 1
+    printf '\n'
 
     if ! command -v sudo >/dev/null 2>&1; then
         printf 'sudo is required to repair system-managed KaliPWM helpers.\n' >&2
