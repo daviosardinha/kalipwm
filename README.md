@@ -48,6 +48,7 @@ The current stable `main` includes:
 - Standalone runtime wallpaper switching that never starts the installer.
 - Flameshot as the default interactive screenshot workflow, including region selection, annotation, clipboard copy and save actions.
 - `kalipwm doctor` as a read-only system and configuration diagnostic command.
+- Idempotent installer reruns that reuse existing components instead of destructively recloning/rebuilding them.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
 - Dedicated Nerd Font sizing for compact telemetry and larger status icons.
@@ -68,7 +69,7 @@ Example:
 
 ## Installation
 
-A clean or fresh Kali Linux installation is recommended while the project is still being hardened for upgrades and repair workflows.
+A clean or fresh Kali Linux installation is still the simplest starting point, but the installer is now safe to rerun on an existing KaliPWM installation without destructively rebuilding the full environment.
 
 Run the installer as your normal user. **Do not run `kalipwm.sh` with `sudo`**; the installer requests elevation only where required.
 
@@ -80,6 +81,8 @@ sudo reboot
 ```
 
 After reboot, select **BSPWM** from the login session menu.
+
+Rerunning the installer reuses existing Oh My Zsh, Powerlevel10k, Zsh plugins, fzf, tmux, Kitty, installed Nerd Fonts and existing Polybar/Picom installations where possible. Required packages remain ensured through APT, while KaliPWM-managed configuration, helper symlinks and wallpapers are reapplied. A plain rerun preserves the saved wallpaper choice.
 
 To choose a wallpaper during a full installation:
 
@@ -248,7 +251,8 @@ At a glance:
 - ✅ standalone wallpaper command / installer separation
 - ✅ English-only source and CLI cleanup
 - ✅ `kalipwm doctor` diagnostics
-- ⏳ idempotent update/repair workflow
+- ✅ idempotent installer reruns
+- ⏳ `kalipwm update` / `kalipwm repair`
 - ⏳ hardware and VM auto-detection
 - ⏳ configuration backup and rollback
 - ⏳ Rofi-based KaliPWM Control Center
