@@ -10,6 +10,33 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — Flameshot screenshot workflow
+
+### Added
+
+- Flameshot as the default KaliPWM screenshot dependency.
+- Interactive Flameshot selection from the Print Screen workflow.
+- Persistent Flameshot session startup under BSPWM for reliable GUI and clipboard behavior.
+- `screenshot` helper modes for interactive selection, full-screen capture and screen capture.
+
+### Changed
+
+- `scrot` was removed from KaliPWM installer dependencies.
+- `Print` and `Ctrl + Print` now open the native Flameshot interactive interface.
+- `Alt + Print` uses interactive region selection because Flameshot does not provide a native active-window CLI capture mode.
+- Interactive capture no longer passes a final `--path` action, preserving native Flameshot shortcuts and annotation behavior.
+
+### Fixed
+
+- `Ctrl + C` clipboard copy after selecting a Flameshot region.
+- `Ctrl + S`, undo/redo and annotation-tool behavior inside the Flameshot GUI.
+- Fresh-VM screenshot behavior that previously depended on `scrot` or on Flameshot already being installed outside KaliPWM.
+
+### Validation
+
+- Interactive selection and screenshot shortcuts validated on the representative VMware Kali VM.
+- Native Flameshot clipboard and selection workflow confirmed before promotion to `main`.
+
 ## 2026-08-26 — Obsidian v2 foundation
 
 Current stable `main` baseline.
