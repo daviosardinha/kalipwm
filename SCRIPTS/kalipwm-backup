@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 BACKUP_ROOT="${KALIPWM_BACKUP_ROOT:-$HOME/.config/kalipwm/backups}"
 FORMAT_VERSION=1
@@ -35,8 +36,10 @@ and canonical helper symlinks.
 Backups are stored under:
   ~/.config/kalipwm/backups/
 
-The snapshot deliberately excludes Target state, wallpaper-choice state, shell
-history, browser data, credentials and unrelated ~/.config content.
+Only KaliPWM-managed paths are included. Target state, wallpaper-choice state,
+shell history, browser data and unrelated ~/.config content are excluded.
+Snapshots are created with a private umask; any secrets a user has manually
+placed inside a managed configuration file will naturally be copied with it.
 
 Commands:
   backup      Snapshot the current KaliPWM-managed configuration.
@@ -204,6 +207,8 @@ list_snapshots() {
 
 latest_snapshot_id() {
     local id
+
+    [ -d "$BACKUP_ROOT" ] || return 1
     id="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name '.tmp-*' -printf '%f\n' 2>/dev/null | sort -r | head -n1)"
     [ -n "$id" ] || return 1
     printf '%s' "$id"
@@ -359,6 +364,7 @@ apply_rollback() {
 
 rollback_snapshot() {
     local requested="latest"
+    local requested_set=0
     local dry_run=0
     local snapshot id
 
@@ -377,11 +383,12 @@ rollback_snapshot() {
                 return 2
                 ;;
             *)
-                if [ "$requested" != "latest" ]; then
+                if [ "$requested_set" -eq 1 ]; then
                     printf 'Only one backup id may be supplied to rollback.\n' >&2
                     return 2
                 fi
                 requested="$1"
+                requested_set=1
                 shift
                 ;;
         esac
