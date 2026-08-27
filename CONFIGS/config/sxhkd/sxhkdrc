@@ -144,10 +144,6 @@ super + shift + a
 # ScreenShots #
 ###############
 
-# Focused-monitor capture: avoids Flameshot/Qt spanning mixed-resolution displays.
-super + Print
-        screenshot monitor
-
 @Print
         screenshot select
 
