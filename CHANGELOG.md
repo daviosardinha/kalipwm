@@ -10,6 +10,25 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — Dynamic display and VMware-aware startup
+
+### Changed
+
+- Removed the legacy BSPWM startup command that forced `Virtual1` to `1920x1080`.
+- BSPWM now leaves display output naming, active mode selection, dynamic resize behavior and multi-monitor state to the running X session instead of imposing one VM-specific mode.
+- `vmware-user-suid-wrapper` is now guarded by `systemd-detect-virt` and starts only when VMware is detected and the helper exists.
+- `kalipwm doctor` now distinguishes guarded VMware startup from an unguarded VM-specific command.
+- Doctor display reporting now derives geometry from the connected-output line when available, preserving dynamic VMware dimensions even when the current mode is not exposed as a separate `*` entry.
+
+### Validation
+
+- `sh -n CONFIGS/config/bspwm/bspwmrc` and `bash -n SCRIPTS/kalipwm` passed during feature validation.
+- On the representative VMware Kali VM, BSPWM restart preserved `Virtual-1` at `2318x1422` instead of forcing `1920x1080`, and the VMware desktop session remained active through `vmtoolsd -n vmusr`.
+- On the primary bare-metal Kali host, BSPWM restart preserved the native `eDP-1` `2560x1600` display geometry and did not start any VMware desktop process; the connected HDMI output was also left untouched.
+- The managed repository BSPWM policy and installed `~/.config/bspwm/bspwmrc` matched during bare-metal validation.
+- Final Doctor output reached `19 OK | 0 WARN | 0 FAIL | 9 INFO` on VMware and `20 OK | 0 WARN | 0 FAIL | 8 INFO` on bare metal.
+- Other virtualization types remain diagnostic only unless they have an explicitly supported startup policy; VMware-specific behavior is never enabled merely because another VM environment is detected.
+
 ## 2026-08-27 — Configuration backup and rollback
 
 ### Added
@@ -44,7 +63,7 @@ Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 - Bare-metal repair dry-run created no snapshot; real repair created a `pre-repair` snapshot with no forbidden installer/build activity.
 - Bare-metal feature-update validation created a `pre-update` snapshot containing the controlled `.zshrc` and `bspwmrc` drift before deployment refreshed both files.
 - Across all backup/rollback/update/repair tests, Target `172.16.18.10` and wallpaper choice `nomad-emblem` remained unchanged.
-- Final diagnostics remained `18 OK | 1 WARN | 0 FAIL | 9 INFO` on VMware and `19 OK | 2 WARN | 0 FAIL | 7 INFO` on bare metal; remaining warnings are the intentionally deferred display/VM-awareness assumptions.
+- Final diagnostics remained `18 OK | 1 WARN | 0 FAIL | 9 INFO` on VMware and `19 OK | 2 WARN | 0 FAIL | 7 INFO` on bare metal; remaining warnings were the intentionally deferred display/VM-awareness assumptions that were addressed in the subsequent hardware/VM-awareness work.
 
 ## 2026-08-27 — Flameshot on-demand session behavior
 
