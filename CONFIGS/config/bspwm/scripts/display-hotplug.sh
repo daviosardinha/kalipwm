@@ -207,6 +207,10 @@ configure_connected_outputs() {
     # RandR transaction containing every connected output instead.
     ensure_provider_links || return 1
 
+    # Provider linking can expose a different/current mode list for NVIDIA-owned
+    # outputs. Always build the atomic transaction from a fresh RandR snapshot.
+    snapshot="$(xrandr_snapshot)"
+
     offset=0
     for output in "${ordered[@]}"; do
         if output_is_active "$snapshot" "$output"; then
@@ -223,6 +227,7 @@ configure_connected_outputs() {
         mode="${spec%%|*}"
         rate="${spec#*|}"
         width="${mode%%x*}"
+        log "Selected display mode for $output: ${mode}${rate:+ @ $rate Hz}"
 
         xrandr_args+=(--output "$output" --mode "$mode")
         if [ -n "$rate" ]; then
