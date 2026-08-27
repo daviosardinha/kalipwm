@@ -7,6 +7,8 @@ KaliPWM Obsidian started as a fork of [`afsh4ck/kalipwm`](https://github.com/afs
 The goal is simple: take a clean Kali installation and turn it into a repeatable, keyboard-driven workstation with an Obsidian visual language, useful live telemetry, fast target/VPN awareness and predictable behavior across bare metal and virtual machines.
 
 ![KaliPWM Obsidian — Nomad Monolith](WALLPAPERS/obsidian/obsidian-nomad-monolith-16x9.png)
+<img width="2559" height="1599" alt="image" src="https://github.com/user-attachments/assets/db343d51-3ffe-40b4-ba8b-7856a4c54112" />
+
 
 ## What makes this fork different
 
