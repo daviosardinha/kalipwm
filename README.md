@@ -1,12 +1,12 @@
 # KaliPWM Obsidian
 
-**A dark, telemetry-first Kali Linux workspace built for offensive-security labs, CTFs and daily security work.**
+**A dark, telemetry-first Kali Linux workspace built for offensive-security labs, CTFs, research and daily security work.**
 
 KaliPWM Obsidian started as a fork of [`afsh4ck/kalipwm`](https://github.com/afsh4ck/kalipwm), but this repository is being developed as its own opinionated desktop environment rather than a visual copy of the upstream project.
 
 The goal is simple: take a clean Kali installation and turn it into a repeatable, keyboard-driven workstation with an Obsidian visual language, useful live telemetry, fast target/VPN awareness and predictable behavior across bare metal and virtual machines.
 
-![KaliPWM Obsidian — Nomad Monolith 16:9](WALLPAPERS/obsidian/obsidian-nomad-monolith-16x9.png)
+![KaliPWM Obsidian — Nomad Monolith](WALLPAPERS/obsidian/obsidian-nomad-monolith-16x9.png)
 
 ## What makes this fork different
 
@@ -16,6 +16,22 @@ KaliPWM Obsidian is moving beyond a one-shot theme installer. The project is bei
 - **Repeatable** — a fresh VM and a physical Kali machine should converge on the same working environment.
 - **Minimal friction** — common actions such as setting a target, changing wallpaper, checking VPN state or launching tools should take one command or shortcut.
 - **Maintainable** — installation, diagnostics, rollback and documentation should evolve together instead of accumulating machine-specific fixes.
+
+## Screenshots
+
+These are real screenshots captured while testing this fork. They are not inherited from the upstream project.
+
+### Obsidian on the primary Kali host
+
+![KaliPWM Obsidian desktop on bare metal](docs/screenshots/obsidian-desktop-host.jpg)
+
+### Obsidian in VMware
+
+![KaliPWM Obsidian desktop in VMware](docs/screenshots/obsidian-desktop-vm.jpg)
+
+### Obsidian v2 Polybar
+
+![KaliPWM Obsidian v2 Polybar telemetry](docs/screenshots/obsidian-polybar.jpg)
 
 ## Current Obsidian experience
 
@@ -31,25 +47,19 @@ The current stable `main` includes:
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
 - Dedicated Nerd Font sizing for compact telemetry and larger status icons.
 
-## Visuals
+## Wallpaper collection
 
-The README uses **four first-party KaliPWM Obsidian visuals** from this repository rather than screenshots inherited from the upstream project.
+The bundled Obsidian wallpaper library lives under [`WALLPAPERS/obsidian/`](WALLPAPERS/obsidian/).
 
-The 16:9 Nomad Monolith above is the primary project visual. The remaining three complete the current Nomad Kingdom Obsidian set:
+Current families include:
 
-### Nomad Monolith — Standard
+- Obsidian City — 16:9 and ultrawide
+- Nomad Monolith — standard and 16:9
+- Nomad Emblem — standard and 16:9
 
-![Nomad Monolith Standard](WALLPAPERS/obsidian/obsidian-nomad-monolith-standard.png)
-
-### Nomad Emblem — 16:9
+Example:
 
 ![Nomad Emblem 16:9](WALLPAPERS/obsidian/obsidian-nomad-emblem-16x9.png)
-
-### Nomad Emblem — Standard
-
-![Nomad Emblem Standard](WALLPAPERS/obsidian/obsidian-nomad-emblem-standard.png)
-
-Additional City and ultrawide assets are available under [`WALLPAPERS/obsidian/`](WALLPAPERS/obsidian/).
 
 ## Installation
 
@@ -92,7 +102,7 @@ Current wallpaper names:
 | `nomad-emblem` | Nomad Emblem standard |
 | `nomad-emblem-16x9` | Nomad Emblem 16:9 |
 
-Runtime switching is handled by:
+Runtime switching is currently handled by:
 
 ```bash
 ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-monolith-16x9
@@ -100,7 +110,7 @@ Runtime switching is handled by:
 
 The chosen wallpaper is stored under `~/.cache/kalipwm/` and restored by BSPWM.
 
-> **Development note:** a cleaner standalone `wallpaper` command and separation between "change wallpaper" and "run the installer" are currently being validated before they move to `main`.
+> **Development note:** a cleaner standalone `wallpaper` command and strict separation between "change wallpaper" and "run the installer" are currently being validated before they move to `main`.
 
 ## Target workflow
 
@@ -180,11 +190,17 @@ At a glance:
 - ⏳ Rofi-based KaliPWM Control Center
 - ⏳ reproducibility/security hardening and a tagged `v1.0.0`
 
+## Project language
+
+**English is the only language used for KaliPWM Obsidian documentation, user-facing CLI output, comments and newly maintained project content.**
+
+Legacy strings inherited from the upstream project will be migrated to English as part of the ongoing cleanup. New changes must not introduce non-English user-facing text.
+
 ## Documentation policy
 
 Documentation is part of the definition of done for this project.
 
-When a task is validated and lands on `main`, the same change should update the relevant README, roadmap and/or changelog entry. Features that are still experimental stay marked as **in progress** and must not be documented as stable until they are merged into `main`.
+When a task is validated and lands on `main`, the same completion cycle must update the relevant README, roadmap and/or changelog entry. Features that are still experimental stay marked as **in progress** and must not be documented as stable until they are merged into `main`.
 
 This keeps the public repository aligned with what a fresh clone can actually reproduce.
 
