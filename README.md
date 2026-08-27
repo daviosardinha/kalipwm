@@ -23,8 +23,8 @@ KaliPWM Obsidian is moving beyond a one-shot theme installer. The project is bei
 These are real screenshots captured while testing this fork. They are not inherited from the upstream project.
 
 ### Obsidian on the primary Kali host
+<img width="2559" height="1599" alt="image" src="https://github.com/user-attachments/assets/be265834-c305-4544-a6bd-beda88abbed7" />
 
-![KaliPWM Obsidian desktop on bare metal](docs/screenshots/obsidian-desktop-host.jpg)
 
 ### Obsidian in VMware
 
