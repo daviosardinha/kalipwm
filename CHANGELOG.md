@@ -10,6 +10,20 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — Flameshot on-demand session behavior
+
+### Changed
+
+- Removed the requirement to keep a persistent Flameshot process running under BSPWM; the managed `screenshot` helper launches Flameshot on demand.
+- `kalipwm doctor` now treats an installed Flameshot executable as healthy even when no resident Flameshot process exists.
+- Doctor reports `Flameshot is installed and available on demand` instead of warning about an absent background process.
+
+### Validation
+
+- On the representative VMware Kali VM, Flameshot was stopped completely, `kalipwm doctor` remained healthy at `18 OK | 1 WARN | 0 FAIL | 9 INFO`, Print launched a successful interactive capture, and Doctor remained unchanged afterward.
+- On the primary bare-metal Kali host, Flameshot was stopped completely, Print launched a successful interactive capture, and Doctor remained at `19 OK | 2 WARN | 0 FAIL | 7 INFO` before and after capture.
+- Flameshot may remain resident after a capture or exit; either process state is valid because capture availability is provided by the installed executable and managed helper rather than a required daemon.
+
 ## 2026-08-27 — `kalipwm repair`
 
 ### Added
