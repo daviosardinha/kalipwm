@@ -52,6 +52,7 @@ The current stable `main` includes:
 - `kalipwm repair` for safely refreshing managed configuration, executable permissions and helper symlinks while quarantining recognized legacy PATH shadows.
 - `kalipwm backup`, `kalipwm backups` and `kalipwm rollback` for timestamped managed-configuration snapshots and reversible rollback.
 - Automatic `pre-update`, `pre-repair` and `pre-rollback` safety snapshots around destructive managed-file changes.
+- Environment-aware BSPWM startup that preserves the display geometry provided by X instead of forcing a legacy `Virtual1` mode, and only starts the VMware session helper when VMware is actually detected.
 - Idempotent installer reruns that reuse existing components instead of destructively recloning/rebuilding them.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
@@ -112,7 +113,7 @@ Run the read-only diagnostic report with:
 kalipwm doctor
 ```
 
-The doctor checks the current Kali/X11 environment, virtualization and display state, BSPWM/sxhkd/Polybar/Picom/Rofi/Flameshot, managed KaliPWM helpers, Obsidian configuration, Nerd Fonts, Target and wallpaper state, network/VPN interfaces, optional hardware telemetry and known machine-specific BSPWM assumptions.
+The doctor checks the current Kali/X11 environment, virtualization and connected-display geometry, BSPWM/sxhkd/Polybar/Picom/Rofi/Flameshot, managed KaliPWM helpers, Obsidian configuration, Nerd Fonts, Target and wallpaper state, network/VPN interfaces, optional hardware telemetry and known machine-specific BSPWM assumptions.
 
 Status levels are intentionally different:
 
@@ -123,7 +124,15 @@ Status levels are intentionally different:
 
 `kalipwm doctor` never uses `sudo` and never changes configuration. It exits with code `1` when one or more `FAIL` findings are present; warnings alone keep a successful exit code.
 
-The diagnostic logic has been validated on both the representative VMware Kali VM and the primary bare-metal Kali host. That cross-machine comparison exposed real stale helper shadowing and legacy hard-coded VM/display assumptions without treating absent optional hardware as failures.
+The diagnostic logic has been validated on both the representative VMware Kali VM and the primary bare-metal Kali host. It now verifies that no legacy hard-coded `Virtual1` output remains and distinguishes a VMware helper protected by virtualization detection from an unguarded VM-specific startup command.
+
+## Hardware and VM awareness
+
+KaliPWM no longer forces a fixed `Virtual1` output or a `1920x1080` mode during BSPWM startup. The active X session keeps control of the connected output names, native/dynamic resolution and multi-monitor state.
+
+VMware-specific desktop integration is also guarded at runtime: `vmware-user-suid-wrapper` is launched only when `systemd-detect-virt` reports VMware and the helper exists. On bare metal, the VMware helper remains inactive. Other virtualization types are reported diagnostically without enabling VMware-specific behavior.
+
+This startup policy was validated by restarting BSPWM on both the representative VMware VM and the primary bare-metal host. VMware retained its dynamic `Virtual-1` geometry and active desktop integration, while bare metal retained its native `eDP-1` geometry and started no VMware desktop process. Both systems finished the updated Doctor checks with zero warnings and zero failures.
 
 ## Update workflow
 
@@ -310,7 +319,7 @@ The bar is deliberately compact. Detailed sensor information remains available f
 - time
 - power menu
 
-Hardware-adaptive module visibility and improved bare-metal/VM detection are planned as part of the next reliability phase.
+Base display/VM startup awareness is now environment-aware; hardware-adaptive Polybar module visibility remains planned for the next Phase 4 step.
 
 ## Main shortcuts
 
@@ -350,7 +359,8 @@ At a glance:
 - ✅ `kalipwm update`
 - ✅ `kalipwm repair`
 - ✅ configuration backup and rollback
-- ⏳ hardware and VM auto-detection
+- ✅ dynamic display handling and VMware-aware BSPWM startup
+- ⏳ hardware-adaptive Polybar modules
 - ⏳ Rofi-based KaliPWM Control Center
 - ⏳ reproducibility/security hardening and a tagged `v1.0.0`
 
