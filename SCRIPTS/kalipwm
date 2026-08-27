@@ -508,6 +508,37 @@ HELP
     exec "$repo/SCRIPTS/kalipwm" __apply-update "$repo"
 }
 
+run_repair() {
+    local repo="${KALIPWM_REPO:-$HOME/kalipwm}"
+    local original_args=("$@")
+    local scan_args=("$@")
+
+    while [ "${#scan_args[@]}" -gt 0 ]; do
+        case "${scan_args[0]}" in
+            --repo)
+                if [ "${#scan_args[@]}" -lt 2 ]; then
+                    printf 'kalipwm repair --repo requires a path.\n' >&2
+                    return 2
+                fi
+                repo="${scan_args[1]}"
+                scan_args=("${scan_args[@]:2}")
+                ;;
+            *)
+                scan_args=("${scan_args[@]:1}")
+                ;;
+        esac
+    done
+
+    repo="$(readlink -f "$repo" 2>/dev/null || printf '%s' "$repo")"
+    if [ ! -f "$repo/SCRIPTS/kalipwm-repair" ]; then
+        printf 'KaliPWM repair helper is missing: %s\n' "$repo/SCRIPTS/kalipwm-repair" >&2
+        printf 'Run "kalipwm update" first or provide a valid checkout with --repo PATH.\n' >&2
+        return 1
+    fi
+
+    exec bash "$repo/SCRIPTS/kalipwm-repair" "${original_args[@]}"
+}
+
 show_help() {
     /usr/bin/cat <<'HELP'
 KaliPWM Obsidian management command
@@ -515,14 +546,16 @@ KaliPWM Obsidian management command
 Usage:
   kalipwm doctor
   kalipwm update
+  kalipwm repair
   kalipwm help
 
 Commands:
   doctor    Run a read-only diagnostic report for the KaliPWM desktop.
   update    Fast-forward the KaliPWM checkout and refresh managed configuration.
+  repair    Repair managed configuration, permissions, helpers and known legacy shadows.
   help      Show this help.
 
-Run "kalipwm update --help" for update-specific options.
+Run "kalipwm update --help" or "kalipwm repair --help" for command-specific options.
 The doctor command never uses sudo and never changes system configuration.
 HELP
 }
@@ -539,6 +572,10 @@ case "${1:-help}" in
     update)
         shift
         run_update "$@"
+        ;;
+    repair)
+        shift
+        run_repair "$@"
         ;;
     __apply-update)
         shift
