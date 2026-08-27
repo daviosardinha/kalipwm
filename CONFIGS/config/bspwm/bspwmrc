@@ -3,13 +3,6 @@
 wmname LG3D &
 vmware-user-suid-wrapper &
 
-# Flameshot can exit if it starts too early during the initial graphical login.
-# Give the session a moment to settle, then start it only if it is still absent.
-(
-    sleep 3
-    pgrep -x flameshot > /dev/null || exec flameshot > /dev/null 2>&1
-) &
-
 pgrep -x sxhkd > /dev/null || sxhkd &
 
 bspc monitor -d I II III IV V VI VII VIII IX X
