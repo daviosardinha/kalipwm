@@ -61,17 +61,19 @@ Statuses:
 
 ## Phase 2 — Close current reliability gaps
 
-### 🚧 Flameshot as the default screenshot workflow
+### ✅ Flameshot as the default screenshot workflow
 
-Goal: make a fresh KaliPWM installation behave the same as the established host setup.
+The screenshot workflow is now validated and promoted to stable behavior.
 
-Planned outcome:
+Completed outcome:
 
-- install `flameshot` by default;
-- remove `scrot` from KaliPWM dependencies;
-- use Flameshot for the Print Screen workflow;
-- validate selection/fullscreen behavior on both VM and bare metal;
-- document the final shortcuts only after validation reaches `main`.
+- `flameshot` is installed by default;
+- `scrot` is removed from KaliPWM dependencies;
+- Print Screen shortcuts launch Flameshot interactive selection;
+- the helper preserves native Flameshot actions such as `Ctrl + C`, `Ctrl + S`, undo/redo and annotation tools;
+- Flameshot is kept available in the BSPWM session so clipboard behavior remains consistent;
+- full/screen captures can still be saved under `~/screenshots/` through the helper;
+- the interactive workflow was validated on the representative VMware Kali VM before promotion to `main`.
 
 ### 🚧 Separate wallpaper switching from installation
 
