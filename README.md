@@ -1,24 +1,55 @@
-# KaliPWM — Obsidian
+# KaliPWM Obsidian
 
-Fork modificado de KaliPWN con un entorno **Obsidian** para Kali Linux basado en BSPWM, Polybar, Rofi, Kitty y Powerlevel10k.
+**A dark, telemetry-first Kali Linux workspace built for offensive-security labs, CTFs and daily security work.**
 
-> Proyecto original: `afsh4ck/kalipwm`.
+KaliPWM Obsidian started as a fork of [`afsh4ck/kalipwm`](https://github.com/afsh4ck/kalipwm), but this repository is being developed as its own opinionated desktop environment rather than a visual copy of the upstream project.
 
-## Características principales
+The goal is simple: take a clean Kali installation and turn it into a repeatable, keyboard-driven workstation with an Obsidian visual language, useful live telemetry, fast target/VPN awareness and predictable behavior across bare metal and virtual machines.
 
-- BSPWM con escritorios `I` a `X`.
-- Polybar Obsidian v2 con Wi-Fi, VPN, Target, CPU/GPU, temperaturas, RAM, ventilador, volumen, batería/alimentación y hora.
-- Selector de wallpapers durante la instalación y en tiempo de ejecución.
-- Wallpapers City y Nomad Kingdom incluidos en variantes estándar, 16:9 y ultrawide donde aplica.
-- Target persistente por usuario, independiente de la conexión VPN.
-- Rofi con launcher y menú de energía/confirmación adaptados al tema Obsidian.
-- `cat` usa `/usr/bin/cat` y `vim` usa `/usr/bin/vim`.
+![KaliPWM Obsidian — Nomad Monolith](WALLPAPERS/obsidian/obsidian-nomad-monolith-16x9.png)
 
-## Instalación
+## What makes this fork different
 
-Se recomienda una instalación nueva/limpia de Kali Linux.
+KaliPWM Obsidian is moving beyond a one-shot theme installer. The project is being shaped around four principles:
 
-Ejecuta el instalador como tu usuario normal; **no ejecutes `kalipwm.sh` con sudo**. El script solicitará privilegios cuando sean necesarios.
+- **Operational first** — the desktop should surface information useful during real security work, not just look good.
+- **Repeatable** — a fresh VM and a physical Kali machine should converge on the same working environment.
+- **Minimal friction** — common actions such as setting a target, changing wallpaper, checking VPN state or launching tools should take one command or shortcut.
+- **Maintainable** — installation, diagnostics, rollback and documentation should evolve together instead of accumulating machine-specific fixes.
+
+## Current Obsidian experience
+
+The current stable `main` includes:
+
+- BSPWM with Roman-numeral workspaces `I` through `X`.
+- Obsidian v2 Polybar with Wi-Fi interface/IP, VPN telemetry, Target state, CPU/GPU data, temperatures, RAM, fan RPM, audio, battery/AC and time.
+- Persistent per-user Target state that does **not** depend on VPN connectivity.
+- Obsidian Rofi launcher and compact power confirmation UI.
+- Selectable City and Nomad Kingdom wallpaper families.
+- Persistent wallpaper choice across BSPWM sessions.
+- Kitty + Powerlevel10k + Oh My Zsh workflow.
+- Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
+- Dedicated Nerd Font sizing for compact telemetry and larger status icons.
+
+## Visuals
+
+These are assets from this repository — not screenshots inherited from the upstream project.
+
+### Nomad Emblem — 16:9
+
+![Nomad Emblem 16:9](WALLPAPERS/obsidian/obsidian-nomad-emblem-16x9.png)
+
+### Obsidian City — 16:9
+
+![Obsidian City 16:9](WALLPAPERS/obsidian/obsidian-city-16x9.jpg)
+
+More bundled wallpapers are available under [`WALLPAPERS/obsidian/`](WALLPAPERS/obsidian/).
+
+## Installation
+
+A clean or fresh Kali Linux installation is recommended while the project is still being hardened for upgrades and repair workflows.
+
+Run the installer as your normal user. **Do not run `kalipwm.sh` with `sudo`**; the installer requests elevation only where required.
 
 ```bash
 git clone https://github.com/daviosardinha/kalipwm.git
@@ -27,139 +58,131 @@ bash kalipwm.sh
 sudo reboot
 ```
 
-Después del reinicio, selecciona **BSPWM** en la pantalla de inicio de sesión.
+After reboot, select **BSPWM** from the login session menu.
 
-Para ver la ayuda:
+To inspect installer options:
 
 ```bash
 bash kalipwm.sh --help
 ```
 
-## Selector de wallpapers
+## Wallpaper selector
 
-Lista las opciones disponibles:
+List the bundled choices:
 
 ```bash
 bash kalipwm.sh --list-wallpapers
 ```
 
-Opciones actuales:
+Current wallpaper names:
 
 | Selector | Wallpaper |
 |---|---|
-| `auto` | Selección automática del City según geometría del monitor |
+| `auto` | Automatically chooses the City variant based on monitor geometry |
 | `city-16x9` | Obsidian City 16:9 |
 | `city-ultrawide` | Obsidian City ultrawide |
-| `nomad-monolith` | Nomad Monolith estándar |
+| `nomad-monolith` | Nomad Monolith standard |
 | `nomad-monolith-16x9` | Nomad Monolith 16:9 |
-| `nomad-emblem` | Nomad Emblem estándar |
+| `nomad-emblem` | Nomad Emblem standard |
 | `nomad-emblem-16x9` | Nomad Emblem 16:9 |
 
-Ejemplo durante la instalación:
+Runtime switching is handled by:
 
 ```bash
-bash kalipwm.sh --wallpaper nomad-monolith-16x9
-```
-
-Si no indicas `--wallpaper`, se utiliza `auto`.
-
-La elección se guarda y BSPWM vuelve a aplicarla al iniciar la sesión.
-
-### Cambiar wallpaper después de instalar
-
-```bash
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-monolith
 ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-monolith-16x9
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-emblem
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh nomad-emblem-16x9
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh city-16x9
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh city-ultrawide
-~/.config/bspwm/scripts/set-obsidian-wallpaper.sh auto
 ```
 
-Los archivos se instalan en:
+The chosen wallpaper is stored under `~/.cache/kalipwm/` and restored by BSPWM.
 
-```text
-~/Wallpapers/obsidian/
-```
+> **Development note:** a cleaner standalone `wallpaper` command and separation between "change wallpaper" and "run the installer" are currently being validated before they move to `main`.
 
-Wallpapers incluidos:
+## Target workflow
 
-```text
-obsidian-city-16x9.jpg
-obsidian-city-ultrawide.jpg
-obsidian-nomad-monolith-standard.png
-obsidian-nomad-monolith-16x9.png
-obsidian-nomad-emblem-standard.png
-obsidian-nomad-emblem-16x9.png
-```
-
-## Target en Polybar
-
-Selecciona un objetivo:
+Set a target:
 
 ```bash
 target 10.10.10.10
 ```
 
-Polybar mostrará:
+Polybar displays:
 
 ```text
 Target 10.10.10.10
 ```
 
-Consulta el objetivo actual:
+Read or clear it:
 
 ```bash
 target
-```
-
-Elimínalo:
-
-```bash
 target reset
 ```
 
-El Target es estado local del escritorio y **no requiere una VPN activa**. Se almacena por usuario bajo `~/.cache/kalipwm/`.
+Target state is local desktop state stored per user under `~/.cache/kalipwm/`. It works with or without an active VPN.
 
 ## Obsidian Polybar v2
 
-La barra muestra de forma compacta:
+The bar is deliberately compact. Detailed sensor information remains available from the underlying tools, while Polybar focuses on the information that is useful at a glance:
 
-- interfaz Wi-Fi + IP local;
-- VPN + IP cuando está disponible;
-- Target actual;
-- CPU + temperatura;
-- GPU + temperatura;
-- RAM utilizada;
-- RPM de ventilador en formato compacto;
-- volumen;
-- batería y alimentación AC;
-- hora;
-- menú de energía.
+- Wi-Fi interface + local IP
+- VPN interface + VPN IP
+- current Target
+- CPU usage + temperature
+- GPU usage + temperature when available
+- used RAM
+- compact fan RPM
+- volume
+- AC/battery state
+- time
+- power menu
 
-Los iconos utilizan Nerd Fonts y el layout está diseñado para mantener la telemetría útil sin convertir la barra en una salida completa de `sensors`.
+Hardware-adaptive module visibility and improved bare-metal/VM detection are planned as part of the next reliability phase.
 
-## Atajos principales
+## Main shortcuts
 
-> En macOS, cambia Windows por Command y Alt por Option.
+> On macOS-hosted keyboards, substitute Windows/Super with Command where appropriate and Alt with Option.
 
-| Comando | Descripción |
+| Shortcut | Action |
 |---|---|
-| `Windows + Enter` | Abre una nueva terminal |
-| `Windows + Flechas` | Navega entre ventanas abiertas |
-| `Windows + Tab` | Cambia entre los dos escritorios más recientes |
-| `Windows + Alt + R` | Recarga el entorno de escritorio |
-| `Windows + Alt + Q` | Reinicia BSPWM |
-| `Windows + Alt + Flechas` | Redimensiona la ventana actual |
-| `Windows + Shift + F` | Abre Firefox |
-| `Windows + Shift + B` | Abre Burp Suite |
-| `Windows + Shift + A` | Abre Thunar |
-| `Windows + Shift + Flechas` | Mueve la ventana actual |
-| `tmux` | Inicia tmux |
-| `p10k configure` | Configura Powerlevel10k |
+| `Super + Enter` | Open Kitty |
+| `Super + D` | Open the Obsidian launcher |
+| `Super + Arrow keys` | Move focus between windows |
+| `Super + Tab` | Return to the previous desktop |
+| `Super + Alt + R` | Reload the desktop environment |
+| `Super + Alt + Q` | Restart/quit BSPWM according to the configured binding |
+| `Super + Alt + Arrow keys` | Resize the focused window |
+| `Super + Shift + F` | Open Firefox |
+| `Super + Shift + B` | Open Burp Suite |
+| `Super + Shift + A` | Open Thunar |
+| `Print` | Screenshot workflow |
 
-## Componentes principales
+## Project roadmap
+
+The detailed roadmap lives in [`ROADMAP.md`](ROADMAP.md).
+
+At a glance:
+
+- ✅ Obsidian v2 desktop and Polybar foundation
+- ✅ Target state and VPN-independent target display
+- ✅ Obsidian wallpaper library and persistent selection
+- ✅ Rofi power-menu cleanup
+- 🚧 Flameshot as the default screenshot workflow
+- 🚧 standalone wallpaper command / installer separation
+- ⏳ `kalipwm doctor` diagnostics
+- ⏳ idempotent update/repair workflow
+- ⏳ hardware and VM auto-detection
+- ⏳ configuration backup and rollback
+- ⏳ Rofi-based KaliPWM Control Center
+- ⏳ reproducibility/security hardening and a tagged `v1.0.0`
+
+## Documentation policy
+
+Documentation is part of the definition of done for this project.
+
+When a task is validated and lands on `main`, the same change should update the relevant README, roadmap and/or changelog entry. Features that are still experimental stay marked as **in progress** and must not be documented as stable until they are merged into `main`.
+
+This keeps the public repository aligned with what a fresh clone can actually reproduce.
+
+## Core components
 
 - BSPWM
 - Polybar
@@ -180,10 +203,13 @@ Los iconos utilizan Nerd Fonts y el layout está diseñado para mantener la tele
 - lm-sensors
 - pavucontrol
 
-## Créditos y licencia
+## Credits and license
 
-Este repositorio es un fork y una versión modificada de KaliPWN de **afsh4ck**.
+KaliPWM Obsidian is a fork and modified continuation of KaliPWN/KaliPWM by **afsh4ck**.
 
-- Proyecto original: `afsh4ck/kalipwm`
-- Autor original: afsh4ck
-- Licencia: MIT
+- Original project: [`afsh4ck/kalipwm`](https://github.com/afsh4ck/kalipwm)
+- Original author: afsh4ck
+- This fork: `daviosardinha/kalipwm`
+- License: MIT
+
+The upstream project deserves full credit for the original foundation; the Obsidian design, telemetry layout, wallpaper system, Target workflow changes and ongoing reliability roadmap are specific to this fork.
