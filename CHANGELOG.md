@@ -10,6 +10,33 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — `kalipwm doctor` diagnostics
+
+### Added
+
+- `/usr/local/bin/kalipwm` management command installed by KaliPWM.
+- `kalipwm doctor` read-only diagnostic report.
+- System checks for Kali/X11, virtualization and current display/resolution.
+- Desktop checks for BSPWM, sxhkd, Polybar, Picom, Rofi and Flameshot.
+- Managed helper checks for `target`, `screenshot` and `wallpaper`, including PATH-shadowing detection.
+- Configuration/font/state checks for Obsidian BSPWM/Polybar, Nerd Fonts, Target and current wallpaper.
+- Network checks for the default interface, Wi-Fi and common VPN tunnel interfaces.
+- Optional battery, GPU and fan telemetry reporting.
+- Configuration warnings for legacy hard-coded `Virtual1` output and VMware-specific session startup.
+
+### Changed
+
+- Diagnostic status is classified as `[OK]`, `[INFO]`, `[WARN]` or `[FAIL]` so optional hardware absence is not treated as broken configuration.
+- `kalipwm doctor` returns exit code `1` only when required-state failures are present; warnings alone remain non-fatal.
+
+### Validation
+
+- Diagnostic behavior was validated on a representative VMware Kali VM and the primary bare-metal Kali host.
+- VMware validation confirmed real display discovery, optional-hardware handling and PATH-shadowing detection.
+- Bare-metal validation confirmed `eDP-1` display detection, `wlan0` Wi-Fi detection, battery/NVIDIA telemetry and warnings for stale VM/display assumptions.
+- The installed `/usr/local/bin/kalipwm` command, help output and doctor execution were validated directly on bare metal.
+- The doctor remained read-only and did not use `sudo` or modify configuration during validation.
+
 ## 2026-08-27 — English-only source and CLI cleanup
 
 ### Changed
