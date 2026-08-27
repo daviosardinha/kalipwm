@@ -71,9 +71,9 @@ Completed outcome:
 - `scrot` is removed from KaliPWM dependencies;
 - Print Screen shortcuts launch Flameshot interactive selection;
 - the helper preserves native Flameshot actions such as `Ctrl + C`, `Ctrl + S`, undo/redo and annotation tools;
-- Flameshot is kept available in the BSPWM session so clipboard behavior remains consistent;
+- Flameshot is launched on demand by the managed screenshot helper; no persistent background process is required;
 - full/screen captures can still be saved under `~/screenshots/` through the helper;
-- the interactive workflow was validated on the representative VMware Kali VM before promotion to `main`.
+- the interactive workflow and on-demand process lifecycle were validated on both the representative VMware Kali VM and the primary bare-metal Kali host.
 
 ### ✅ Separate wallpaper switching from installation
 
@@ -126,7 +126,7 @@ kalipwm doctor
 
 - the installer deploys the management command to `/usr/local/bin/kalipwm`;
 - Kali/X11, virtualization and current display/resolution are reported;
-- BSPWM, sxhkd, Polybar, Picom, Rofi and Flameshot installation/runtime state are checked;
+- BSPWM, sxhkd, Polybar, Picom and Rofi runtime state plus Flameshot availability are checked;
 - managed `target`, `screenshot` and `wallpaper` helpers are checked independently from PATH shadowing;
 - Obsidian BSPWM/Polybar configuration and required Nerd Fonts are checked;
 - Target and current wallpaper state are reported without modification;
