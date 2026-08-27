@@ -10,6 +10,31 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — Idempotent installer reruns
+
+### Changed
+
+- Re-running `bash kalipwm.sh` now reuses existing managed components instead of deleting or blindly recloning them.
+- Existing Oh My Zsh, Powerlevel10k, Zsh plugin, fzf and tmux installations are reused.
+- Installed Hack Nerd Font and JetBrainsMono Nerd Font families skip repeat downloads.
+- Existing Kitty, Polybar, Polybar themes and Picom installations skip unnecessary reinstall/build work when already available.
+- APT continues to ensure required packages and build dependencies while leaving already-current packages untouched.
+- KaliPWM-managed configuration, helper symlinks, executable permissions and bundled wallpapers are reapplied on rerun.
+- A plain installer rerun preserves the saved wallpaper choice; fresh installs with no persisted choice continue to default to `auto`.
+
+### Safety
+
+- Existing source paths that are not valid Git checkouts are no longer deleted automatically; the installer stops with an explicit message so the user can inspect the path first.
+- Managed source checkouts are reused without destructive recloning.
+
+### Validation
+
+- Static `bash -n` validation passed before full rerun testing.
+- A plain rerun on the representative VMware Kali VM exited `0`, preserved the saved `nomad-emblem` wallpaper, reused all expected existing components and produced no unexpected Git clones.
+- Post-rerun VMware diagnostics reported `18 OK | 2 WARN | 0 FAIL | 9 INFO`.
+- A plain rerun on the primary bare-metal Kali host exited `0`, preserved the saved `nomad-emblem` wallpaper, reused the existing toolchain and produced no unexpected Git clones.
+- Post-rerun bare-metal diagnostics reported `19 OK | 4 WARN | 0 FAIL | 7 INFO`; remaining warnings were stale PATH-shadow helpers and legacy VM/display assumptions rather than installer failures.
+
 ## 2026-08-27 — `kalipwm doctor` diagnostics
 
 ### Added
