@@ -55,11 +55,14 @@ output_is_active() {
     printf '%s\n' "$snapshot" | awk -v output="$output" '
         $1 == output && $2 == "connected" {
             for (i = 3; i <= NF; i++) {
-                if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+/) exit 0
+                if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+/) {
+                    found = 1
+                    break
+                }
             }
-            exit 1
+            exit
         }
-        END { exit 1 }
+        END { exit(found ? 0 : 1) }
     '
 }
 
