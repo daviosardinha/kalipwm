@@ -4,7 +4,7 @@ This roadmap tracks the direction of the `daviosardinha/kalipwm` fork.
 
 The project is evolving from a customized Kali desktop installer into a **repeatable offensive-security workstation layer** that behaves consistently across clean Kali installations, VMs and bare-metal systems.
 
-**Project language:** English only. Documentation, user-facing CLI output, comments and newly maintained project content must be written in English. Remaining legacy non-English strings inherited from upstream are scheduled for cleanup before `v1.0.0`.
+**Project language:** English only. Documentation, maintained source comments and user-facing CLI output must be written in English.
 
 Statuses:
 
@@ -97,19 +97,18 @@ wallpaper auto
 - the selected wallpaper remains persistent through the existing KaliPWM cache state;
 - runtime switching and installer separation were validated on the representative VMware Kali VM before promotion to `main`.
 
-### ⏳ English-only source and CLI cleanup
+### ✅ English-only source and CLI cleanup
 
-Remove remaining legacy non-English text inherited from upstream so the repository follows one language consistently.
+Legacy non-English text inherited from upstream has been removed from the maintained installer and audited repository content.
 
-Scope:
+Completed outcome:
 
-- installer comments and progress messages;
-- errors and warnings;
-- helper-script comments where maintained by this fork;
-- documentation and examples;
-- future user-facing command help.
-
-New changes must use English immediately; this task covers legacy content that still needs migration.
+- installer comments and progress messages use English;
+- root/sudo errors, warnings and completion messages use English;
+- installer attribution credits both the original `afsh4ck/kalipwm` project and KaliPWM Obsidian;
+- `kalipwm.sh` is tracked as executable (`100755`) to avoid recurring file-mode drift during testing;
+- a repository-wide language audit returned no matches for the legacy non-English strings used by the project;
+- future maintained documentation, comments and user-facing CLI output remain English-only.
 
 ---
 
