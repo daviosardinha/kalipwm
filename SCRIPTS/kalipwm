@@ -206,12 +206,10 @@ run_doctor() {
         print_status FAIL "Rofi is not installed"
     fi
 
-    if ! have flameshot; then
-        print_status FAIL "Flameshot is not installed"
-    elif process_running flameshot; then
-        print_status OK "Flameshot is installed and available in the session"
+    if have flameshot; then
+        print_status OK "Flameshot is installed and available on demand"
     else
-        print_status WARN "Flameshot is installed but its session process is not running"
+        print_status FAIL "Flameshot is not installed"
     fi
 
     section "KaliPWM"
