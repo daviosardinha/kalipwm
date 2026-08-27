@@ -210,7 +210,7 @@ The chosen wallpaper is stored under `~/.cache/kalipwm/` and restored automatica
 
 ## Screenshot workflow
 
-Flameshot is installed by KaliPWM and kept available in the BSPWM session so interactive capture and clipboard behavior work consistently.
+Flameshot is installed by KaliPWM and launched on demand by the screenshot helper. KaliPWM does not require a persistent Flameshot background process; the process may remain resident after a capture or exit, and either state is valid.
 
 ```bash
 screenshot
