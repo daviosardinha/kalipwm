@@ -4,6 +4,8 @@ This roadmap tracks the direction of the `daviosardinha/kalipwm` fork.
 
 The project is evolving from a customized Kali desktop installer into a **repeatable offensive-security workstation layer** that behaves consistently across clean Kali installations, VMs and bare-metal systems.
 
+**Project language:** English only. Documentation, user-facing CLI output, comments and newly maintained project content must be written in English. Remaining legacy non-English strings inherited from upstream are scheduled for cleanup before `v1.0.0`.
+
 Statuses:
 
 - ✅ **Done** — validated and available on `main`
@@ -86,6 +88,20 @@ wallpaper auto
 ```
 
 The full installer should remain a separate explicit action.
+
+### ⏳ English-only source and CLI cleanup
+
+Remove remaining legacy non-English text inherited from upstream so the repository follows one language consistently.
+
+Scope:
+
+- installer comments and progress messages;
+- errors and warnings;
+- helper-script comments where maintained by this fork;
+- documentation and examples;
+- future user-facing command help.
+
+New changes must use English immediately; this task covers legacy content that still needs migration.
 
 ---
 
