@@ -11,7 +11,10 @@ fi
 
 case "${1:-select}" in
     select|gui)
-        exec flameshot gui --path "$SCREENSHOT_DIR"
+        # Keep GUI mode clean: do not pass final-action flags here.
+        # This preserves Flameshot's native interactive shortcuts such as
+        # Ctrl+C (copy), Ctrl+S (save), Ctrl+Z (undo), and the annotation tools.
+        exec flameshot gui
         ;;
     full)
         exec flameshot full --path "$SCREENSHOT_DIR"
@@ -20,8 +23,8 @@ case "${1:-select}" in
         exec flameshot screen --path "$SCREENSHOT_DIR"
         ;;
     window)
-        # Flameshot has no native active-window CLI mode; use GUI selection instead.
-        exec flameshot gui --path "$SCREENSHOT_DIR"
+        # Flameshot has no native active-window CLI mode; use GUI selection.
+        exec flameshot gui
         ;;
     *)
         echo "Usage: screenshot [select|full|screen|window]" >&2
