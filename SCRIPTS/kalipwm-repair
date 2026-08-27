@@ -1,0 +1,213 @@
+#!/usr/bin/env bash
+set -u
+
+DRY_RUN=0
+REPO="${KALIPWM_REPO:-$HOME/kalipwm}"
+BACKUP_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/kalipwm/repair-backups"
+QUARANTINED=0
+SKIPPED_SHADOWS=0
+
+usage() {
+    /usr/bin/cat <<'HELP'
+Usage:
+  kalipwm-repair [--dry-run] [--repo PATH]
+
+Repair KaliPWM-managed configuration, executable permissions and helper
+symlinks without reinstalling packages or rebuilding third-party software.
+
+Recognized legacy ~/.local/bin helper symlinks are quarantined instead of
+deleted so /usr/bin/target, /usr/bin/screenshot and /usr/bin/wallpaper can be
+the canonical managed commands.
+
+Options:
+  --dry-run     Show what would change without modifying the system.
+  --repo PATH   Use a KaliPWM checkout other than ~/kalipwm.
+  -h, --help    Show this help.
+HELP
+}
+
+validate_repo() {
+    local repo="$1"
+    local path
+
+    if [ ! -d "$repo/.git" ]; then
+        printf 'KaliPWM repair repository is not a Git checkout: %s\n' "$repo" >&2
+        return 1
+    fi
+
+    for path in CONFIGS/config CONFIGS/zshrc CONFIGS/p10k.zsh CONFIGS/tmux.conf.local SCRIPTS/kalipwm SCRIPTS/screenshot.sh WALLPAPERS; do
+        if [ ! -e "$repo/$path" ]; then
+            printf 'KaliPWM repair repository is missing: %s\n' "$repo/$path" >&2
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+is_recognized_legacy_shadow() {
+    local name="$1"
+    local path="$2"
+    local resolved=""
+
+    [ -L "$path" ] || return 1
+    resolved="$(readlink -f "$path" 2>/dev/null || true)"
+    [ -n "$resolved" ] || return 1
+
+    case "$resolved" in
+        "$HOME/.config/polybar/"*|"$HOME/.config/bspwm/scripts/"*|"$HOME/.local/bin/${name}.sh")
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+inspect_shadow() {
+    local name="$1"
+    local path="$HOME/.local/bin/$name"
+    local resolved=""
+
+    if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+        return 0
+    fi
+
+    resolved="$(readlink -f "$path" 2>/dev/null || printf 'unresolved')"
+    if is_recognized_legacy_shadow "$name" "$path"; then
+        printf '[PLAN] Quarantine legacy PATH shadow: %s -> %s\n' "$path" "$resolved"
+    else
+        printf '[KEEP] Unrecognized PATH shadow requires manual review: %s -> %s\n' "$path" "$resolved"
+        ((SKIPPED_SHADOWS+=1))
+    fi
+}
+
+quarantine_shadow() {
+    local name="$1"
+    local backup_dir="$2"
+    local path="$HOME/.local/bin/$name"
+    local resolved=""
+
+    if [ ! -e "$path" ] && [ ! -L "$path" ]; then
+        return 0
+    fi
+
+    resolved="$(readlink -f "$path" 2>/dev/null || printf 'unresolved')"
+    if ! is_recognized_legacy_shadow "$name" "$path"; then
+        printf '[KEEP] Unrecognized PATH shadow requires manual review: %s -> %s\n' "$path" "$resolved"
+        ((SKIPPED_SHADOWS+=1))
+        return 0
+    fi
+
+    mkdir -p "$backup_dir"
+    mv "$path" "$backup_dir/$name"
+    printf '[FIX]  Quarantined legacy PATH shadow: %s -> %s\n' "$path" "$backup_dir/$name"
+    ((QUARANTINED+=1))
+}
+
+apply_repair() {
+    local repo="$1"
+    local timestamp backup_dir
+
+    timestamp="$(date +%Y%m%d-%H%M%S)"
+    backup_dir="$BACKUP_ROOT/$timestamp/local-bin"
+
+    printf 'KaliPWM repair\n'
+    printf 'Repository: %s\n\n' "$repo"
+    printf '[1/4] Refresh KaliPWM-managed configuration and wallpapers.\n'
+    printf '[2/4] Restore managed executable permissions.\n'
+    printf '[3/4] Restore canonical /usr/bin helper symlinks and /usr/local/bin/kalipwm.\n'
+    printf '[4/4] Quarantine recognized legacy ~/.local/bin helper shadows.\n\n'
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        printf 'DRY-RUN: no files will be modified and sudo will not be used.\n\n'
+        inspect_shadow target
+        inspect_shadow screenshot
+        inspect_shadow wallpaper
+        printf '\n[PLAN] Managed target: /usr/bin/target -> %s\n' "$HOME/.config/polybar/obsidian/scripts/target.sh"
+        printf '[PLAN] Managed screenshot: /usr/bin/screenshot -> %s\n' "$HOME/.config/polybar/obsidian/scripts/screenshot.sh"
+        printf '[PLAN] Managed wallpaper: /usr/bin/wallpaper -> %s\n' "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh"
+        printf '[PLAN] Management command: /usr/local/bin/kalipwm\n'
+        printf '\nDry-run complete.\n'
+        return 0
+    fi
+
+    if ! command -v sudo >/dev/null 2>&1; then
+        printf 'sudo is required to repair system-managed KaliPWM helpers.\n' >&2
+        return 1
+    fi
+
+    sudo -v || return 1
+
+    mkdir -p "$HOME/.config" "$HOME/.config/polybar/forest/scripts" "$HOME/screenshots" "$HOME/Wallpapers"
+
+    cp -a "$repo/CONFIGS/config/." "$HOME/.config/" || return 1
+    cp -f "$repo/CONFIGS/zshrc" "$HOME/.zshrc" || return 1
+    cp -f "$repo/CONFIGS/p10k.zsh" "$HOME/.p10k.zsh" || return 1
+    cp -f "$repo/CONFIGS/tmux.conf.local" "$HOME/.tmux.conf.local" || return 1
+    cp -a "$repo/SCRIPTS/." "$HOME/.config/polybar/forest/scripts/" || return 1
+    cp -f "$repo/SCRIPTS/screenshot.sh" "$HOME/.config/polybar/obsidian/scripts/screenshot.sh" || return 1
+    cp -a "$repo/WALLPAPERS/." "$HOME/Wallpapers/" || return 1
+
+    chmod +x "$HOME/.config/bspwm/bspwmrc" \
+        "$HOME/.config/bspwm/scripts/bspwm_resize" \
+        "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh" \
+        "$HOME/.config/polybar/obsidian/launch.sh" \
+        "$HOME/.config/polybar/obsidian-v2/launch.sh" || return 1
+    chmod +x "$HOME/.config/polybar/obsidian/scripts/"*.sh || return 1
+    chmod +x "$HOME/.config/polybar/obsidian-v2/scripts/"*.sh || return 1
+    chmod +x "$HOME/.config/polybar/forest/scripts/target.sh" \
+        "$HOME/.config/polybar/forest/scripts/screenshot.sh" || return 1
+
+    sudo ln -sf "$HOME/.config/polybar/obsidian/scripts/target.sh" /usr/bin/target || return 1
+    sudo ln -sf "$HOME/.config/polybar/obsidian/scripts/screenshot.sh" /usr/bin/screenshot || return 1
+    sudo ln -sf "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh" /usr/bin/wallpaper || return 1
+    sudo install -m 0755 "$repo/SCRIPTS/kalipwm" /usr/local/bin/kalipwm || return 1
+
+    quarantine_shadow target "$backup_dir"
+    quarantine_shadow screenshot "$backup_dir"
+    quarantine_shadow wallpaper "$backup_dir"
+
+    printf '\nKaliPWM managed configuration repaired successfully.\n'
+    printf 'Packages and third-party source builds were not touched.\n'
+    printf 'Target and wallpaper cache state were not modified.\n'
+    if [ "$QUARANTINED" -gt 0 ]; then
+        printf 'Quarantined %d recognized legacy PATH shadow(s) under: %s\n' "$QUARANTINED" "${backup_dir%/local-bin}"
+    else
+        printf 'No recognized legacy PATH shadows required quarantine.\n'
+    fi
+    if [ "$SKIPPED_SHADOWS" -gt 0 ]; then
+        printf '%d unrecognized shadow(s) were left untouched for manual review.\n' "$SKIPPED_SHADOWS"
+    fi
+    printf 'Run "kalipwm doctor" to verify the resulting state.\n'
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
+        --repo)
+            if [ "$#" -lt 2 ]; then
+                printf 'kalipwm-repair --repo requires a path.\n' >&2
+                exit 2
+            fi
+            REPO="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            printf 'Unknown repair option: %s\n\n' "$1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+REPO="$(readlink -f "$REPO" 2>/dev/null || printf '%s' "$REPO")"
+validate_repo "$REPO" || exit 1
+apply_repair "$REPO"
