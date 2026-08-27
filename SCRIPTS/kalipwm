@@ -420,6 +420,7 @@ apply_managed_update() {
 
 run_update() {
     local repo="${KALIPWM_REPO:-$HOME/kalipwm}"
+    local update_ref="${KALIPWM_UPDATE_REF:-main}"
     local origin_url current_branch
 
     while [ "$#" -gt 0 ]; do
@@ -477,21 +478,25 @@ HELP
 
     printf 'KaliPWM update\n'
     printf 'Repository: %s\n' "$repo"
-    printf 'Origin: %s\n\n' "$origin_url"
+    printf 'Origin: %s\n' "$origin_url"
+    if [ "$update_ref" != "main" ]; then
+        printf 'Validation ref: %s\n' "$update_ref"
+    fi
+    printf '\n'
 
-    printf '[1/3] Fetching origin/main...\n'
-    git -C "$repo" fetch origin main || return 1
+    printf '[1/3] Fetching origin/%s...\n' "$update_ref"
+    git -C "$repo" fetch origin "$update_ref" || return 1
 
     current_branch="$(git -C "$repo" branch --show-current 2>/dev/null || true)"
-    if [ "$current_branch" != "main" ]; then
-        printf '[2/3] Switching from %s to main...\n' "${current_branch:-detached HEAD}"
-        git -C "$repo" switch main || return 1
+    if [ "$current_branch" != "$update_ref" ]; then
+        printf '[2/3] Switching from %s to %s...\n' "${current_branch:-detached HEAD}" "$update_ref"
+        git -C "$repo" switch "$update_ref" || return 1
     else
-        printf '[2/3] Already on main.\n'
+        printf '[2/3] Already on %s.\n' "$update_ref"
     fi
 
-    printf '[3/3] Fast-forwarding main from origin/main...\n'
-    git -C "$repo" pull --ff-only origin main || return 1
+    printf '[3/3] Fast-forwarding %s from origin/%s...\n' "$update_ref" "$update_ref"
+    git -C "$repo" pull --ff-only origin "$update_ref" || return 1
 
     if ! repo_is_clean "$repo"; then
         printf 'Checkout became dirty after the Git update; refusing to deploy managed files.\n' >&2
