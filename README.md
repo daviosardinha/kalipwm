@@ -6,7 +6,7 @@ KaliPWM Obsidian started as a fork of [`afsh4ck/kalipwm`](https://github.com/afs
 
 The goal is simple: take a clean Kali installation and turn it into a repeatable, keyboard-driven workstation with an Obsidian visual language, useful live telemetry, fast target/VPN awareness and predictable behavior across bare metal and virtual machines.
 
-![KaliPWM Obsidian — Nomad Monolith](WALLPAPERS/obsidian/obsidian-nomad-monolith-16x9.png)
+![KaliPWM Obsidian — Nomad Monolith 16:9](WALLPAPERS/obsidian/obsidian-nomad-monolith-16x9.png)
 
 ## What makes this fork different
 
@@ -33,17 +33,23 @@ The current stable `main` includes:
 
 ## Visuals
 
-These are assets from this repository — not screenshots inherited from the upstream project.
+The README uses **four first-party KaliPWM Obsidian visuals** from this repository rather than screenshots inherited from the upstream project.
+
+The 16:9 Nomad Monolith above is the primary project visual. The remaining three complete the current Nomad Kingdom Obsidian set:
+
+### Nomad Monolith — Standard
+
+![Nomad Monolith Standard](WALLPAPERS/obsidian/obsidian-nomad-monolith-standard.png)
 
 ### Nomad Emblem — 16:9
 
 ![Nomad Emblem 16:9](WALLPAPERS/obsidian/obsidian-nomad-emblem-16x9.png)
 
-### Obsidian City — 16:9
+### Nomad Emblem — Standard
 
-![Obsidian City 16:9](WALLPAPERS/obsidian/obsidian-city-16x9.jpg)
+![Nomad Emblem Standard](WALLPAPERS/obsidian/obsidian-nomad-emblem-standard.png)
 
-More bundled wallpapers are available under [`WALLPAPERS/obsidian/`](WALLPAPERS/obsidian/).
+Additional City and ultrawide assets are available under [`WALLPAPERS/obsidian/`](WALLPAPERS/obsidian/).
 
 ## Installation
 
