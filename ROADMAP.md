@@ -170,11 +170,12 @@ kalipwm update
 - a clean checkout is required before any update is attempted;
 - the command fetches `origin/main`, switches to local `main` when needed and uses `--ff-only` to avoid implicit merge commits;
 - after the Git update, only KaliPWM-managed configuration, shell files, wallpapers, helper symlinks and `/usr/local/bin/kalipwm` are refreshed;
+- an automatic `pre-update` snapshot is created immediately before managed files are replaced;
 - APT, Nerd Font installation and Polybar/Picom source builds are not invoked;
 - Target state and saved wallpaper choice remain untouched under the KaliPWM cache directory;
 - the default checkout is `~/kalipwm`, with `--repo PATH` and `KALIPWM_REPO` available for explicit alternate locations;
 - dirty-checkout refusal was validated before deployment testing;
-- update deployment was validated on both the representative VMware Kali VM and the primary bare-metal Kali host;
+- update deployment and automatic pre-update snapshots were validated on both the representative VMware Kali VM and the primary bare-metal Kali host;
 - both validation systems preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`, showed no forbidden installer activity and finished with `0 FAIL` from `kalipwm doctor`.
 
 ### ✅ `kalipwm repair`
@@ -192,27 +193,41 @@ kalipwm repair --dry-run
 - canonical `/usr/bin/target`, `/usr/bin/screenshot`, `/usr/bin/wallpaper` and `/usr/local/bin/kalipwm` are restored;
 - recognized legacy `~/.local/bin/{target,screenshot,wallpaper}` symlinks are quarantined under a timestamped `~/.cache/kalipwm/repair-backups/` directory instead of being deleted;
 - regular files and unrecognized symlink destinations are intentionally left untouched for manual review;
-- `--dry-run` reports the exact planned actions without using `sudo` or changing files;
+- `--dry-run` reports the exact planned actions without using `sudo`, changing files or creating a backup;
+- a real repair creates an automatic `pre-repair` snapshot before replacing managed files;
 - APT, font installation, third-party downloads and Polybar/Picom source builds are not invoked;
 - Target state and persisted wallpaper choice are not modified;
 - the command is idempotent: a second repair run performs no additional quarantine when no recognized legacy shadows remain;
 - VMware validation removed the stale `target` PATH shadow and improved `kalipwm doctor` from `18 OK | 2 WARN | 0 FAIL | 9 INFO` to `18 OK | 1 WARN | 0 FAIL | 9 INFO`;
 - bare-metal validation quarantined stale `target` and `screenshot` Forest-era shadows and improved `kalipwm doctor` from `19 OK | 4 WARN | 0 FAIL | 7 INFO` to `19 OK | 2 WARN | 0 FAIL | 7 INFO`;
-- both validation systems preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`.
+- automatic pre-repair snapshot behavior was validated on both systems with Target `172.16.18.10` and wallpaper choice `nomad-emblem` preserved.
 
-### ⏳ Configuration backup and rollback
+### ✅ Configuration backup and rollback
 
-Before replacing user-managed files, create a timestamped backup such as:
+Timestamped snapshots now make managed configuration changes reversible.
 
-```text
-~/.config/kalipwm/backups/2026-08-27-...
-```
-
-Target command:
+Completed outcome:
 
 ```bash
-kalipwm rollback
+kalipwm backup
+kalipwm backup --label before-change
+kalipwm backups
+kalipwm rollback latest --dry-run
+kalipwm rollback latest
+kalipwm rollback BACKUP_ID
 ```
+
+- snapshots are stored per user under `~/.config/kalipwm/backups/` with a timestamp and label;
+- the snapshot scope is intentionally limited to KaliPWM-managed BSPWM, Kitty, Picom, Polybar and sxhkd configuration, `.zshrc`, `.p10k.zsh`, `.tmux.conf.local` and canonical `/usr/bin/{target,screenshot,wallpaper}` helper links;
+- Target state, wallpaper-choice state, shell history, browser data and unrelated `~/.config` content are excluded;
+- snapshot creation uses a private `umask 077`;
+- `kalipwm rollback --dry-run` validates and prints the restore plan without changing files or using `sudo`;
+- a real rollback first creates a `pre-rollback` safety snapshot, making the rollback operation itself reversible;
+- update automatically creates `pre-update` snapshots and repair automatically creates `pre-repair` snapshots before replacing managed files;
+- controlled-drift rollback was validated on the representative VMware VM and the primary bare-metal host;
+- on VMware, a `pre-rollback` safety snapshot was restored to recover the deliberately drifted state and the baseline was then restored again, proving the round trip in both directions;
+- automatic `pre-update` snapshots on both systems captured deliberately drifted `.zshrc` and `bspwmrc` contents before update refreshed them;
+- manual backup/rollback, rollback dry-run, automatic pre-repair and automatic pre-update validation all preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem` and finished with `0 FAIL` from `kalipwm doctor`.
 
 ---
 
@@ -331,7 +346,7 @@ Before `v1.0.0`, validate at minimum:
 ### ⏳ Public documentation pass
 
 - current screenshots from this fork;
-- install/update/repair documentation;
+- install/update/repair/backup/rollback documentation;
 - known limitations;
 - supported/tested environments;
 - troubleshooting using `kalipwm doctor`;
