@@ -100,6 +100,77 @@ choose_primary() {
     printf '%s\n' "$snapshot" | awk '$2 == "connected" {print $1; exit}'
 }
 
+mode_rate_for_output() {
+    local snapshot="$1"
+    local output="$2"
+    local prefer_current="$3"
+
+    printf '%s\n' "$snapshot" | awk -v output="$output" -v prefer_current="$prefer_current" '
+        $1 == output && $2 == "connected" {
+            inside = 1
+            next
+        }
+        inside && $0 ~ /^[^[:space:]]/ {
+            exit
+        }
+        inside && $1 ~ /^[0-9]+x[0-9]+$/ {
+            if (fallback == "") {
+                rate = $2
+                gsub(/[+*]/, "", rate)
+                fallback = $1 "|" rate
+            }
+
+            if (prefer_current == "1") {
+                for (i = 2; i <= NF; i++) {
+                    if ($i ~ /\*/) {
+                        rate = $i
+                        gsub(/[+*]/, "", rate)
+                        print $1 "|" rate
+                        found = 1
+                        exit
+                    }
+                }
+            } else {
+                for (i = 2; i <= NF; i++) {
+                    if ($i ~ /\+/) {
+                        rate = $i
+                        gsub(/[+*]/, "", rate)
+                        print $1 "|" rate
+                        found = 1
+                        exit
+                    }
+                }
+            }
+        }
+        END {
+            if (!found && fallback != "") print fallback
+        }
+    '
+}
+
+ensure_provider_links() {
+    local providers result rc
+
+    providers="$(xrandr --listproviders 2>/dev/null || true)"
+
+    # Hybrid Intel/NVIDIA systems commonly expose external connectors through
+    # NVIDIA-G0 while the internal panel is owned by the modesetting provider.
+    # Re-linking the output sink is harmless when it is already associated and
+    # is required on some sessions before an atomic multi-output modeset.
+    if printf '%s\n' "$providers" | grep -q 'name:NVIDIA-G0' \
+        && printf '%s\n' "$providers" | grep -q 'name:modesetting'; then
+        result="$(xrandr --setprovideroutputsource NVIDIA-G0 modesetting 2>&1)"
+        rc=$?
+        if [ "$rc" -ne 0 ]; then
+            log "Failed to link NVIDIA-G0 to modesetting (exit $rc): ${result:-no error text}"
+            return "$rc"
+        fi
+        log "Verified NVIDIA-G0 output-sink link to modesetting."
+    fi
+
+    return 0
+}
+
 refresh_desktop_surfaces() {
     sleep 0.5
 
@@ -114,9 +185,10 @@ refresh_desktop_surfaces() {
 
 configure_connected_outputs() {
     local snapshot="$1"
-    local primary reference output
+    local primary output spec mode rate width offset result rc
     local -a connected=()
-    local changed=0
+    local -a ordered=()
+    local -a xrandr_args=()
 
     mapfile -t connected < <(printf '%s\n' "$snapshot" | awk '$2 == "connected" {print $1}')
     [ "${#connected[@]}" -gt 0 ] || return 0
@@ -124,48 +196,58 @@ configure_connected_outputs() {
     primary="$(choose_primary "$snapshot")"
     [ -n "$primary" ] || return 0
 
-    if output_is_active "$snapshot" "$primary"; then
-        # Preserve the current mode/refresh rate; only ensure the primary flag.
-        xrandr --output "$primary" --primary >/dev/null 2>&1 || true
-    else
-        log "Activating primary output $primary with its preferred mode."
-        xrandr --output "$primary" --auto --primary >/dev/null 2>&1 || {
-            log "Failed to activate primary output $primary."
-            return 1
-        }
-        changed=1
-        snapshot="$(xrandr_snapshot)"
-    fi
-
-    reference="$primary"
+    ordered+=("$primary")
     for output in "${connected[@]}"; do
-        [ "$output" = "$primary" ] && continue
-
-        if output_is_active "$snapshot" "$output"; then
-            # Respect an already-active layout chosen by the display manager/user.
-            reference="$output"
-            continue
-        fi
-
-        log "Activating connected output $output to the right of $reference."
-        if xrandr --output "$output" --auto --right-of "$reference" >/dev/null 2>&1; then
-            changed=1
-            reference="$output"
-            snapshot="$(xrandr_snapshot)"
-        else
-            log "Failed to activate connected output $output."
-        fi
+        [ "$output" = "$primary" ] || ordered+=("$output")
     done
 
-    # A topology change can require wallpaper/Polybar refresh even when Xorg
-    # already disabled an unplugged output before this script runs.
-    refresh_desktop_surfaces
+    # Do not configure hybrid outputs one at a time. On some Reverse PRIME
+    # laptops, adding only the NVIDIA-owned HDMI output after the Intel panel is
+    # already active fails with "Configure crtc ... failed". Build one complete
+    # RandR transaction containing every connected output instead.
+    ensure_provider_links || return 1
 
-    if [ "$changed" -eq 1 ]; then
-        log "Display topology applied: $(topology_signature "$(xrandr_snapshot)")"
-    else
-        log "Display topology changed; active modes/layout were preserved."
+    offset=0
+    for output in "${ordered[@]}"; do
+        if output_is_active "$snapshot" "$output"; then
+            spec="$(mode_rate_for_output "$snapshot" "$output" 1)"
+        else
+            spec="$(mode_rate_for_output "$snapshot" "$output" 0)"
+        fi
+
+        if [ -z "$spec" ]; then
+            log "Cannot determine a mode for connected output $output."
+            return 1
+        fi
+
+        mode="${spec%%|*}"
+        rate="${spec#*|}"
+        width="${mode%%x*}"
+
+        xrandr_args+=(--output "$output" --mode "$mode")
+        if [ -n "$rate" ]; then
+            xrandr_args+=(--rate "$rate")
+        fi
+        xrandr_args+=(--pos "${offset}x0")
+
+        if [ "$output" = "$primary" ]; then
+            xrandr_args+=(--primary)
+        fi
+
+        offset=$((offset + width))
+    done
+
+    log "Applying atomic display topology: ${ordered[*]}"
+    result="$(xrandr "${xrandr_args[@]}" 2>&1)"
+    rc=$?
+    if [ "$rc" -ne 0 ]; then
+        log "Atomic xrandr topology failed (exit $rc): ${result:-no error text}"
+        return "$rc"
     fi
+
+    refresh_desktop_surfaces
+    log "Display topology applied: $(topology_signature "$(xrandr_snapshot)")"
+    return 0
 }
 
 previous_signature=""
