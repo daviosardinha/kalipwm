@@ -109,6 +109,29 @@ font_available() {
     fc-list : family 2>/dev/null | grep -qi "$pattern"
 }
 
+find_wifi_interface() {
+    local path iface
+
+    for path in /sys/class/net/*; do
+        iface="${path##*/}"
+        [ "$iface" = "lo" ] && continue
+        if [ -d "$path/wireless" ]; then
+            printf '%s' "$iface"
+            return 0
+        fi
+    done
+
+    if have iw; then
+        iface="$(iw dev 2>/dev/null | awk '$1 == "Interface" {print $2; exit}')"
+        if [ -n "$iface" ]; then
+            printf '%s' "$iface"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
 find_vpn_interface() {
     ip -o link show 2>/dev/null |
         awk -F': ' '$2 ~ /^(tun[0-9]*|tap[0-9]*|wg[0-9]*|ppp[0-9]*)$/ {print $2; exit}'
@@ -247,7 +270,7 @@ run_doctor() {
         print_status WARN "No default network interface detected"
     fi
 
-    wifi_if="$(find /sys/class/net -maxdepth 2 -type d -name wireless -printf '%h\n' 2>/dev/null | awk -F/ '{print $NF; exit}')"
+    wifi_if="$(find_wifi_interface || true)"
     if [ -n "$wifi_if" ]; then
         print_status INFO "Wi-Fi interface: $wifi_if"
     else
