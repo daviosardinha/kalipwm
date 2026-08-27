@@ -28,7 +28,8 @@ These are real screenshots captured while testing this fork. They are not inheri
 
 ### Obsidian in VMware
 
-![KaliPWM Obsidian desktop in VMware](docs/screenshots/obsidian-desktop-vm.jpg)
+<img width="2555" height="1545" alt="image" src="https://github.com/user-attachments/assets/b90a9384-3fc8-4d17-a9ba-0744a04913a7" />
+
 
 ### Obsidian v2 Polybar
 
