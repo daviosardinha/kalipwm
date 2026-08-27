@@ -92,6 +92,8 @@ To inspect installer options:
 bash kalipwm.sh --help
 ```
 
+The installer output is maintained in English and credits both the original `afsh4ck/kalipwm` project and the current KaliPWM Obsidian fork.
+
 ## Wallpaper workflow
 
 List the bundled choices:
@@ -220,7 +222,7 @@ At a glance:
 - ✅ Rofi power-menu cleanup
 - ✅ Flameshot as the default screenshot workflow
 - ✅ standalone wallpaper command / installer separation
-- ⏳ English-only source and CLI cleanup
+- ✅ English-only source and CLI cleanup
 - ⏳ `kalipwm doctor` diagnostics
 - ⏳ idempotent update/repair workflow
 - ⏳ hardware and VM auto-detection
@@ -230,9 +232,9 @@ At a glance:
 
 ## Project language
 
-**English is the only language used for KaliPWM Obsidian documentation, user-facing CLI output, comments and newly maintained project content.**
+**English is the only language used for KaliPWM Obsidian documentation, maintained source comments and user-facing CLI output.**
 
-Legacy strings inherited from the upstream project will be migrated to English as part of the ongoing cleanup. New changes must not introduce non-English user-facing text.
+The maintained installer and repository content have been audited for the legacy non-English strings inherited from upstream. Future changes must continue to use English for documentation, maintained comments and user-facing text.
 
 ## Documentation policy
 
