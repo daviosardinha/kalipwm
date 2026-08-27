@@ -157,7 +157,7 @@ Hardware-adaptive module visibility and improved bare-metal/VM detection are pla
 
 ## Project roadmap
 
-The detailed roadmap lives in [`ROADMAP.md`](ROADMAP.md).
+The detailed roadmap lives in [`ROADMAP.md`](ROADMAP.md), while completed user-visible changes are recorded in [`CHANGELOG.md`](CHANGELOG.md).
 
 At a glance:
 
