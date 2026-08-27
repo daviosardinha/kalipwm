@@ -48,25 +48,34 @@ check_command_process() {
 
 check_helper() {
     local name="$1"
-    local expected="$2"
-    local resolved=""
-    local command_path=""
+    local expected_target="$2"
+    local managed_path="/usr/bin/$name"
+    local managed_resolved=""
+    local path_command=""
+    local path_resolved=""
 
-    if ! have "$name"; then
-        print_status FAIL "$name helper is not available in PATH"
+    if [ ! -e "$managed_path" ] && [ ! -L "$managed_path" ]; then
+        print_status FAIL "Managed $name helper is missing: $managed_path"
+    elif [ ! -x "$managed_path" ]; then
+        print_status FAIL "Managed $name helper is not executable: $managed_path"
+    else
+        managed_resolved="$(readlink -f "$managed_path" 2>/dev/null || printf '%s' "$managed_path")"
+        if [ -n "$expected_target" ] && [ "$managed_resolved" != "$expected_target" ]; then
+            print_status WARN "Managed $name helper resolves to $managed_resolved (expected $expected_target)"
+        else
+            print_status OK "Managed $name helper: $managed_path -> $managed_resolved"
+        fi
+    fi
+
+    path_command="$(type -P "$name" 2>/dev/null || true)"
+    if [ -z "$path_command" ]; then
+        print_status WARN "$name is not available through PATH"
         return
     fi
 
-    command_path="$(command -v "$name")"
-    resolved="$(readlink -f "$command_path" 2>/dev/null || printf '%s' "$command_path")"
-    if [ -x "$command_path" ]; then
-        if [ -n "$expected" ] && [ "$resolved" != "$expected" ]; then
-            print_status WARN "$name helper resolves to $resolved (expected $expected)"
-        else
-            print_status OK "$name helper: $resolved"
-        fi
-    else
-        print_status FAIL "$name helper is not executable: $command_path"
+    path_resolved="$(readlink -f "$path_command" 2>/dev/null || printf '%s' "$path_command")"
+    if [ "$path_command" != "$managed_path" ]; then
+        print_status WARN "$name is shadowed in PATH by $path_command -> $path_resolved"
     fi
 }
 
