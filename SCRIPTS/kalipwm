@@ -1,0 +1,354 @@
+#!/usr/bin/env bash
+set -u
+
+OK_COUNT=0
+WARN_COUNT=0
+FAIL_COUNT=0
+INFO_COUNT=0
+
+print_status() {
+    local level="$1"
+    shift
+
+    case "$level" in
+        OK)   ((OK_COUNT+=1)) ;;
+        WARN) ((WARN_COUNT+=1)) ;;
+        FAIL) ((FAIL_COUNT+=1)) ;;
+        INFO) ((INFO_COUNT+=1)) ;;
+    esac
+
+    printf '[%-4s] %s\n' "$level" "$*"
+}
+
+section() {
+    printf '\n%s\n' "$1"
+}
+
+have() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+process_running() {
+    pgrep -x "$1" >/dev/null 2>&1
+}
+
+check_command_process() {
+    local label="$1"
+    local command_name="$2"
+    local process_name="$3"
+
+    if ! have "$command_name"; then
+        print_status FAIL "$label is not installed"
+    elif process_running "$process_name"; then
+        print_status OK "$label is installed and running"
+    else
+        print_status WARN "$label is installed but not running"
+    fi
+}
+
+check_helper() {
+    local name="$1"
+    local expected="$2"
+    local resolved=""
+    local command_path=""
+
+    if ! have "$name"; then
+        print_status FAIL "$name helper is not available in PATH"
+        return
+    fi
+
+    command_path="$(command -v "$name")"
+    resolved="$(readlink -f "$command_path" 2>/dev/null || printf '%s' "$command_path")"
+    if [ -x "$command_path" ]; then
+        if [ -n "$expected" ] && [ "$resolved" != "$expected" ]; then
+            print_status WARN "$name helper resolves to $resolved (expected $expected)"
+        else
+            print_status OK "$name helper: $resolved"
+        fi
+    else
+        print_status FAIL "$name helper is not executable: $command_path"
+    fi
+}
+
+virtualization_type() {
+    local virt=""
+
+    if have systemd-detect-virt; then
+        virt="$(systemd-detect-virt 2>/dev/null || true)"
+    fi
+
+    if [ -z "$virt" ] || [ "$virt" = "none" ]; then
+        if [ -r /sys/class/dmi/id/product_name ]; then
+            case "$(cat /sys/class/dmi/id/product_name 2>/dev/null)" in
+                *VMware*) virt="vmware" ;;
+                *VirtualBox*) virt="oracle" ;;
+                *KVM*|*QEMU*) virt="kvm" ;;
+                *) virt="none" ;;
+            esac
+        else
+            virt="none"
+        fi
+    fi
+
+    printf '%s' "$virt"
+}
+
+font_available() {
+    local pattern="$1"
+
+    have fc-list || return 1
+    fc-list : family 2>/dev/null | grep -qi "$pattern"
+}
+
+find_vpn_interface() {
+    ip -o link show 2>/dev/null |
+        awk -F': ' '$2 ~ /^(tun[0-9]*|tap[0-9]*|wg[0-9]*|ppp[0-9]*)$/ {print $2; exit}'
+}
+
+run_doctor() {
+    local virt session display_name resolution default_if default_ip wifi_if vpn_if
+    local os_name target_file choice_file current_wallpaper_file bspwmrc gpu_name fan_file
+    local batteries=()
+
+    virt="$(virtualization_type)"
+    session="${XDG_SESSION_TYPE:-unknown}"
+    target_file="${XDG_CACHE_HOME:-$HOME/.cache}/kalipwm/target"
+    choice_file="${XDG_CACHE_HOME:-$HOME/.cache}/kalipwm/wallpaper-choice"
+    current_wallpaper_file="${XDG_CACHE_HOME:-$HOME/.cache}/kalipwm/current-wallpaper"
+    bspwmrc="$HOME/.config/bspwm/bspwmrc"
+
+    printf 'KaliPWM Obsidian Doctor\n'
+    printf 'Read-only diagnostic report\n'
+
+    section "System"
+    if [ -r /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        os_name="${PRETTY_NAME:-${NAME:-Unknown Linux}}"
+        if [ "${ID:-}" = "kali" ] || [[ "$os_name" == *Kali* ]]; then
+            print_status OK "$os_name"
+        else
+            print_status WARN "$os_name (Kali Linux expected)"
+        fi
+    else
+        print_status WARN "Unable to read /etc/os-release"
+    fi
+
+    if [ "$session" = "x11" ] || [ -n "${DISPLAY:-}" ]; then
+        print_status OK "X11 session detected${DISPLAY:+ on $DISPLAY}"
+    else
+        print_status WARN "X11 session not detected (session type: $session)"
+    fi
+
+    if [ "$virt" = "none" ]; then
+        print_status INFO "Virtualization: not detected (likely bare metal)"
+    else
+        print_status INFO "Virtualization: $virt"
+    fi
+
+    if have xrandr && [ -n "${DISPLAY:-}" ]; then
+        display_name="$(xrandr --current 2>/dev/null | awk '/ connected/{print $1; exit}')"
+        resolution="$(xrandr --current 2>/dev/null | awk '/\*/{print $1; exit}')"
+        if [ -n "$display_name" ]; then
+            if [ -n "$resolution" ]; then
+                print_status OK "Display: $display_name at $resolution"
+            else
+                print_status OK "Display: $display_name"
+            fi
+        else
+            print_status WARN "xrandr did not report a connected display"
+        fi
+    else
+        print_status WARN "Display information unavailable (xrandr/DISPLAY missing)"
+    fi
+
+    section "Desktop"
+    check_command_process "BSPWM" "bspwm" "bspwm"
+    check_command_process "sxhkd" "sxhkd" "sxhkd"
+    check_command_process "Polybar" "polybar" "polybar"
+    check_command_process "Picom" "picom" "picom"
+
+    if have rofi; then
+        print_status OK "Rofi is installed"
+    else
+        print_status FAIL "Rofi is not installed"
+    fi
+
+    if ! have flameshot; then
+        print_status FAIL "Flameshot is not installed"
+    elif process_running flameshot; then
+        print_status OK "Flameshot is installed and available in the session"
+    else
+        print_status WARN "Flameshot is installed but its session process is not running"
+    fi
+
+    section "KaliPWM"
+    check_helper "target" "$HOME/.config/polybar/obsidian/scripts/target.sh"
+    check_helper "screenshot" "$HOME/.config/polybar/obsidian/scripts/screenshot.sh"
+    check_helper "wallpaper" "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh"
+
+    if [ -f "$HOME/.config/bspwm/bspwmrc" ]; then
+        print_status OK "BSPWM configuration is present"
+    else
+        print_status FAIL "BSPWM configuration is missing"
+    fi
+
+    if [ -f "$HOME/.config/polybar/obsidian-v2/config.ini" ]; then
+        print_status OK "Obsidian v2 Polybar configuration is present"
+    else
+        print_status FAIL "Obsidian v2 Polybar configuration is missing"
+    fi
+
+    if font_available 'Hack Nerd Font'; then
+        print_status OK "Hack Nerd Font is available"
+    else
+        print_status FAIL "Hack Nerd Font is unavailable"
+    fi
+
+    if font_available 'JetBrainsMono Nerd Font'; then
+        print_status OK "JetBrainsMono Nerd Font is available"
+    else
+        print_status FAIL "JetBrainsMono Nerd Font is unavailable"
+    fi
+
+    if [ -s "$target_file" ]; then
+        print_status INFO "Target: $(cat "$target_file")"
+    else
+        print_status INFO "Target: not set"
+    fi
+
+    if [ -s "$current_wallpaper_file" ]; then
+        print_status INFO "Current wallpaper: $(cat "$current_wallpaper_file")"
+    elif [ -s "$choice_file" ]; then
+        print_status INFO "Wallpaper choice: $(cat "$choice_file")"
+    else
+        print_status INFO "Wallpaper choice: no persisted state found"
+    fi
+
+    section "Network"
+    default_if="$(ip route show default 2>/dev/null | awk '/default/ {for (i=1;i<=NF;i++) if ($i=="dev") {print $(i+1); exit}}')"
+    if [ -n "$default_if" ]; then
+        default_ip="$(ip -4 -o addr show dev "$default_if" scope global 2>/dev/null | awk '{print $4; exit}')"
+        if [ -n "$default_ip" ]; then
+            print_status OK "Default interface: $default_if ($default_ip)"
+        else
+            print_status OK "Default interface: $default_if"
+        fi
+    else
+        print_status WARN "No default network interface detected"
+    fi
+
+    wifi_if="$(find /sys/class/net -maxdepth 2 -type d -name wireless -printf '%h\n' 2>/dev/null | awk -F/ '{print $NF; exit}')"
+    if [ -n "$wifi_if" ]; then
+        print_status INFO "Wi-Fi interface: $wifi_if"
+    else
+        print_status INFO "Wi-Fi interface: not detected"
+    fi
+
+    vpn_if="$(find_vpn_interface)"
+    if [ -n "$vpn_if" ]; then
+        print_status INFO "VPN interface: $vpn_if"
+    else
+        print_status INFO "VPN: disconnected or no tunnel interface detected"
+    fi
+
+    section "Hardware"
+    shopt -s nullglob
+    batteries=(/sys/class/power_supply/BAT*)
+    shopt -u nullglob
+    if [ "${#batteries[@]}" -gt 0 ]; then
+        print_status OK "Battery telemetry is available"
+    else
+        print_status INFO "Battery telemetry unavailable"
+    fi
+
+    gpu_name=""
+    if have lspci; then
+        gpu_name="$(lspci 2>/dev/null | grep -Ei 'VGA compatible controller|3D controller|Display controller' | head -n1 | sed -E 's/^[^:]+: //')"
+    fi
+    if [ -n "$gpu_name" ]; then
+        print_status INFO "GPU controller: $gpu_name"
+    else
+        print_status INFO "GPU controller: unavailable"
+    fi
+
+    if have nvidia-smi && nvidia-smi -L >/dev/null 2>&1; then
+        print_status OK "GPU telemetry is available through nvidia-smi"
+    elif find /sys/class/drm -path '*/device/hwmon/hwmon*' -type d -print -quit 2>/dev/null | grep -q .; then
+        print_status OK "GPU telemetry is available through sysfs"
+    else
+        print_status INFO "GPU telemetry unavailable"
+    fi
+
+    fan_file="$(find /sys/class/hwmon -type f -name 'fan*_input' -readable -print -quit 2>/dev/null)"
+    if [ -n "$fan_file" ]; then
+        print_status OK "Fan telemetry is available"
+    else
+        print_status INFO "Fan telemetry unavailable"
+    fi
+
+    section "Configuration"
+    if [ -f "$bspwmrc" ]; then
+        if grep -Eq 'xrandr[[:space:]].*--output[[:space:]]+Virtual1' "$bspwmrc"; then
+            print_status WARN "Hard-coded display output detected: Virtual1"
+        else
+            print_status OK "No hard-coded Virtual1 display output detected"
+        fi
+
+        if grep -Eq '^[[:space:]]*vmware-user-suid-wrapper([[:space:]]|&|$)' "$bspwmrc"; then
+            if [ "$virt" = "vmware" ]; then
+                print_status INFO "VMware session helper is enabled on VMware"
+            else
+                print_status WARN "VMware session helper is enabled but VMware was not detected"
+            fi
+        else
+            print_status INFO "VMware session helper is not enabled"
+        fi
+    else
+        print_status FAIL "Cannot inspect BSPWM configuration"
+    fi
+
+    section "Summary"
+    printf '%d OK | %d WARN | %d FAIL | %d INFO\n' \
+        "$OK_COUNT" "$WARN_COUNT" "$FAIL_COUNT" "$INFO_COUNT"
+
+    if [ "$FAIL_COUNT" -gt 0 ]; then
+        return 1
+    fi
+    return 0
+}
+
+show_help() {
+    cat <<'HELP'
+KaliPWM Obsidian management command
+
+Usage:
+  kalipwm doctor
+  kalipwm help
+
+Commands:
+  doctor    Run a read-only diagnostic report for the KaliPWM desktop.
+  help      Show this help.
+
+The doctor command never uses sudo and never changes system configuration.
+HELP
+}
+
+case "${1:-help}" in
+    doctor)
+        shift
+        if [ "$#" -gt 0 ]; then
+            printf 'Unknown doctor option: %s\n' "$1" >&2
+            exit 2
+        fi
+        run_doctor
+        ;;
+    help|-h|--help)
+        show_help
+        ;;
+    *)
+        printf 'Unknown command: %s\n\n' "$1" >&2
+        show_help >&2
+        exit 2
+        ;;
+esac
