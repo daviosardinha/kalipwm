@@ -3,9 +3,12 @@
 wmname LG3D &
 vmware-user-suid-wrapper &
 
-# Keep Flameshot running in the session so GUI captures and clipboard actions
-# behave consistently in the minimal BSPWM environment.
-pgrep -x flameshot > /dev/null || flameshot > /dev/null 2>&1 &
+# Flameshot can exit if it starts too early during the initial graphical login.
+# Give the session a moment to settle, then start it only if it is still absent.
+(
+    sleep 3
+    pgrep -x flameshot > /dev/null || exec flameshot > /dev/null 2>&1
+) &
 
 pgrep -x sxhkd > /dev/null || sxhkd &
 
