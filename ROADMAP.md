@@ -114,29 +114,29 @@ Completed outcome:
 
 ## Phase 3 — Reliability and reproducibility
 
-### ⏳ `kalipwm doctor`
+### ✅ `kalipwm doctor`
 
-One diagnostic command should explain why two machines behave differently.
+A read-only management command now explains why two KaliPWM installations behave differently without changing either machine.
 
-Candidate checks:
+Completed outcome:
 
-```text
-[OK] BSPWM
-[OK] Polybar Obsidian v2
-[OK] sxhkd
-[OK] Rofi
-[OK] Flameshot
-[OK] Picom
-[OK] Nerd Fonts
-[OK] target helper
-[OK] wallpaper helper
-[OK] Wi-Fi interface
-[OK] VPN detection
-[WARN] Battery unavailable
-[WARN] GPU telemetry unavailable
+```bash
+kalipwm doctor
 ```
 
-The command should distinguish between expected hardware absence and actual broken configuration.
+- the installer deploys the management command to `/usr/local/bin/kalipwm`;
+- Kali/X11, virtualization and current display/resolution are reported;
+- BSPWM, sxhkd, Polybar, Picom, Rofi and Flameshot installation/runtime state are checked;
+- managed `target`, `screenshot` and `wallpaper` helpers are checked independently from PATH shadowing;
+- Obsidian BSPWM/Polybar configuration and required Nerd Fonts are checked;
+- Target and current wallpaper state are reported without modification;
+- default networking, Wi-Fi and common VPN tunnel interfaces are reported;
+- battery, GPU and fan telemetry are treated as optional hardware capabilities rather than automatic failures;
+- legacy hard-coded `Virtual1` display configuration and VMware-only session startup are surfaced as warnings when appropriate;
+- `[OK]`, `[INFO]`, `[WARN]` and `[FAIL]` classifications distinguish healthy state, optional information, non-fatal drift and broken required state;
+- the command never uses `sudo` and never repairs or changes configuration;
+- one or more `FAIL` findings produce exit code `1`, while warnings alone do not fail the command;
+- diagnostic behavior was validated on both the representative VMware Kali VM and the primary bare-metal Kali host.
 
 ### ⏳ Idempotent installer
 
