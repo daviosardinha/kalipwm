@@ -126,9 +126,9 @@ echo -e "${GREEN}
 "
 
 sleep 2
-echo -e "[+] Professional offensive-security workstation automation.${RESET}"
+echo -e "[+] KaliPWM Obsidian — maintained by @daviosardinha.${RESET}"
 sleep 1
-echo -e "[+] Original project by @afsh4ck — YouTube, Instagram, TikTok"
+echo -e "[+] Based on afsh4ck/kalipwm — original project by @afsh4ck.${RESET}"
 sleep 3
 echo -e "\n${BLUE}[*] Preparing installation..${RESET}\n"
 sleep 3
