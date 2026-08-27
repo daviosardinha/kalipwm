@@ -6,7 +6,7 @@ BLUE=$(tput setaf 4)
 RED=$(tput setaf 1)
 RESET=$(tput sgr0)
 
-WALLPAPER_CHOICE="auto"
+WALLPAPER_CHOICE=""
 NERD_FONT_VERSION="v3.0.2"
 
 print_wallpaper_choices() {
@@ -157,6 +157,25 @@ while [ $# -gt 0 ]; do
             ;;
     esac
 done
+
+# A plain rerun preserves the user's saved wallpaper choice. Fresh installations
+# with no saved state continue to use the automatic City wallpaper selection.
+if [ -z "$WALLPAPER_CHOICE" ]; then
+    SAVED_WALLPAPER_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/kalipwm/wallpaper-choice"
+    if [ -s "$SAVED_WALLPAPER_FILE" ]; then
+        SAVED_WALLPAPER_CHOICE="$(/usr/bin/cat "$SAVED_WALLPAPER_FILE" 2>/dev/null || true)"
+        if validate_wallpaper_choice "$SAVED_WALLPAPER_CHOICE"; then
+            WALLPAPER_CHOICE="$SAVED_WALLPAPER_CHOICE"
+            echo -e "${GREEN}[=] Preserving saved wallpaper choice: $WALLPAPER_CHOICE${RESET}"
+        else
+            echo -e "${RED}[!] Ignoring invalid saved wallpaper choice: $SAVED_WALLPAPER_CHOICE${RESET}"
+        fi
+    fi
+
+    if [ -z "$WALLPAPER_CHOICE" ]; then
+        WALLPAPER_CHOICE="auto"
+    fi
+fi
 
 if ! validate_wallpaper_choice "$WALLPAPER_CHOICE"; then
     echo -e "${RED}[-] Unknown wallpaper: $WALLPAPER_CHOICE${RESET}"
