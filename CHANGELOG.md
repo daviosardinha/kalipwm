@@ -10,6 +10,42 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-27 — Configuration backup and rollback
+
+### Added
+
+- `kalipwm backup` and `kalipwm backup --label NAME` for timestamped snapshots of KaliPWM-managed configuration.
+- `kalipwm backups` for listing available snapshots newest first.
+- `kalipwm rollback [BACKUP_ID|latest]` for restoring a specific or latest snapshot.
+- `kalipwm rollback ... --dry-run` for validating and printing the restore plan without changing files or using `sudo`.
+- Automatic `pre-rollback` safety snapshots before every real rollback.
+- Automatic `pre-update` snapshots immediately before update replaces managed files.
+- Automatic `pre-repair` snapshots before a real repair replaces managed files.
+
+### Scope and safety
+
+- Snapshots are stored per user under `~/.config/kalipwm/backups/` with a timestamp and label.
+- Snapshot scope is intentionally limited to KaliPWM-managed BSPWM, Kitty, Picom, Polybar and sxhkd configuration, `.zshrc`, `.p10k.zsh`, `.tmux.conf.local` and canonical `/usr/bin/{target,screenshot,wallpaper}` helper links.
+- Target state, persisted wallpaper choice, shell history, browser data and unrelated `~/.config` content are excluded.
+- Snapshot creation uses a private `umask 077`; secrets manually placed inside a managed configuration file are naturally copied into that private snapshot.
+- Rollback manifests accept only the explicitly supported managed home/system paths before restore actions are applied.
+- A real rollback snapshots the current managed state first, so the operation itself is reversible.
+- `kalipwm repair --dry-run` does not create a snapshot; it remains mutation-free and does not use `sudo`.
+- `SCRIPTS/kalipwm-backup` is tracked executable (`100755`).
+
+### Validation
+
+- `bash -n` passed for `SCRIPTS/kalipwm`, `SCRIPTS/kalipwm-backup` and `SCRIPTS/kalipwm-repair` during feature validation.
+- On the representative VMware Kali VM, a manual baseline snapshot was created, controlled drift in BSPWM and `.zshrc` was removed by rollback, a `pre-rollback` safety snapshot captured the drifted state, that safety snapshot was then restored successfully, and the clean baseline was restored again to prove the round trip in both directions.
+- VMware public-command validation confirmed `kalipwm backup`, `kalipwm backups` and rollback dry-run through the installed `/usr/local/bin/kalipwm` command.
+- VMware real repair created a `pre-repair` snapshot while repair dry-run created none; no APT/source-build/font-download activity occurred.
+- VMware feature-update validation created a `pre-update` snapshot that captured deliberately drifted `.zshrc` and `bspwmrc` contents before update refreshed both managed files.
+- On the primary bare-metal Kali host, a manual `baremetal-baseline` snapshot and real rollback removed controlled BSPWM/`.zshrc` drift with exit code `0` and created a `pre-rollback` safety snapshot.
+- Bare-metal repair dry-run created no snapshot; real repair created a `pre-repair` snapshot with no forbidden installer/build activity.
+- Bare-metal feature-update validation created a `pre-update` snapshot containing the controlled `.zshrc` and `bspwmrc` drift before deployment refreshed both files.
+- Across all backup/rollback/update/repair tests, Target `172.16.18.10` and wallpaper choice `nomad-emblem` remained unchanged.
+- Final diagnostics remained `18 OK | 1 WARN | 0 FAIL | 9 INFO` on VMware and `19 OK | 2 WARN | 0 FAIL | 7 INFO` on bare metal; remaining warnings are the intentionally deferred display/VM-awareness assumptions.
+
 ## 2026-08-27 — Flameshot on-demand session behavior
 
 ### Changed
