@@ -88,7 +88,7 @@ virtualization_type() {
 
     if [ -z "$virt" ] || [ "$virt" = "none" ]; then
         if [ -r /sys/class/dmi/id/product_name ]; then
-            case "$(cat /sys/class/dmi/id/product_name 2>/dev/null)" in
+            case "$(/usr/bin/cat /sys/class/dmi/id/product_name 2>/dev/null)" in
                 *VMware*) virt="vmware" ;;
                 *VirtualBox*) virt="oracle" ;;
                 *KVM*|*QEMU*) virt="kvm" ;;
@@ -244,15 +244,15 @@ run_doctor() {
     fi
 
     if [ -s "$target_file" ]; then
-        print_status INFO "Target: $(cat "$target_file")"
+        print_status INFO "Target: $(/usr/bin/cat "$target_file")"
     else
         print_status INFO "Target: not set"
     fi
 
     if [ -s "$current_wallpaper_file" ]; then
-        print_status INFO "Current wallpaper: $(cat "$current_wallpaper_file")"
+        print_status INFO "Current wallpaper: $(/usr/bin/cat "$current_wallpaper_file")"
     elif [ -s "$choice_file" ]; then
-        print_status INFO "Wallpaper choice: $(cat "$choice_file")"
+        print_status INFO "Wallpaper choice: $(/usr/bin/cat "$choice_file")"
     else
         print_status INFO "Wallpaper choice: no persisted state found"
     fi
@@ -350,18 +350,174 @@ run_doctor() {
     return 0
 }
 
+validate_update_repo() {
+    local repo="$1"
+
+    if [ ! -d "$repo/.git" ]; then
+        printf 'KaliPWM update repository is not a Git checkout: %s\n' "$repo" >&2
+        return 1
+    fi
+
+    for path in kalipwm.sh CONFIGS/config CONFIGS/zshrc CONFIGS/p10k.zsh CONFIGS/tmux.conf.local SCRIPTS/kalipwm SCRIPTS/screenshot.sh WALLPAPERS; do
+        if [ ! -e "$repo/$path" ]; then
+            printf 'KaliPWM update repository is missing: %s\n' "$repo/$path" >&2
+            return 1
+        fi
+    done
+
+    return 0
+}
+
+repo_is_clean() {
+    local repo="$1"
+    [ -z "$(git -C "$repo" status --porcelain --untracked-files=normal 2>/dev/null)" ]
+}
+
+apply_managed_update() {
+    local repo="$1"
+
+    validate_update_repo "$repo" || return 1
+
+    printf 'Applying KaliPWM managed configuration from:\n  %s\n\n' "$repo"
+
+    if ! have sudo; then
+        printf 'sudo is required to refresh system-managed KaliPWM helpers.\n' >&2
+        return 1
+    fi
+
+    sudo -v || return 1
+
+    mkdir -p "$HOME/.config" "$HOME/.config/polybar/forest/scripts" "$HOME/screenshots" "$HOME/Wallpapers"
+
+    cp -a "$repo/CONFIGS/config/." "$HOME/.config/" || return 1
+    cp -f "$repo/CONFIGS/zshrc" "$HOME/.zshrc" || return 1
+    cp -f "$repo/CONFIGS/p10k.zsh" "$HOME/.p10k.zsh" || return 1
+    cp -f "$repo/CONFIGS/tmux.conf.local" "$HOME/.tmux.conf.local" || return 1
+    cp -a "$repo/SCRIPTS/." "$HOME/.config/polybar/forest/scripts/" || return 1
+    cp -f "$repo/SCRIPTS/screenshot.sh" "$HOME/.config/polybar/obsidian/scripts/screenshot.sh" || return 1
+    cp -a "$repo/WALLPAPERS/." "$HOME/Wallpapers/" || return 1
+
+    chmod +x "$HOME/.config/bspwm/bspwmrc" \
+        "$HOME/.config/bspwm/scripts/bspwm_resize" \
+        "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh" \
+        "$HOME/.config/polybar/obsidian/launch.sh" \
+        "$HOME/.config/polybar/obsidian-v2/launch.sh" || return 1
+    chmod +x "$HOME/.config/polybar/obsidian/scripts/"*.sh || return 1
+    chmod +x "$HOME/.config/polybar/obsidian-v2/scripts/"*.sh || return 1
+    chmod +x "$HOME/.config/polybar/forest/scripts/target.sh" \
+        "$HOME/.config/polybar/forest/scripts/screenshot.sh" || return 1
+
+    sudo ln -sf "$HOME/.config/polybar/obsidian/scripts/target.sh" /usr/bin/target || return 1
+    sudo ln -sf "$HOME/.config/polybar/obsidian/scripts/screenshot.sh" /usr/bin/screenshot || return 1
+    sudo ln -sf "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh" /usr/bin/wallpaper || return 1
+    sudo install -m 0755 "$repo/SCRIPTS/kalipwm" /usr/local/bin/kalipwm || return 1
+
+    printf 'KaliPWM managed configuration updated successfully.\n'
+    printf 'Toolchain packages and third-party source builds were not reinstalled.\n'
+    printf 'Your Target and wallpaper choice state were preserved.\n'
+    printf 'Run "kalipwm doctor" to verify the resulting state.\n'
+}
+
+run_update() {
+    local repo="${KALIPWM_REPO:-$HOME/kalipwm}"
+    local origin_url current_branch
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --repo)
+                if [ "$#" -lt 2 ]; then
+                    printf 'kalipwm update --repo requires a path.\n' >&2
+                    return 2
+                fi
+                repo="$2"
+                shift 2
+                ;;
+            -h|--help)
+                /usr/bin/cat <<'HELP'
+Usage:
+  kalipwm update
+  kalipwm update --repo PATH
+
+Update the checked-out KaliPWM repository from origin/main, then refresh only
+KaliPWM-managed configuration, wallpapers, helper symlinks and the management
+command. The complete package/toolchain installer is not rerun.
+
+Default repository: ~/kalipwm
+Override with --repo PATH or KALIPWM_REPO.
+HELP
+                return 0
+                ;;
+            *)
+                printf 'Unknown update option: %s\n' "$1" >&2
+                return 2
+                ;;
+        esac
+    done
+
+    if ! have git; then
+        printf 'git is required for kalipwm update.\n' >&2
+        return 1
+    fi
+
+    repo="$(readlink -f "$repo" 2>/dev/null || printf '%s' "$repo")"
+    validate_update_repo "$repo" || return 1
+
+    if ! repo_is_clean "$repo"; then
+        printf 'Refusing to update a dirty KaliPWM checkout: %s\n' "$repo" >&2
+        printf 'Commit, stash or remove local changes first. Nothing was changed.\n' >&2
+        git -C "$repo" status --short >&2
+        return 1
+    fi
+
+    origin_url="$(git -C "$repo" remote get-url origin 2>/dev/null || true)"
+    if [ -z "$origin_url" ]; then
+        printf 'The KaliPWM checkout has no origin remote: %s\n' "$repo" >&2
+        return 1
+    fi
+
+    printf 'KaliPWM update\n'
+    printf 'Repository: %s\n' "$repo"
+    printf 'Origin: %s\n\n' "$origin_url"
+
+    printf '[1/3] Fetching origin/main...\n'
+    git -C "$repo" fetch origin main || return 1
+
+    current_branch="$(git -C "$repo" branch --show-current 2>/dev/null || true)"
+    if [ "$current_branch" != "main" ]; then
+        printf '[2/3] Switching from %s to main...\n' "${current_branch:-detached HEAD}"
+        git -C "$repo" switch main || return 1
+    else
+        printf '[2/3] Already on main.\n'
+    fi
+
+    printf '[3/3] Fast-forwarding main from origin/main...\n'
+    git -C "$repo" pull --ff-only origin main || return 1
+
+    if ! repo_is_clean "$repo"; then
+        printf 'Checkout became dirty after the Git update; refusing to deploy managed files.\n' >&2
+        git -C "$repo" status --short >&2
+        return 1
+    fi
+
+    printf '\nRepository update complete. Applying managed files with the updated command...\n\n'
+    exec "$repo/SCRIPTS/kalipwm" __apply-update "$repo"
+}
+
 show_help() {
-    cat <<'HELP'
+    /usr/bin/cat <<'HELP'
 KaliPWM Obsidian management command
 
 Usage:
   kalipwm doctor
+  kalipwm update
   kalipwm help
 
 Commands:
   doctor    Run a read-only diagnostic report for the KaliPWM desktop.
+  update    Fast-forward the KaliPWM checkout and refresh managed configuration.
   help      Show this help.
 
+Run "kalipwm update --help" for update-specific options.
 The doctor command never uses sudo and never changes system configuration.
 HELP
 }
@@ -374,6 +530,18 @@ case "${1:-help}" in
             exit 2
         fi
         run_doctor
+        ;;
+    update)
+        shift
+        run_update "$@"
+        ;;
+    __apply-update)
+        shift
+        if [ "$#" -ne 1 ]; then
+            printf 'Invalid internal update invocation.\n' >&2
+            exit 2
+        fi
+        apply_managed_update "$1"
         ;;
     help|-h|--help)
         show_help
