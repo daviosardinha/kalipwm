@@ -48,6 +48,7 @@ The current stable `main` includes:
 - Standalone runtime wallpaper switching that never starts the installer.
 - Flameshot as the default interactive screenshot workflow, including region selection, annotation, clipboard copy and save actions.
 - `kalipwm doctor` as a read-only system and configuration diagnostic command.
+- `kalipwm update` for fast-forwarding the local checkout and refreshing only KaliPWM-managed files without reinstalling the toolchain.
 - Idempotent installer reruns that reuse existing components instead of destructively recloning/rebuilding them.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
@@ -120,6 +121,26 @@ Status levels are intentionally different:
 `kalipwm doctor` never uses `sudo` and never changes configuration. It exits with code `1` when one or more `FAIL` findings are present; warnings alone keep a successful exit code.
 
 The diagnostic logic has been validated on both the representative VMware Kali VM and the primary bare-metal Kali host. That cross-machine comparison exposed real stale helper shadowing and legacy hard-coded VM/display assumptions without treating absent optional hardware as failures.
+
+## Update workflow
+
+Once KaliPWM is installed from a Git checkout, update it with:
+
+```bash
+kalipwm update
+```
+
+The update command requires a clean checkout, fetches and fast-forwards the local `main` branch from `origin/main`, then reapplies only KaliPWM-managed configuration, wallpapers, helper symlinks, shell configuration and `/usr/local/bin/kalipwm`.
+
+It deliberately does **not** run APT, reinstall Nerd Fonts, rerun the full installer or rebuild third-party components such as Polybar and Picom. Target state and the persisted wallpaper choice under `~/.cache/kalipwm/` are preserved.
+
+By default the checkout is expected at `~/kalipwm`. A different checkout can be supplied explicitly:
+
+```bash
+kalipwm update --repo /path/to/kalipwm
+```
+
+If the checkout contains tracked or untracked local changes, the command stops before fetching/deploying and asks you to commit, stash or remove them first.
 
 ## Wallpaper workflow
 
@@ -252,7 +273,8 @@ At a glance:
 - ✅ English-only source and CLI cleanup
 - ✅ `kalipwm doctor` diagnostics
 - ✅ idempotent installer reruns
-- ⏳ `kalipwm update` / `kalipwm repair`
+- ✅ `kalipwm update`
+- ⏳ `kalipwm repair`
 - ⏳ hardware and VM auto-detection
 - ⏳ configuration backup and rollback
 - ⏳ Rofi-based KaliPWM Control Center
