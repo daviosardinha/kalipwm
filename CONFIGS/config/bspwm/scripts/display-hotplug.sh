@@ -23,6 +23,7 @@ fi
 if command -v flock >/dev/null 2>&1; then
     exec 9>"$LOCK_FILE"
     if ! flock -n 9; then
+        log "Display hot-plug watcher not started: another process still holds the watcher lock."
         exit 0
     fi
 fi
@@ -174,12 +175,14 @@ ensure_provider_links() {
 refresh_desktop_surfaces() {
     sleep 0.5
 
+    # fd 9 owns the watcher flock. Close it explicitly in child helpers so a
+    # long-lived process such as Polybar cannot inherit and retain the lock.
     if [ -x "$WALLPAPER_HELPER" ]; then
-        "$WALLPAPER_HELPER" >/dev/null 2>&1 || log "Wallpaper refresh failed after display change."
+        "$WALLPAPER_HELPER" 9>&- >/dev/null 2>&1 || log "Wallpaper refresh failed after display change."
     fi
 
     if [ -x "$POLYBAR_LAUNCHER" ]; then
-        "$POLYBAR_LAUNCHER" >/dev/null 2>&1 || log "Polybar refresh failed after display change."
+        "$POLYBAR_LAUNCHER" 9>&- >/dev/null 2>&1 || log "Polybar refresh failed after display change."
     fi
 }
 
