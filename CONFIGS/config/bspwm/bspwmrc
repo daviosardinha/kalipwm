@@ -25,6 +25,9 @@ bspc rule -a Chromium desktop='^2'
 bspc rule -a mplayer2 state=floating
 bspc rule -a Kupfer.py focus=on
 bspc rule -a Screenkey manage=off
+# Flameshot 14 creates top-level monitor/editor windows on multi-monitor X11.
+# Keep those windows out of BSPWM tiling while preserving keyboard focus.
+bspc rule -a flameshot state=floating layer=above border=off focus=on
 
 # DISPLAY
 # Preserve active modes and watch for live output connect/disconnect events.
