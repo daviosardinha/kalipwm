@@ -356,7 +356,7 @@ validate_update_repo() {
         return 1
     fi
 
-    for path in kalipwm.sh CONFIGS/config CONFIGS/zshrc CONFIGS/p10k.zsh CONFIGS/tmux.conf.local SCRIPTS/kalipwm SCRIPTS/screenshot.sh WALLPAPERS; do
+    for path in kalipwm.sh CONFIGS/config CONFIGS/zshrc CONFIGS/p10k.zsh CONFIGS/tmux.conf.local SCRIPTS/kalipwm SCRIPTS/kalipwm-backup SCRIPTS/screenshot.sh WALLPAPERS; do
         if [ ! -e "$repo/$path" ]; then
             printf 'KaliPWM update repository is missing: %s\n' "$repo/$path" >&2
             return 1
@@ -377,6 +377,9 @@ apply_managed_update() {
     validate_update_repo "$repo" || return 1
 
     printf 'Applying KaliPWM managed configuration from:\n  %s\n\n' "$repo"
+    printf 'Creating automatic pre-update configuration snapshot...\n'
+    KALIPWM_REPO="$repo" bash "$repo/SCRIPTS/kalipwm-backup" backup --label pre-update || return 1
+    printf '\n'
 
     if ! have sudo; then
         printf 'sudo is required to refresh system-managed KaliPWM helpers.\n' >&2
@@ -439,7 +442,8 @@ Usage:
 
 Update the checked-out KaliPWM repository from origin/main, then refresh only
 KaliPWM-managed configuration, wallpapers, helper symlinks and the management
-command. The complete package/toolchain installer is not rerun.
+command. The complete package/toolchain installer is not rerun. A pre-update
+configuration snapshot is created immediately before managed files are changed.
 
 Default repository: ~/kalipwm
 Override with --repo PATH or KALIPWM_REPO.
@@ -537,6 +541,24 @@ run_repair() {
     exec bash "$repo/SCRIPTS/kalipwm-repair" "${original_args[@]}"
 }
 
+run_backup_command() {
+    local mode="$1"
+    shift
+    local repo="${KALIPWM_REPO:-$HOME/kalipwm}"
+    local helper
+
+    repo="$(readlink -f "$repo" 2>/dev/null || printf '%s' "$repo")"
+    helper="$repo/SCRIPTS/kalipwm-backup"
+
+    if [ ! -f "$helper" ]; then
+        printf 'KaliPWM backup helper is missing: %s\n' "$helper" >&2
+        printf 'Run "kalipwm update" first or set KALIPWM_REPO to a valid checkout.\n' >&2
+        return 1
+    fi
+
+    exec bash "$helper" "$mode" "$@"
+}
+
 show_help() {
     /usr/bin/cat <<'HELP'
 KaliPWM Obsidian management command
@@ -545,16 +567,23 @@ Usage:
   kalipwm doctor
   kalipwm update
   kalipwm repair
+  kalipwm backup [--label NAME]
+  kalipwm backups
+  kalipwm rollback [BACKUP_ID|latest] [--dry-run]
   kalipwm help
 
 Commands:
   doctor    Run a read-only diagnostic report for the KaliPWM desktop.
   update    Fast-forward the KaliPWM checkout and refresh managed configuration.
   repair    Repair managed configuration, permissions, helpers and known legacy shadows.
+  backup    Create a timestamped snapshot of KaliPWM-managed configuration.
+  backups   List available KaliPWM configuration snapshots.
+  rollback  Restore a configuration snapshot; creates a safety snapshot first.
   help      Show this help.
 
-Run "kalipwm update --help" or "kalipwm repair --help" for command-specific options.
-The doctor command never uses sudo and never changes system configuration.
+Run "kalipwm update --help", "kalipwm repair --help" or "kalipwm rollback --help"
+for command-specific options. The doctor command never uses sudo and never
+changes system configuration.
 HELP
 }
 
@@ -574,6 +603,22 @@ case "${1:-help}" in
     repair)
         shift
         run_repair "$@"
+        ;;
+    backup)
+        shift
+        run_backup_command backup "$@"
+        ;;
+    backups)
+        shift
+        if [ "$#" -gt 0 ]; then
+            printf 'The backups command does not accept arguments.\n' >&2
+            exit 2
+        fi
+        run_backup_command list
+        ;;
+    rollback)
+        shift
+        run_backup_command rollback "$@"
         ;;
     __apply-update)
         shift
