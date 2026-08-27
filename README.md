@@ -47,6 +47,7 @@ The current stable `main` includes:
 - Persistent wallpaper choice across BSPWM sessions.
 - Standalone runtime wallpaper switching that never starts the installer.
 - Flameshot as the default interactive screenshot workflow, including region selection, annotation, clipboard copy and save actions.
+- `kalipwm doctor` as a read-only system and configuration diagnostic command.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
 - Dedicated Nerd Font sizing for compact telemetry and larger status icons.
@@ -93,6 +94,29 @@ bash kalipwm.sh --help
 ```
 
 The installer output is maintained in English and credits both the original `afsh4ck/kalipwm` project and the current KaliPWM Obsidian fork.
+
+## Diagnostics
+
+KaliPWM installs the management command under `/usr/local/bin/kalipwm`.
+
+Run the read-only diagnostic report with:
+
+```bash
+kalipwm doctor
+```
+
+The doctor checks the current Kali/X11 environment, virtualization and display state, BSPWM/sxhkd/Polybar/Picom/Rofi/Flameshot, managed KaliPWM helpers, Obsidian configuration, Nerd Fonts, Target and wallpaper state, network/VPN interfaces, optional hardware telemetry and known machine-specific BSPWM assumptions.
+
+Status levels are intentionally different:
+
+- `[OK]` — expected component or managed state is healthy.
+- `[INFO]` — informational state or optional hardware capability.
+- `[WARN]` — non-fatal drift, shadowing or machine-specific configuration worth fixing.
+- `[FAIL]` — a required managed component is missing or broken.
+
+`kalipwm doctor` never uses `sudo` and never changes configuration. It exits with code `1` when one or more `FAIL` findings are present; warnings alone keep a successful exit code.
+
+The diagnostic logic has been validated on both the representative VMware Kali VM and the primary bare-metal Kali host. That cross-machine comparison exposed real stale helper shadowing and legacy hard-coded VM/display assumptions without treating absent optional hardware as failures.
 
 ## Wallpaper workflow
 
@@ -223,7 +247,7 @@ At a glance:
 - ✅ Flameshot as the default screenshot workflow
 - ✅ standalone wallpaper command / installer separation
 - ✅ English-only source and CLI cleanup
-- ⏳ `kalipwm doctor` diagnostics
+- ✅ `kalipwm doctor` diagnostics
 - ⏳ idempotent update/repair workflow
 - ⏳ hardware and VM auto-detection
 - ⏳ configuration backup and rollback
