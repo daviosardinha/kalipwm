@@ -148,7 +148,7 @@ super + shift + a
         screenshot select
 
 @Print + ctrl
-        screenshot
+        screenshot select
 
 @Print + alt
         screenshot window

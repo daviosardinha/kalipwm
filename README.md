@@ -45,6 +45,7 @@ The current stable `main` includes:
 - Obsidian Rofi launcher and compact power confirmation UI.
 - Selectable City and Nomad Kingdom wallpaper families.
 - Persistent wallpaper choice across BSPWM sessions.
+- Flameshot as the default interactive screenshot workflow, including region selection, annotation, clipboard copy and save actions.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
 - Dedicated Nerd Font sizing for compact telemetry and larger status icons.
@@ -114,6 +115,22 @@ The chosen wallpaper is stored under `~/.cache/kalipwm/` and restored by BSPWM.
 
 > **Development note:** a cleaner standalone `wallpaper` command and strict separation between "change wallpaper" and "run the installer" are currently being validated before they move to `main`.
 
+## Screenshot workflow
+
+Flameshot is installed by KaliPWM and kept available in the BSPWM session so interactive capture and clipboard behavior work consistently.
+
+```bash
+screenshot
+screenshot select
+screenshot full
+screenshot screen
+screenshot window
+```
+
+`screenshot` and `screenshot select` open the native Flameshot interactive interface. `screenshot full` and `screenshot screen` save non-interactive captures under `~/screenshots/`. Because Flameshot does not expose a native active-window CLI mode, `screenshot window` falls back to interactive region selection.
+
+Inside the Flameshot interface, native shortcuts such as `Ctrl + C` for clipboard copy, `Ctrl + S` for save and the standard annotation tools remain available.
+
 ## Target workflow
 
 Set a target:
@@ -171,7 +188,9 @@ Hardware-adaptive module visibility and improved bare-metal/VM detection are pla
 | `Super + Shift + F` | Open Firefox |
 | `Super + Shift + B` | Open Burp Suite |
 | `Super + Shift + A` | Open Thunar |
-| `Print` | Screenshot workflow |
+| `Print` | Open interactive Flameshot selection |
+| `Ctrl + Print` | Open interactive Flameshot selection |
+| `Alt + Print` | Open interactive Flameshot selection for window/region capture |
 
 ## Project roadmap
 
@@ -183,7 +202,7 @@ At a glance:
 - ✅ Target state and VPN-independent target display
 - ✅ Obsidian wallpaper library and persistent selection
 - ✅ Rofi power-menu cleanup
-- 🚧 Flameshot as the default screenshot workflow
+- ✅ Flameshot as the default screenshot workflow
 - 🚧 standalone wallpaper command / installer separation
 - ⏳ `kalipwm doctor` diagnostics
 - ⏳ idempotent update/repair workflow
@@ -223,6 +242,7 @@ This keeps the public repository aligned with what a fresh clone can actually re
 - Python / pip / bpython
 - lsd
 - Fastfetch
+- Flameshot
 - feh
 - lm-sensors
 - pavucontrol
