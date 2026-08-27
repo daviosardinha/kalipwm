@@ -1,0 +1,457 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+BACKUP_ROOT="${KALIPWM_BACKUP_ROOT:-$HOME/.config/kalipwm/backups}"
+FORMAT_VERSION=1
+
+HOME_PATHS=(
+    ".config/bspwm"
+    ".config/kitty"
+    ".config/picom"
+    ".config/polybar"
+    ".config/sxhkd"
+    ".zshrc"
+    ".p10k.zsh"
+    ".tmux.conf.local"
+)
+
+SYSTEM_PATHS=(
+    "/usr/bin/target"
+    "/usr/bin/screenshot"
+    "/usr/bin/wallpaper"
+)
+
+usage() {
+    /usr/bin/cat <<'HELP'
+Usage:
+  kalipwm-backup backup [--label NAME]
+  kalipwm-backup list
+  kalipwm-backup rollback [BACKUP_ID|latest] [--dry-run]
+  kalipwm-backup help
+
+Create and restore timestamped snapshots of KaliPWM-managed user configuration
+and canonical helper symlinks.
+
+Backups are stored under:
+  ~/.config/kalipwm/backups/
+
+The snapshot deliberately excludes Target state, wallpaper-choice state, shell
+history, browser data, credentials and unrelated ~/.config content.
+
+Commands:
+  backup      Snapshot the current KaliPWM-managed configuration.
+  list        List available snapshots, newest first.
+  rollback    Restore a snapshot. Defaults to the latest snapshot.
+  help        Show this help.
+
+Options:
+  --label NAME  Add a short safe label to a new backup.
+  --dry-run     Show rollback actions without changing files or using sudo.
+HELP
+}
+
+is_allowed_home_path() {
+    case "$1" in
+        .config/bspwm|.config/kitty|.config/picom|.config/polybar|.config/sxhkd|.zshrc|.p10k.zsh|.tmux.conf.local)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+is_allowed_system_path() {
+    case "$1" in
+        /usr/bin/target|/usr/bin/screenshot|/usr/bin/wallpaper)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+validate_label() {
+    local label="$1"
+    if [[ ! "$label" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        printf 'Backup label may contain only letters, numbers, dot, underscore and dash.\n' >&2
+        return 1
+    fi
+}
+
+next_snapshot_id() {
+    local label="$1"
+    local base id n=1
+
+    base="$(date +%Y%m%d-%H%M%S)"
+    if [ -n "$label" ]; then
+        base="${base}-${label}"
+    fi
+
+    id="$base"
+    while [ -e "$BACKUP_ROOT/$id" ]; do
+        id="${base}-${n}"
+        ((n+=1))
+    done
+
+    printf '%s' "$id"
+}
+
+snapshot_source_path() {
+    local snapshot="$1"
+    local scope="$2"
+    local path="$3"
+
+    case "$scope" in
+        home)
+            printf '%s/home/%s' "$snapshot" "$path"
+            ;;
+        system)
+            printf '%s/system/%s' "$snapshot" "${path#/}"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+create_snapshot() {
+    local label="${1:-manual}"
+    local id snapshot tmp manifest metadata rel abs src dest state
+
+    validate_label "$label" || return 1
+    mkdir -p "$BACKUP_ROOT"
+
+    id="$(next_snapshot_id "$label")"
+    snapshot="$BACKUP_ROOT/$id"
+    tmp="$BACKUP_ROOT/.tmp-${id}-$$"
+    manifest="$tmp/entries.tsv"
+    metadata="$tmp/metadata"
+
+    cleanup_tmp() {
+        rm -rf -- "$tmp"
+    }
+    trap cleanup_tmp RETURN
+
+    mkdir -p "$tmp/home" "$tmp/system"
+    : > "$manifest"
+
+    for rel in "${HOME_PATHS[@]}"; do
+        src="$HOME/$rel"
+        if [ -e "$src" ] || [ -L "$src" ]; then
+            state="present"
+            dest="$tmp/home/$rel"
+            mkdir -p "$(dirname "$dest")"
+            cp -a -- "$src" "$dest"
+        else
+            state="missing"
+        fi
+        printf 'home\t%s\t%s\n' "$state" "$rel" >> "$manifest"
+    done
+
+    for abs in "${SYSTEM_PATHS[@]}"; do
+        if [ -e "$abs" ] || [ -L "$abs" ]; then
+            state="present"
+            dest="$tmp/system/${abs#/}"
+            mkdir -p "$(dirname "$dest")"
+            cp -a -- "$abs" "$dest"
+        else
+            state="missing"
+        fi
+        printf 'system\t%s\t%s\n' "$state" "$abs" >> "$manifest"
+    done
+
+    {
+        printf 'format=%s\n' "$FORMAT_VERSION"
+        printf 'id=%s\n' "$id"
+        printf 'created_at=%s\n' "$(date -Iseconds)"
+        printf 'label=%s\n' "$label"
+        printf 'host=%s\n' "$(hostname 2>/dev/null || printf unknown)"
+    } > "$metadata"
+
+    mv -- "$tmp" "$snapshot"
+    trap - RETURN
+
+    printf 'KaliPWM configuration backup created.\n'
+    printf 'Snapshot: %s\n' "$id"
+    printf 'Path: %s\n' "$snapshot"
+    printf 'Target and wallpaper-choice state were not included.\n'
+}
+
+list_snapshots() {
+    local id metadata created label found=0
+
+    if [ ! -d "$BACKUP_ROOT" ]; then
+        printf 'No KaliPWM configuration backups found.\n'
+        return 0
+    fi
+
+    while IFS= read -r id; do
+        [ -n "$id" ] || continue
+        metadata="$BACKUP_ROOT/$id/metadata"
+        [ -f "$metadata" ] || continue
+        created="$(awk -F= '$1 == "created_at" {sub(/^created_at=/, ""); print; exit}' "$metadata")"
+        label="$(awk -F= '$1 == "label" {sub(/^label=/, ""); print; exit}' "$metadata")"
+        printf '%-40s  %-12s  %s\n' "$id" "${label:-unlabeled}" "${created:-unknown-time}"
+        found=1
+    done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name '.tmp-*' -printf '%f\n' 2>/dev/null | sort -r)
+
+    if [ "$found" -eq 0 ]; then
+        printf 'No KaliPWM configuration backups found.\n'
+    fi
+}
+
+latest_snapshot_id() {
+    local id
+    id="$(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name '.tmp-*' -printf '%f\n' 2>/dev/null | sort -r | head -n1)"
+    [ -n "$id" ] || return 1
+    printf '%s' "$id"
+}
+
+resolve_snapshot() {
+    local requested="$1"
+    local id snapshot root_real snapshot_real
+
+    if [ "$requested" = "latest" ]; then
+        id="$(latest_snapshot_id)" || {
+            printf 'No KaliPWM configuration backups found.\n' >&2
+            return 1
+        }
+    else
+        id="$requested"
+    fi
+
+    if [ -z "$id" ] || [[ "$id" == *'/'* ]] || [[ "$id" == *'..'* ]]; then
+        printf 'Invalid backup id: %s\n' "$id" >&2
+        return 1
+    fi
+
+    snapshot="$BACKUP_ROOT/$id"
+    if [ ! -d "$snapshot" ] || [ ! -f "$snapshot/metadata" ] || [ ! -f "$snapshot/entries.tsv" ]; then
+        printf 'Backup snapshot not found or incomplete: %s\n' "$id" >&2
+        return 1
+    fi
+
+    root_real="$(readlink -f "$BACKUP_ROOT")"
+    snapshot_real="$(readlink -f "$snapshot")"
+    case "$snapshot_real" in
+        "$root_real"/*) ;;
+        *)
+            printf 'Refusing backup path outside KaliPWM backup root: %s\n' "$snapshot_real" >&2
+            return 1
+            ;;
+    esac
+
+    printf '%s' "$snapshot_real"
+}
+
+validate_snapshot_entries() {
+    local snapshot="$1"
+    local scope state path src
+
+    while IFS=$'\t' read -r scope state path; do
+        [ -n "$scope" ] || continue
+        case "$scope" in
+            home)
+                is_allowed_home_path "$path" || {
+                    printf 'Snapshot contains an unsupported home path: %s\n' "$path" >&2
+                    return 1
+                }
+                ;;
+            system)
+                is_allowed_system_path "$path" || {
+                    printf 'Snapshot contains an unsupported system path: %s\n' "$path" >&2
+                    return 1
+                }
+                ;;
+            *)
+                printf 'Snapshot contains an unsupported scope: %s\n' "$scope" >&2
+                return 1
+                ;;
+        esac
+
+        case "$state" in
+            present)
+                src="$(snapshot_source_path "$snapshot" "$scope" "$path")"
+                if [ ! -e "$src" ] && [ ! -L "$src" ]; then
+                    printf 'Snapshot payload is missing for %s: %s\n' "$scope" "$path" >&2
+                    return 1
+                fi
+                ;;
+            missing) ;;
+            *)
+                printf 'Snapshot contains an unsupported state for %s: %s\n' "$path" "$state" >&2
+                return 1
+                ;;
+        esac
+    done < "$snapshot/entries.tsv"
+}
+
+print_rollback_plan() {
+    local snapshot="$1"
+    local scope state path action
+
+    while IFS=$'\t' read -r scope state path; do
+        [ -n "$scope" ] || continue
+        if [ "$state" = "present" ]; then
+            action="restore"
+        else
+            action="remove (snapshot recorded path as absent)"
+        fi
+
+        if [ "$scope" = "home" ]; then
+            printf '[PLAN] %-38s %s\n' "$HOME/$path" "$action"
+        else
+            printf '[PLAN] %-38s %s\n' "$path" "$action"
+        fi
+    done < "$snapshot/entries.tsv"
+}
+
+apply_rollback() {
+    local snapshot="$1"
+    local id scope state path src dest safety_label
+
+    id="$(basename "$snapshot")"
+    validate_snapshot_entries "$snapshot" || return 1
+
+    printf 'KaliPWM rollback\n'
+    printf 'Snapshot: %s\n\n' "$id"
+    print_rollback_plan "$snapshot"
+    printf '\nCreating a safety snapshot of the current managed state before rollback...\n'
+    safety_label="pre-rollback"
+    create_snapshot "$safety_label" || return 1
+
+    if ! command -v sudo >/dev/null 2>&1; then
+        printf 'sudo is required to restore system-managed helper symlinks.\n' >&2
+        return 1
+    fi
+    sudo -v || return 1
+
+    while IFS=$'\t' read -r scope state path; do
+        [ -n "$scope" ] || continue
+        src="$(snapshot_source_path "$snapshot" "$scope" "$path")"
+
+        case "$scope" in
+            home)
+                dest="$HOME/$path"
+                rm -rf -- "$dest"
+                if [ "$state" = "present" ]; then
+                    mkdir -p "$(dirname "$dest")"
+                    cp -a -- "$src" "$dest"
+                fi
+                ;;
+            system)
+                dest="$path"
+                sudo rm -f -- "$dest"
+                if [ "$state" = "present" ]; then
+                    sudo cp -a -- "$src" "$dest"
+                fi
+                ;;
+        esac
+    done < "$snapshot/entries.tsv"
+
+    printf '\nKaliPWM rollback completed successfully.\n'
+    printf 'Restored snapshot: %s\n' "$id"
+    printf 'Target and wallpaper-choice state were not modified.\n'
+    printf 'Run "kalipwm doctor" to verify the resulting state.\n'
+}
+
+rollback_snapshot() {
+    local requested="latest"
+    local dry_run=0
+    local snapshot id
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --dry-run)
+                dry_run=1
+                shift
+                ;;
+            -h|--help)
+                usage
+                return 0
+                ;;
+            -* )
+                printf 'Unknown rollback option: %s\n' "$1" >&2
+                return 2
+                ;;
+            *)
+                if [ "$requested" != "latest" ]; then
+                    printf 'Only one backup id may be supplied to rollback.\n' >&2
+                    return 2
+                fi
+                requested="$1"
+                shift
+                ;;
+        esac
+    done
+
+    snapshot="$(resolve_snapshot "$requested")" || return 1
+    id="$(basename "$snapshot")"
+    validate_snapshot_entries "$snapshot" || return 1
+
+    if [ "$dry_run" -eq 1 ]; then
+        printf 'KaliPWM rollback dry-run\n'
+        printf 'Snapshot: %s\n\n' "$id"
+        print_rollback_plan "$snapshot"
+        printf '\nDRY-RUN: no files were modified and sudo was not used.\n'
+        return 0
+    fi
+
+    apply_rollback "$snapshot"
+}
+
+run_backup() {
+    local label="manual"
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --label)
+                if [ "$#" -lt 2 ]; then
+                    printf 'backup --label requires a name.\n' >&2
+                    return 2
+                fi
+                label="$2"
+                shift 2
+                ;;
+            -h|--help)
+                usage
+                return 0
+                ;;
+            *)
+                printf 'Unknown backup option: %s\n' "$1" >&2
+                return 2
+                ;;
+        esac
+    done
+
+    create_snapshot "$label"
+}
+
+case "${1:-help}" in
+    backup)
+        shift
+        run_backup "$@"
+        ;;
+    list)
+        shift
+        if [ "$#" -gt 0 ]; then
+            printf 'The list command does not accept arguments.\n' >&2
+            exit 2
+        fi
+        list_snapshots
+        ;;
+    rollback)
+        shift
+        rollback_snapshot "$@"
+        ;;
+    help|-h|--help)
+        usage
+        ;;
+    *)
+        printf 'Unknown backup command: %s\n\n' "$1" >&2
+        usage >&2
+        exit 2
+        ;;
+esac
