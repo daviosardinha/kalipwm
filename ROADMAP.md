@@ -157,9 +157,25 @@ Completed outcome:
 - plain reruns completed with exit code `0` and no unexpected Git clones on both the representative VMware Kali VM and the primary bare-metal Kali host;
 - post-rerun `kalipwm doctor` showed `0 FAIL` on both validation systems.
 
-### ⏳ `kalipwm update`
+### ✅ `kalipwm update`
 
-Update the local KaliPWM configuration from a checked-out repository without reinstalling the complete toolchain.
+Update an installed KaliPWM environment from its checked-out repository without reinstalling the complete toolchain.
+
+Completed outcome:
+
+```bash
+kalipwm update
+```
+
+- a clean checkout is required before any update is attempted;
+- the command fetches `origin/main`, switches to local `main` when needed and uses `--ff-only` to avoid implicit merge commits;
+- after the Git update, only KaliPWM-managed configuration, shell files, wallpapers, helper symlinks and `/usr/local/bin/kalipwm` are refreshed;
+- APT, Nerd Font installation and Polybar/Picom source builds are not invoked;
+- Target state and saved wallpaper choice remain untouched under the KaliPWM cache directory;
+- the default checkout is `~/kalipwm`, with `--repo PATH` and `KALIPWM_REPO` available for explicit alternate locations;
+- dirty-checkout refusal was validated before deployment testing;
+- update deployment was validated on both the representative VMware Kali VM and the primary bare-metal Kali host;
+- both validation systems preserved Target `172.16.18.10` and wallpaper choice `nomad-emblem`, showed no forbidden installer activity and finished with `0 FAIL` from `kalipwm doctor`.
 
 ### ⏳ `kalipwm repair`
 
