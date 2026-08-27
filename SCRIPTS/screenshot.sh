@@ -9,44 +9,28 @@ if ! command -v flameshot >/dev/null 2>&1; then
     exit 127
 fi
 
-focused_monitor_region() {
-    local monitor raw_geometry region
-
-    command -v bspc >/dev/null 2>&1 || return 1
-    command -v xrandr >/dev/null 2>&1 || return 1
-
-    monitor="$(bspc query -M -m focused --names 2>/dev/null || true)"
-    [ -n "$monitor" ] || return 1
-
-    raw_geometry="$(xrandr --listactivemonitors 2>/dev/null | awk -v monitor="$monitor" '$NF == monitor {print $3; exit}')"
-    [ -n "$raw_geometry" ] || return 1
-
-    region="$(printf '%s\n' "$raw_geometry" | sed -E 's#^([0-9]+)/[0-9]+x([0-9]+)/[0-9]+\+([0-9]+)\+([0-9]+)$#\1x\2+\3+\4#')"
-
-    if [[ "$region" =~ ^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$ ]]; then
-        printf '%s\n' "$region"
-        return 0
+run_active_monitor_editor() {
+    # Flameshot 14 changed multi-monitor GUI capture to show a monitor picker.
+    # On BSPWM/X11 that picker is known to interact badly with tiling WMs.
+    # The v14 screen subcommand is the supported way to bypass the picker and
+    # open the editor directly on the screen containing the mouse pointer.
+    if flameshot screen --help 2>&1 | grep -q -- '--edit'; then
+        exec flameshot screen --edit
     fi
 
-    return 1
+    # Compatibility fallback for older Flameshot releases.
+    exec flameshot gui
 }
 
 case "${1:-select}" in
     select|gui)
         # Keep GUI mode clean: do not pass final-action flags here.
         # This preserves Flameshot's native interactive shortcuts such as
-        # Ctrl+C (copy), Ctrl+S (save), Ctrl+Z (undo), and the annotation tools.
+        # Ctrl+C (copy), Ctrl+S (save), Ctrl+Z (undo), and annotation tools.
         exec flameshot gui
         ;;
-    monitor|focused|focused-monitor)
-        # On mixed-resolution multi-monitor layouts, Qt can render Flameshot's
-        # global capture canvas incorrectly. Restrict GUI capture to the BSPWM
-        # focused monitor when its RandR geometry can be resolved.
-        region="$(focused_monitor_region || true)"
-        if [ -n "$region" ]; then
-            exec flameshot gui --region "$region"
-        fi
-        exec flameshot gui
+    monitor|focused|focused-monitor|active-monitor)
+        run_active_monitor_editor
         ;;
     full)
         exec flameshot full --path "$SCREENSHOT_DIR"
