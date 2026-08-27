@@ -233,27 +233,32 @@ kalipwm rollback BACKUP_ID
 
 ## Phase 4 — Hardware and VM awareness
 
-### ⏳ Remove hard-coded display assumptions
+### ✅ Remove hard-coded display assumptions
 
-Replace legacy assumptions such as a fixed `Virtual1` output with dynamic monitor discovery.
+BSPWM startup no longer assumes a fixed VMware-style output or forces a display mode.
 
-Target order during BSPWM startup:
+Completed outcome:
 
-1. discover/configure displays;
-2. apply the selected wallpaper;
-3. launch Polybar;
-4. start Picom and remaining session services.
+- the legacy `xrandr --output Virtual1 --mode 1920x1080` startup command was removed;
+- KaliPWM leaves connected-output naming, active mode selection, dynamic VMware resizing and multi-monitor state to the running X session instead of overriding them with one hard-coded output;
+- `kalipwm doctor` reports display geometry from the connected-output line when available, preserving dynamic VMware dimensions even when the mode list does not expose a separate `*` entry;
+- Doctor explicitly verifies that no managed hard-coded `Virtual1` output remains;
+- a BSPWM restart preserved the VMware VM's dynamic `Virtual-1` geometry and the bare-metal host's native `eDP-1` geometry.
 
-### ⏳ Detect runtime environment
+### ✅ Guard VMware-specific startup by runtime environment
 
-Adapt startup/configuration for:
+VM-specific helpers now run only when the matching runtime environment exists.
 
-- bare metal;
-- VMware;
-- VirtualBox;
-- other common virtualized Kali environments where practical.
+Completed outcome:
 
-VM-specific helpers should only run when the matching environment exists.
+- BSPWM checks `systemd-detect-virt` before launching `vmware-user-suid-wrapper`;
+- the VMware helper is started only when virtualization is reported as `vmware` and the helper executable exists;
+- bare metal does not start the VMware desktop session helper;
+- Doctor recognizes the guarded policy and reports it as informational rather than warning merely because the helper appears in `bspwmrc`;
+- Doctor's virtualization helper continues to report common VirtualBox/KVM/QEMU environments where detectable, without enabling VMware-specific behavior on those systems;
+- VMware runtime validation retained the active `vmtoolsd -n vmusr` desktop session after BSPWM restart;
+- bare-metal runtime validation showed no VMware desktop process before or after BSPWM restart;
+- final diagnostics reached `19 OK | 0 WARN | 0 FAIL | 9 INFO` on VMware and `20 OK | 0 WARN | 0 FAIL | 8 INFO` on bare metal.
 
 ### ⏳ Hardware-adaptive Polybar
 
