@@ -27,3 +27,6 @@ jobs:
 
       - name: Guard validated brightness architecture
         run: bash tests/brightness-regression.sh
+
+      - name: Validate installer failure reporting
+        run: bash tests/installer-failure-handling.sh
