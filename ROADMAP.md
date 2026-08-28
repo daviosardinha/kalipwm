@@ -282,37 +282,23 @@ This completed step is intentionally scoped to optional GPU/fan module visibilit
 
 ## Phase 5 — KaliPWM management UX
 
-### ⏳ KaliPWM Control Center
+### ✅ KaliPWM Control Center
 
-A fast Rofi-based control surface rather than a heavy settings application.
+A fast Rofi-based control surface provides one keyboard-driven entry point for common KaliPWM actions without turning the desktop into a heavy settings application.
 
-Candidate menu:
+Completed outcome:
 
-```text
-Network
-VPN
-Target
-Wallpaper
-Screenshot
-Display
-Audio
-System
-Diagnostics
-Power
-```
+- `Super + Space` opens the Control Center while `Super + D` remains the normal application launcher;
+- the main menu exposes Network, VPN, Target, Wallpaper, Screenshot, Display, Audio, System, Diagnostics and Power sections;
+- read-only reports such as `kalipwm doctor`, network summaries and hardware/display status stay inside the Rofi experience instead of spawning unnecessary terminal windows;
+- genuinely interactive terminal applications such as `nmtui` may still open a terminal when required;
+- configuration backups run in the background and report completion without holding open a terminal;
+- Target, wallpaper and screenshot actions reuse the existing validated KaliPWM helpers rather than duplicating their system logic;
+- Display brightness uses the previously validated `kalipwm-brightness` helper and brightness OSD, preserving the working physical F5/F6 behavior;
+- audio controls preserve the working volume/mute backend;
+- live bare-metal regression testing passed for Control Center launch, brightness and F5/F6, audio, Doctor-in-Rofi, Network/VPN status, Target copy, wallpaper switching, screenshot selection, backup/list-backups/repair-dry-run and power-menu cancellation.
 
-### ⏳ Polybar click actions
-
-Candidate interactions:
-
-- Wi-Fi → NetworkManager connection UI;
-- VPN → connection/status action;
-- Target → set/reset menu;
-- volume → `pavucontrol`;
-- power/battery → detail view;
-- wallpaper → selector.
-
-The visible bar should remain compact even as interactive behavior expands.
+Polybar intentionally remains a compact display surface. Click-to-open Control Center actions are not part of the KaliPWM design and are not planned.
 
 ---
 
