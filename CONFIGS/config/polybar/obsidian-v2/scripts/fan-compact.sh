@@ -13,8 +13,5 @@ for f in /sys/class/hwmon/hwmon*/fan*_input; do
     fi
 done
 
-if [ "$found" -eq 0 ]; then
-    printf 'N/A'
-else
-    printf '%sRPM' "$max"
-fi
+[ "$found" -eq 1 ] || exit 0
+printf '%sRPM' "$max"
