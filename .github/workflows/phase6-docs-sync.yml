@@ -1,0 +1,173 @@
+name: Phase 6 documentation sync
+
+on:
+  push:
+    branches:
+      - feature/security-maintainability-shell-quality
+    paths:
+      - .github/workflows/phase6-docs-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update README, roadmap and changelog
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          readme = Path('README.md')
+          text = readme.read_text()
+
+          anchor = "- Idempotent installer reruns that reuse existing components instead of destructively recloning/rebuilding them.\n"
+          addition = (
+              anchor
+              + "- CI-enforced shell-quality checks covering maintained shell syntax, ShellCheck, brightness regression, installer failure handling and dependency-lock validation.\n"
+              + "- Reproducible fresh-install dependency pins in `DEPENDENCIES.lock`, including checksum verification for the pinned Kitty bundle; existing working third-party checkouts are reported but deliberately left unchanged.\n"
+              + "- Fail-fast installer reporting that identifies the failed stage/command and points to Doctor and backup/rollback recovery instead of attempting a surprise automatic rollback.\n"
+          )
+          if anchor not in text:
+              raise SystemExit('README current-experience anchor not found')
+          text = text.replace(anchor, addition, 1)
+
+          anchor = "The installer output is maintained in English and credits both the original `afsh4ck/kalipwm` project and the current KaliPWM Obsidian fork.\n"
+          addition = (
+              anchor
+              + "\nFresh third-party Git installations are resolved from the revisions recorded in [`DEPENDENCIES.lock`](DEPENDENCIES.lock) instead of arbitrary moving upstream branches. Existing working checkouts are never reset just to match the lock; KaliPWM reports the drift and leaves them untouched. The bundled Kitty installer uses the locked version and verifies the downloaded Linux archive with SHA-256 before extraction.\n"
+              + "\nFatal installer commands now stop the run immediately with the current installation stage, failing command and exit code. KaliPWM does not automatically roll back a partial install: existing files remain as-is so the reported problem can be fixed, inspected with `kalipwm doctor` and recovered with an existing backup/rollback when necessary.\n"
+          )
+          if anchor not in text:
+              raise SystemExit('README installation anchor not found')
+          text = text.replace(anchor, addition, 1)
+
+          old = "- ⏳ reproducibility/security hardening and a tagged `v1.0.0`\n"
+          new = "- ✅ security and maintainability hardening\n- ⏳ public release validation and a tagged `v1.0.0`\n"
+          if old not in text:
+              raise SystemExit('README roadmap status anchor not found')
+          text = text.replace(old, new, 1)
+          readme.write_text(text)
+
+          roadmap = Path('ROADMAP.md')
+          text = roadmap.read_text()
+          old = '''## Phase 6 — Security and maintainability
+
+### ⏳ Shell quality pass
+
+- run ShellCheck against managed scripts;
+- standardize strict/safe shell behavior where appropriate;
+- quote paths and variables consistently;
+- remove stale duplicate helpers;
+- reduce hidden dependencies between old and Obsidian profiles.
+
+### ⏳ Reproducible external dependencies
+
+Where practical:
+
+- pin important third-party versions/commits;
+- avoid silently pulling arbitrary latest revisions during every install;
+- reduce `curl | sh`-style installation paths;
+- validate downloads before execution when feasible.
+
+### ⏳ Installer failure handling
+
+A partial failure should explain what failed and how to resume/repair rather than leaving an ambiguous half-installed environment.
+'''
+          new = '''## Phase 6 — Security and maintainability
+
+### ✅ Shell quality pass
+
+Completed outcome:
+
+- `SCRIPTS/kalipwm-shell-quality` audits maintained shell syntax and runs ShellCheck across the managed shell surface;
+- the GitHub Actions shell-quality gate runs on `main`, the Phase 6 feature branch and pull requests;
+- validated brightness behavior is protected by a dedicated regression test so the working F5/F6 architecture cannot be casually replaced again;
+- installer failure behavior is covered by a non-destructive injected-failure regression test;
+- the dependency lock is validated in CI alongside the existing shell and regression gates;
+- stale/duplicate helper behavior was reduced without changing the already validated Control Center, audio, brightness, VPN or Polybar behavior.
+
+### ✅ Reproducible external dependencies
+
+Completed outcome:
+
+- important third-party Git dependencies are pinned to explicit commits in `DEPENDENCIES.lock` for fresh installations;
+- existing working third-party checkouts are never force-reset during installer reruns; KaliPWM reports drift from the fresh-install pin and leaves the checkout unchanged;
+- fresh Oh My Zsh installation no longer uses the moving `curl | sh` bootstrap path and instead checks out the locked Git revision;
+- Powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting, fzf, tmux, Polybar, Polybar themes and Picom fresh checkouts use locked revisions;
+- Kitty is pinned to an explicit release and the Linux x86_64/arm64 archive is SHA-256 verified before extraction;
+- CI validates that the dependency lock contains the required revisions and checksums and that the installer consumes the lock rather than silently reverting to moving upstream refs.
+
+### ✅ Installer failure handling
+
+Completed outcome:
+
+- fatal installer commands stop the run immediately instead of allowing later stages to continue after an unknown partial failure;
+- failure output identifies the installation stage, failing command, source line and exit code;
+- KaliPWM deliberately does not attempt an automatic rollback of a partial full installation, avoiding additional unrequested mutations during an already failing operation;
+- existing files are left as-is and the user is directed to fix the reported cause, rerun the installer, inspect managed state with `kalipwm doctor` and use an existing backup/rollback when managed configuration recovery is required;
+- controlled bare-metal failure injection exited non-zero with the expected recovery summary and without disturbing the already working desktop configuration.
+'''
+          if old not in text:
+              raise SystemExit('ROADMAP Phase 6 block not found')
+          text = text.replace(old, new, 1)
+          roadmap.write_text(text)
+
+          changelog = Path('CHANGELOG.md')
+          text = changelog.read_text()
+          anchor = "Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).\n\n"
+          entry = '''## 2026-08-28 — Security and maintainability hardening
+
+### Added
+
+- `SCRIPTS/kalipwm-shell-quality` as the maintained shell audit entry point.
+- GitHub Actions coverage for shell syntax/ShellCheck, the validated brightness architecture, installer failure reporting and dependency-lock integrity.
+- `DEPENDENCIES.lock` with explicit fresh-install revisions for Oh My Zsh, Powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting, fzf, tmux, Polybar, Polybar themes and Picom.
+- Locked Kitty release metadata and SHA-256 checksums for the supported Linux x86_64 and arm64 bundles.
+- Regression tests for brightness behavior, installer fail-fast/recovery output and dependency locking.
+
+### Changed
+
+- Fresh third-party Git checkouts now resolve to the committed dependency revisions instead of arbitrary moving upstream branch heads.
+- Existing working third-party checkouts remain untouched during installer reruns even when they differ from the fresh-install lock; KaliPWM reports the difference rather than force-resetting user state.
+- Fresh Oh My Zsh setup now uses a pinned Git checkout instead of the moving `curl | sh` bootstrap path.
+- Kitty installation now downloads the locked release bundle and verifies SHA-256 before extraction.
+- Fatal installer command failures now stop immediately and report the installation stage, failing command and exit code.
+
+### Safety
+
+- No automatic rollback is attempted after a partial full-installer failure; existing files are deliberately left as-is to avoid compounding a failure with additional unrequested changes.
+- Recovery output points to rerunning after fixing the reported cause, `kalipwm doctor` for managed-state inspection and existing KaliPWM backup/rollback when configuration recovery is required.
+- The dependency-pinning logic preserves the project rule of not replacing or resetting components that are already working merely to make them match a new fresh-install baseline.
+
+### Validation
+
+- The maintained shell-quality CI gate passed at the final Phase 6 head, including shell syntax, ShellCheck, brightness regression, installer-failure regression and dependency-lock validation.
+- Controlled bare-metal failure injection stopped at the requested test stage with exit code `1`, printed the expected recovery information and did not perform an automatic rollback.
+- The live VPN helper matched the branch helper during Phase 6 regression testing (`VPN ON ronin66 10.8.0.24`).
+- Existing Control Center, brightness/F5-F6, audio and previously validated desktop behavior were intentionally left unchanged by the dependency-hardening work.
+
+'''
+          if anchor not in text:
+              raise SystemExit('CHANGELOG insertion anchor not found')
+          text = text.replace(anchor, anchor + entry, 1)
+          changelog.write_text(text)
+          PY
+
+      - name: Commit documentation
+        run: |
+          if git diff --quiet -- README.md ROADMAP.md CHANGELOG.md; then
+            echo "Documentation already synchronized."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md ROADMAP.md CHANGELOG.md
+          git commit -m "docs: complete phase 6 security and maintainability"
+          git push origin HEAD:feature/security-maintainability-shell-quality
