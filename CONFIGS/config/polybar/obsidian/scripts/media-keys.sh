@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -u
+
+have() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+BRIGHTNESS_HELPER="$HOME/.config/polybar/forest/scripts/kalipwm-brightness"
+OSD_HELPER="$HOME/.config/polybar/forest/scripts/kalipwm-osd"
+
+case "${1:-}" in
+    volume-up)
+        if have wpctl; then
+            exec wpctl set-volume -l 1.5 @DEFAULT_AUDIO_SINK@ 5%+
+        elif have pactl; then
+            exec pactl set-sink-volume @DEFAULT_SINK@ +5%
+        fi
+        ;;
+    volume-down)
+        if have wpctl; then
+            exec wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+        elif have pactl; then
+            exec pactl set-sink-volume @DEFAULT_SINK@ -5%
+        fi
+        ;;
+    volume-mute)
+        if have wpctl; then
+            exec wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+        elif have pactl; then
+            exec pactl set-sink-mute @DEFAULT_SINK@ toggle
+        fi
+        ;;
+    brightness-up)
+        if [ -x "$BRIGHTNESS_HELPER" ]; then
+            bash "$BRIGHTNESS_HELPER" up || exit $?
+            [ -x "$OSD_HELPER" ] && bash "$OSD_HELPER" brightness || true
+            exit 0
+        fi
+        ;;
+    brightness-down)
+        if [ -x "$BRIGHTNESS_HELPER" ]; then
+            bash "$BRIGHTNESS_HELPER" down || exit $?
+            [ -x "$OSD_HELPER" ] && bash "$OSD_HELPER" brightness || true
+            exit 0
+        fi
+        ;;
+    *)
+        printf 'Usage: %s {volume-up|volume-down|volume-mute|brightness-up|brightness-down}\n' "${0##*/}" >&2
+        exit 2
+        ;;
+esac
+
+exit 1

@@ -10,6 +10,30 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-28 — Rofi-based KaliPWM Control Center
+
+### Added
+
+- A dedicated KaliPWM Control Center on `Super + Space` while preserving `Super + D` as the normal Obsidian application launcher.
+- Rofi sections for Network, VPN, Target, Wallpaper, Screenshot, Display, Audio, System, Diagnostics and Power.
+- In-Rofi read-only reports for diagnostics and status views so routine checks do not spawn terminal windows.
+- Background execution for configuration backups with completion notifications.
+
+### Changed
+
+- Control Center actions reuse existing KaliPWM helpers instead of duplicating Target, wallpaper, screenshot or system-management logic.
+- Brightness actions use the validated `kalipwm-brightness` helper and OSD path previously proven on the primary bare-metal host, preserving the physical F5/F6 behavior.
+- Interactive terminal applications such as `nmtui` may still open a terminal when their native workflow requires one.
+- Polybar remains display-only; click-to-open Control Center actions were explicitly removed from the roadmap and are not planned.
+
+### Validation
+
+- `Super + Space` opened the Control Center correctly on the primary bare-metal Kali host.
+- Display brightness actions and physical F5/F6 brightness keys passed after restoring the validated helper architecture.
+- Audio volume and mute controls passed without regression.
+- Diagnostics → `kalipwm doctor` remained inside Rofi.
+- Network/VPN status, Target copy, wallpaper switching, screenshot region selection, backup/list-backups/repair-dry-run and power-menu cancellation all passed the final live regression pass.
+
 ## 2026-08-28 — Hardware-adaptive Obsidian v2 Polybar
 
 ### Changed

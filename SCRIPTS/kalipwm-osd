@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+AUDIO_HELPER="${KALIPWM_AUDIO_HELPER:-$SCRIPT_DIR/kalipwm-audio}"
+BRIGHTNESS_HELPER="${KALIPWM_BRIGHTNESS_HELPER:-$SCRIPT_DIR/kalipwm-brightness}"
+
+notify_osd() {
+  local replace_id="$1" icon="$2" title="$3" body="$4" value="$5"
+  if command -v dunstify >/dev/null 2>&1; then
+    dunstify -a KaliPWM -r "$replace_id" -t 900 -h "int:value:$value" -i "$icon" "$title" "$body" >/dev/null 2>&1 || true
+  elif command -v notify-send >/dev/null 2>&1; then
+    notify-send -a KaliPWM -r "$replace_id" -t 900 -h "int:value:$value" -i "$icon" "$title" "$body" >/dev/null 2>&1 || true
+  fi
+}
+
+case "${1:-}" in
+  volume)
+    state="$(bash "$AUDIO_HELPER" status 2>/dev/null || true)"
+    [[ "$state" =~ ([0-9]+)% ]] || exit 0
+    level="${BASH_REMATCH[1]}"
+    bar="$level"
+    (( bar > 100 )) && bar=100
+    if [[ "$state" == *" MUTE "* ]]; then
+      notify_osd 9911 audio-volume-muted-symbolic "Volume muted" "${level}%" "$bar"
+    elif (( level >= 67 )); then
+      notify_osd 9911 audio-volume-high-symbolic "Volume" "${level}%" "$bar"
+    elif (( level >= 34 )); then
+      notify_osd 9911 audio-volume-medium-symbolic "Volume" "${level}%" "$bar"
+    elif (( level > 0 )); then
+      notify_osd 9911 audio-volume-low-symbolic "Volume" "${level}%" "$bar"
+    else
+      notify_osd 9911 audio-volume-muted-symbolic "Volume" "0%" 0
+    fi
+    ;;
+  brightness)
+    state="$(bash "$BRIGHTNESS_HELPER" status 2>/dev/null || true)"
+    [[ "$state" =~ ([0-9]+)% ]] || exit 0
+    level="${BASH_REMATCH[1]}"
+    (( level > 100 )) && level=100
+    notify_osd 9912 display-brightness-symbolic "Brightness" "${level}%" "$level"
+    ;;
+  *)
+    printf 'Usage: kalipwm-osd {volume|brightness}\n' >&2
+    exit 2
+    ;;
+esac

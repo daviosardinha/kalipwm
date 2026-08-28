@@ -1,0 +1,87 @@
+configuration {
+    font: "JetBrainsMono Nerd Font 11";
+    show-icons: false;
+    disable-history: false;
+    hide-scrollbar: true;
+    sidebar-mode: false;
+}
+
+@import "colors.rasi"
+
+window {
+    transparency: "real";
+    location: center;
+    anchor: center;
+    width: 620px;
+    background-color: @bg;
+    border: 2px;
+    border-color: @violet;
+    border-radius: 12px;
+}
+
+mainbox {
+    background-color: @transparent;
+    padding: 12px;
+    spacing: 10px;
+    children: [ inputbar, message, listview ];
+}
+
+inputbar {
+    background-color: @bg-alt;
+    text-color: @fg;
+    border-radius: 8px;
+    padding: 10px 12px;
+    spacing: 10px;
+    children: [ prompt, entry ];
+}
+
+prompt {
+    background-color: @transparent;
+    text-color: @violet-hi;
+}
+
+entry {
+    background-color: @transparent;
+    text-color: @fg;
+    placeholder: "Filter actions...";
+    placeholder-color: @muted;
+}
+
+message {
+    background-color: @transparent;
+    padding: 2px 6px;
+}
+
+textbox {
+    background-color: @transparent;
+    text-color: @muted;
+}
+
+listview {
+    background-color: @transparent;
+    columns: 1;
+    lines: 10;
+    spacing: 4px;
+    cycle: true;
+    dynamic: true;
+}
+
+element {
+    background-color: @transparent;
+    text-color: @fg;
+    border-radius: 8px;
+    padding: 9px 10px;
+}
+
+element selected {
+    background-color: @bg-alt;
+    text-color: @violet-hi;
+    border: 1px;
+    border-color: @violet;
+}
+
+element-text {
+    background-color: @transparent;
+    text-color: inherit;
+    vertical-align: 0.5;
+}
