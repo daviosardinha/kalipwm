@@ -375,7 +375,7 @@ At a glance:
 - ✅ hardware-adaptive Polybar modules
 - ✅ Rofi-based KaliPWM Control Center
 - ✅ security and maintainability hardening
-- ⏳ public release validation and a tagged `v1.0.0`
+- ✅ public release validation and a tagged `v1.0.0`
 
 ## Project language
 
