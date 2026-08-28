@@ -29,14 +29,14 @@ case "${1:-}" in
         ;;
     brightness-up)
         if have brightnessctl; then
-            exec brightnessctl -q set +10%
+            exec brightnessctl -q -c backlight set +10%
         elif have xbacklight; then
             exec xbacklight -inc 10
         fi
         ;;
     brightness-down)
         if have brightnessctl; then
-            exec brightnessctl -q set 10%-
+            exec brightnessctl -q -c backlight set 10%-
         elif have xbacklight; then
             exec xbacklight -dec 10
         fi
