@@ -17,7 +17,7 @@ Usage:
 
 Read-only post-install validation for the KaliPWM v1.0 release matrix.
 The markdown mode emits one sanitized matrix row and never includes IP addresses,
-Target state, usernames or hostnames.
+Target state, usernames, hostnames or tunnel interface names.
 EOF
         exit 0
         ;;
@@ -115,7 +115,7 @@ detect_vpn() {
             tun*|tap*|wg*|tailscale*|ppp*)
                 state="$(cat "$path/operstate" 2>/dev/null || printf 'down')"
                 if [ "$state" = "up" ] || [ "$state" = "unknown" ]; then
-                    printf 'vpn-connected:%s' "$dev"
+                    printf '%s' 'vpn-connected'
                     return
                 fi
                 ;;
@@ -160,13 +160,14 @@ done
 
 doctor_result="not-installed"
 if have kalipwm; then
-    if kalipwm doctor >/tmp/kalipwm-release-doctor.$$ 2>&1; then
+    doctor_tmp="$(mktemp /tmp/kalipwm-release-doctor.XXXXXX)"
+    if kalipwm doctor >"$doctor_tmp" 2>&1; then
         doctor_result="pass"
     else
         doctor_result="fail"
         failures=$((failures + 1))
     fi
-    rm -f /tmp/kalipwm-release-doctor.$$
+    rm -f "$doctor_tmp"
 else
     warnings=$((warnings + 1))
 fi
@@ -194,7 +195,10 @@ if [ "$MODE" = "markdown" ]; then
     printf '| %s | `%s` | %s | %s | %s | %s | %s | %s | %s |\n' \
         "$(date +%Y-%m-%d)" "$repo_commit" "$environment" "$display_class" \
         "$vpn_class" "$battery_class" "$doctor_result" "$control_center" "$result"
-    exit "$([ "$failures" -eq 0 ] && printf 0 || printf 1)"
+    if [ "$failures" -eq 0 ]; then
+        exit 0
+    fi
+    exit 1
 fi
 
 printf '%s\n' '== KaliPWM release validation =='
