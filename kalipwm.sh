@@ -116,7 +116,7 @@ ensure_git_repo() {
         # after the upstream branch moves beyond it.
         git clone "$url" "$dir"
         git -C "$dir" checkout --detach "$ref"
-        if "$recursive" = "1"; then
+        if [ "$recursive" = "1" ]; then
             git -C "$dir" submodule update --init --recursive
         fi
         echo -e "${GREEN}[=] Pinned $name to ${ref:0:12}.${RESET}"
