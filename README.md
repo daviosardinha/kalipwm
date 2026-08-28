@@ -56,6 +56,9 @@ The current stable `main` includes:
 - Automatic `pre-update`, `pre-repair` and `pre-rollback` safety snapshots around destructive managed-file changes.
 - Environment-aware BSPWM startup that preserves the display geometry provided by X instead of forcing a legacy `Virtual1` mode, and only starts the VMware session helper when VMware is actually detected.
 - Idempotent installer reruns that reuse existing components instead of destructively recloning/rebuilding them.
+- CI-enforced shell-quality checks covering maintained shell syntax, ShellCheck, brightness regression, installer failure handling and dependency-lock validation.
+- Reproducible fresh-install dependency pins in `DEPENDENCIES.lock`, including checksum verification for the pinned Kitty bundle; existing working third-party checkouts are reported but deliberately left unchanged.
+- Fail-fast installer reporting that identifies the failed stage/command and points to Doctor and backup/rollback recovery instead of attempting a surprise automatic rollback.
 - Kitty + Powerlevel10k + Oh My Zsh workflow.
 - Native `/usr/bin/cat` and `/usr/bin/vim` behavior.
 - Dedicated Nerd Font sizing for compact telemetry and larger status icons.
@@ -104,6 +107,10 @@ bash kalipwm.sh --help
 ```
 
 The installer output is maintained in English and credits both the original `afsh4ck/kalipwm` project and the current KaliPWM Obsidian fork.
+
+Fresh third-party Git installations are resolved from the revisions recorded in [`DEPENDENCIES.lock`](DEPENDENCIES.lock) instead of arbitrary moving upstream branches. Existing working checkouts are never reset just to match the lock; KaliPWM reports the drift and leaves them untouched. The bundled Kitty installer uses the locked version and verifies the downloaded Linux archive with SHA-256 before extraction.
+
+Fatal installer commands now stop the run immediately with the current installation stage, failing command and exit code. KaliPWM does not automatically roll back a partial install: existing files remain as-is so the reported problem can be fixed, inspected with `kalipwm doctor` and recovered with an existing backup/rollback when necessary.
 
 ## Diagnostics
 
@@ -367,7 +374,8 @@ At a glance:
 - ✅ dynamic display handling and VMware-aware BSPWM startup
 - ✅ hardware-adaptive Polybar modules
 - ✅ Rofi-based KaliPWM Control Center
-- ⏳ reproducibility/security hardening and a tagged `v1.0.0`
+- ✅ security and maintainability hardening
+- ⏳ public release validation and a tagged `v1.0.0`
 
 ## Project language
 

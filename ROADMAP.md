@@ -304,26 +304,37 @@ Polybar intentionally remains a compact display surface. Click-to-open Control C
 
 ## Phase 6 — Security and maintainability
 
-### ⏳ Shell quality pass
+### ✅ Shell quality pass
 
-- run ShellCheck against managed scripts;
-- standardize strict/safe shell behavior where appropriate;
-- quote paths and variables consistently;
-- remove stale duplicate helpers;
-- reduce hidden dependencies between old and Obsidian profiles.
+Completed outcome:
 
-### ⏳ Reproducible external dependencies
+- `SCRIPTS/kalipwm-shell-quality` audits maintained shell syntax and runs ShellCheck across the managed shell surface;
+- the GitHub Actions shell-quality gate runs on `main`, the Phase 6 feature branch and pull requests;
+- validated brightness behavior is protected by a dedicated regression test so the working F5/F6 architecture cannot be casually replaced again;
+- installer failure behavior is covered by a non-destructive injected-failure regression test;
+- the dependency lock is validated in CI alongside the existing shell and regression gates;
+- stale/duplicate helper behavior was reduced without changing the already validated Control Center, audio, brightness, VPN or Polybar behavior.
 
-Where practical:
+### ✅ Reproducible external dependencies
 
-- pin important third-party versions/commits;
-- avoid silently pulling arbitrary latest revisions during every install;
-- reduce `curl | sh`-style installation paths;
-- validate downloads before execution when feasible.
+Completed outcome:
 
-### ⏳ Installer failure handling
+- important third-party Git dependencies are pinned to explicit commits in `DEPENDENCIES.lock` for fresh installations;
+- existing working third-party checkouts are never force-reset during installer reruns; KaliPWM reports drift from the fresh-install pin and leaves the checkout unchanged;
+- fresh Oh My Zsh installation no longer uses the moving `curl | sh` bootstrap path and instead checks out the locked Git revision;
+- Powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting, fzf, tmux, Polybar, Polybar themes and Picom fresh checkouts use locked revisions;
+- Kitty is pinned to an explicit release and the Linux x86_64/arm64 archive is SHA-256 verified before extraction;
+- CI validates that the dependency lock contains the required revisions and checksums and that the installer consumes the lock rather than silently reverting to moving upstream refs.
 
-A partial failure should explain what failed and how to resume/repair rather than leaving an ambiguous half-installed environment.
+### ✅ Installer failure handling
+
+Completed outcome:
+
+- fatal installer commands stop the run immediately instead of allowing later stages to continue after an unknown partial failure;
+- failure output identifies the installation stage, failing command, source line and exit code;
+- KaliPWM deliberately does not attempt an automatic rollback of a partial full installation, avoiding additional unrequested mutations during an already failing operation;
+- existing files are left as-is and the user is directed to fix the reported cause, rerun the installer, inspect managed state with `kalipwm doctor` and use an existing backup/rollback when managed configuration recovery is required;
+- controlled bare-metal failure injection exited non-zero with the expected recovery summary and without disturbing the already working desktop configuration.
 
 ---
 
