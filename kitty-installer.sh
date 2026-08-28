@@ -95,8 +95,12 @@ get_file_url() {
 }
 
 get_release_url() {
-    release_version=$(fetch_quiet "https://sw.kovidgoyal.net/kitty/current-version.txt")
-    [ $? -ne 0 -o -z "$release_version" ] && die "Could not get kitty latest release version"
+    if [ -n "${KITTY_VERSION:-}" ]; then
+        release_version="$KITTY_VERSION"
+    else
+        release_version=$(fetch_quiet "https://sw.kovidgoyal.net/kitty/current-version.txt")
+        [ $? -ne 0 -o -z "$release_version" ] && die "Could not get kitty latest release version"
+    fi
     get_file_url "v$release_version" "$release_version"
 }
 
@@ -114,6 +118,14 @@ get_download_url() {
     esac
 }
 
+verify_download() {
+    [ -n "${KITTY_SHA256:-}" ] || return 0
+    command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required to verify the pinned kitty bundle"
+    actual_sha256=$(command sha256sum "$installer" | command awk '{print $1}')
+    [ "$actual_sha256" = "$KITTY_SHA256" ] || die "Kitty SHA-256 verification failed"
+    printf '%s\n' "Verified kitty SHA-256: $actual_sha256"
+}
+
 download_installer() {
     tdir=$(command mktemp -d "/tmp/kitty-install-XXXXXXXXXXXX")
     [ "$installer_is_file" != "y" ] && {
@@ -124,6 +136,7 @@ download_installer() {
             installer="$tdir/kitty.txz"
         fi
         fetch "$url" > "$installer" || die "Failed to download: $url"
+        verify_download
         installer_is_file="y"
     }
 }

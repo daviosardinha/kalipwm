@@ -10,6 +10,37 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-28 — Security and maintainability hardening
+
+### Added
+
+- `SCRIPTS/kalipwm-shell-quality` as the maintained shell audit entry point.
+- GitHub Actions coverage for shell syntax/ShellCheck, the validated brightness architecture, installer failure reporting and dependency-lock integrity.
+- `DEPENDENCIES.lock` with explicit fresh-install revisions for Oh My Zsh, Powerlevel10k, zsh-autosuggestions, zsh-syntax-highlighting, fzf, tmux, Polybar, Polybar themes and Picom.
+- Locked Kitty release metadata and SHA-256 checksums for the supported Linux x86_64 and arm64 bundles.
+- Regression tests for brightness behavior, installer fail-fast/recovery output and dependency locking.
+
+### Changed
+
+- Fresh third-party Git checkouts now resolve to the committed dependency revisions instead of arbitrary moving upstream branch heads.
+- Existing working third-party checkouts remain untouched during installer reruns even when they differ from the fresh-install lock; KaliPWM reports the difference rather than force-resetting user state.
+- Fresh Oh My Zsh setup now uses a pinned Git checkout instead of the moving `curl | sh` bootstrap path.
+- Kitty installation now downloads the locked release bundle and verifies SHA-256 before extraction.
+- Fatal installer command failures now stop immediately and report the installation stage, failing command and exit code.
+
+### Safety
+
+- No automatic rollback is attempted after a partial full-installer failure; existing files are deliberately left as-is to avoid compounding a failure with additional unrequested changes.
+- Recovery output points to rerunning after fixing the reported cause, `kalipwm doctor` for managed-state inspection and existing KaliPWM backup/rollback when configuration recovery is required.
+- The dependency-pinning logic preserves the project rule of not replacing or resetting components that are already working merely to make them match a new fresh-install baseline.
+
+### Validation
+
+- The maintained shell-quality CI gate passed at the final Phase 6 head, including shell syntax, ShellCheck, brightness regression, installer-failure regression and dependency-lock validation.
+- Controlled bare-metal failure injection stopped at the requested test stage with exit code `1`, printed the expected recovery information and did not perform an automatic rollback.
+- The live VPN helper matched the branch helper during Phase 6 regression testing (`VPN ON ronin66 10.8.0.24`).
+- Existing Control Center, brightness/F5-F6, audio and previously validated desktop behavior were intentionally left unchanged by the dependency-hardening work.
+
 ## 2026-08-28 — Rofi-based KaliPWM Control Center
 
 ### Added
