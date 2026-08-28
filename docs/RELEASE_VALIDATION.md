@@ -17,6 +17,55 @@ The matrix is deliberately capability-based rather than machine-count-based. One
 | Power | Battery-present hardware | ✅ Bare-metal baseline |
 | Power | No-battery environment | ⏳ Pending |
 
+## Clean Kali VM fresh-install procedure
+
+Use a separate disposable VM. Do not perform this fresh-install test on the already validated bare-metal host.
+
+Recommended baseline:
+
+- current Kali Rolling installation;
+- default graphical desktop available before KaliPWM installation;
+- 2 or more vCPUs;
+- 4 GiB or more RAM;
+- 40 GiB or more disk;
+- one standard virtual display for the initial install test;
+- no previous KaliPWM checkout, managed configuration or KaliPWM backup restored into the VM.
+
+After the first normal Kali login, take a hypervisor snapshot such as `clean-kali-pre-kalipwm`. Do not preinstall KaliPWM dependencies: the release test is intended to exercise the installer itself.
+
+If `git` is already present, clone the release-quality branch directly:
+
+```bash
+git clone --branch feature/public-release-quality --single-branch https://github.com/daviosardinha/kalipwm.git ~/kalipwm
+cd ~/kalipwm
+git rev-parse --short=12 HEAD
+bash kalipwm.sh
+```
+
+If the clean image does not contain `git`, install only Git first and then run the commands above:
+
+```bash
+sudo apt update
+sudo apt install -y git
+```
+
+A successful installer run must reach the KaliPWM deployment-complete message without an unexpected failure summary. Reboot afterward:
+
+```bash
+sudo reboot
+```
+
+At the login screen select the BSPWM session. After the desktop starts, run:
+
+```bash
+cd ~/kalipwm
+bash SCRIPTS/kalipwm-release-check
+bash SCRIPTS/kalipwm-release-check --markdown
+kalipwm doctor
+```
+
+Keep the VM intact after this test. The same fresh-install VM can be used for the no-battery capability and temporary `vpn-connected` validation before it is discarded.
+
 ## Post-install release check
 
 After installation and reboot into BSPWM, run the read-only release check from the same checkout being validated:
