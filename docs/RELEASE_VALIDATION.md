@@ -9,12 +9,12 @@ The matrix is deliberately capability-based rather than machine-count-based. One
 | Validation axis | Required state | Status |
 |---|---|---|
 | Installation | Clean Kali VM fresh install | ⏳ Pending |
-| Installation | Primary bare-metal Kali host validation | ⏳ Pending |
-| Display | Standard/single-display geometry | ⏳ Pending |
+| Installation | Primary bare-metal Kali host validation | 🟡 Release baseline PASS; final interactive pass before tag |
+| Display | Standard/single-display geometry | ✅ 2560x1600 bare-metal baseline |
 | Display | Ultrawide or multi-monitor geometry where available | ⏳ Pending |
 | VPN | Tunnel connected | ⏳ Pending |
-| VPN | Tunnel disconnected | ⏳ Pending |
-| Power | Battery-present hardware | ⏳ Pending |
+| VPN | Tunnel disconnected | ✅ Bare-metal baseline |
+| Power | Battery-present hardware | ✅ Bare-metal baseline |
 | Power | No-battery environment | ⏳ Pending |
 
 ## Post-install release check
@@ -61,6 +61,11 @@ Sanitized `--markdown` rows go here. Do not add hostnames, usernames, IP address
 
 | Date | Commit | Environment | Display | VPN | Power | Doctor | Control Center | Result |
 |---|---|---|---|---|---|---|---|---|
+| 2026-08-28 | `cafb269415c7` | bare-metal | single:standard:2560x1600 | vpn-disconnected | battery-present | pass | installed | PASS |
+
+### Primary bare-metal baseline
+
+The first Phase 7 release check passed with zero failures and zero warnings on the primary bare-metal Kali host. This covers the standard single-display, VPN-disconnected and battery-present matrix states. The desktop runtime itself was not modified by the Phase 7 validation tooling; a final interactive regression pass is still required before the release tag.
 
 ## Release gate
 
