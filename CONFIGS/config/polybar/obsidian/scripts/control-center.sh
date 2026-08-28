@@ -3,6 +3,7 @@ set -u
 
 BASE="$HOME/.config/polybar/obsidian/scripts"
 THEME="$BASE/rofi/control-center.rasi"
+REPORT_THEME="$BASE/rofi/report.rasi"
 CONFIRM_THEME="$BASE/rofi/confirm.rasi"
 POWER_MENU="$BASE/powermenu.sh"
 MEDIA_KEYS="$BASE/media-keys.sh"
@@ -55,7 +56,7 @@ show_report() {
     [ -n "$output" ] || output='No output.'
 
     printf '%s\n' "$output" |
-        rofi -no-config -dmenu -i -p "$title" -mesg "Read-only report • exit $rc • Esc/Enter to close" -theme "$THEME" >/dev/null
+        rofi -no-config -dmenu -i -p "$title" -mesg "Read-only report • exit $rc • Esc/Enter to close" -theme "$REPORT_THEME" >/dev/null
 }
 
 run_background() {
@@ -96,6 +97,31 @@ open_interactive_terminal() {
     fi
 
     "$kitty" --title "$title" bash -lc "$command" >/dev/null 2>&1 &
+}
+
+open_system_summary() {
+    local kitty
+
+    kitty="$(kitty_path || true)"
+    if [ -z "$kitty" ]; then
+        notice 'Kitty is unavailable.'
+        return 1
+    fi
+
+    # The summary is a transient information window, not another tiled work
+    # surface. Give it a dedicated WM_CLASS and a one-shot floating BSPWM rule
+    # so the existing desktop layout is left untouched.
+    if have bspc; then
+        bspc rule -a KaliPWMSystemSummary -o state=floating center=on focus=on
+    fi
+
+    "$kitty" \
+        --class KaliPWMSystemSummary \
+        --title 'KaliPWM System Summary' \
+        --override initial_window_width=110c \
+        --override initial_window_height=34c \
+        bash -lc 'clear; if command -v fastfetch >/dev/null 2>&1; then fastfetch; else uname -a; printf "\n"; free -h; printf "\n"; df -h /; fi; exec "${SHELL:-/bin/bash}" -l' \
+        >/dev/null 2>&1 &
 }
 
 copy_clipboard() {
@@ -345,7 +371,10 @@ system_menu() {
     while true; do
         choice="$(choose 'System' 'Safe KaliPWM management actions' '  System summary' '󰆓  Create configuration backup' '󰋚  List backups' '󰁯  Repair dry-run' "$BACK")" || return 0
         case "$choice" in
-            '  System summary') show_report 'System summary' "fastfetch 2>/dev/null || (uname -a; printf '\\n'; free -h; printf '\\n'; df -h /)" ;;
+            '  System summary')
+                open_system_summary
+                exit 0
+                ;;
             '󰆓  Create configuration backup')
                 confirm 'Create configuration backup' && run_background 'Configuration backup' 'kalipwm backup'
                 ;;

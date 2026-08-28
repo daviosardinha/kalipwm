@@ -1,0 +1,221 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+MODE="human"
+failures=0
+warnings=0
+
+case "${1:-}" in
+    "") ;;
+    --markdown) MODE="markdown" ;;
+    -h|--help)
+        cat <<'EOF'
+Usage:
+  bash SCRIPTS/kalipwm-release-check
+  bash SCRIPTS/kalipwm-release-check --markdown
+
+Read-only post-install validation for the KaliPWM v1.0 release matrix.
+The markdown mode emits one sanitized matrix row and never includes IP addresses,
+Target state, usernames, hostnames or tunnel interface names.
+EOF
+        exit 0
+        ;;
+    *)
+        printf 'Unknown option: %s\n' "$1" >&2
+        exit 2
+        ;;
+esac
+
+have() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+read_os() {
+    if [ -r /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/os-release
+        printf '%s' "${PRETTY_NAME:-${NAME:-unknown}}"
+    else
+        printf '%s' 'unknown'
+    fi
+}
+
+detect_environment() {
+    local virt=""
+
+    if have systemd-detect-virt; then
+        virt="$(systemd-detect-virt 2>/dev/null || true)"
+    fi
+
+    if [ -n "$virt" ] && [ "$virt" != "none" ]; then
+        printf 'vm:%s' "$virt"
+    else
+        printf '%s' 'bare-metal'
+    fi
+}
+
+detect_display() {
+    local connected count first geometry width height
+
+    if ! have xrandr || [ -z "${DISPLAY:-}" ]; then
+        printf '%s' 'no-active-x-display'
+        return
+    fi
+
+    connected="$(xrandr --query 2>/dev/null | awk '$2 == "connected" {print}' || true)"
+    count="$(printf '%s\n' "$connected" | sed '/^$/d' | wc -l | tr -d ' ')"
+
+    if [ "${count:-0}" -eq 0 ]; then
+        printf '%s' 'no-connected-output'
+        return
+    fi
+
+    first="$(printf '%s\n' "$connected" | head -n1)"
+    geometry="$(printf '%s\n' "$first" | grep -oE '[0-9]+x[0-9]+\+[0-9]+\+[0-9]+' | head -n1 | cut -d+ -f1 || true)"
+    if [ -z "$geometry" ]; then
+        geometry="unknown"
+    fi
+
+    if [ "$count" -gt 1 ]; then
+        printf 'multi-monitor:%s-outputs:first-%s' "$count" "$geometry"
+        return
+    fi
+
+    if [[ "$geometry" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+        width="${BASH_REMATCH[1]}"
+        height="${BASH_REMATCH[2]}"
+        if [ $((width * 9)) -gt $((height * 20)) ]; then
+            printf 'single:ultrawide:%s' "$geometry"
+        else
+            printf 'single:standard:%s' "$geometry"
+        fi
+    else
+        printf 'single:%s' "$geometry"
+    fi
+}
+
+detect_battery() {
+    local path
+    for path in /sys/class/power_supply/BAT*; do
+        [ -e "$path" ] || continue
+        printf '%s' 'battery-present'
+        return
+    done
+    printf '%s' 'no-battery'
+}
+
+detect_vpn() {
+    local path dev state
+
+    for path in /sys/class/net/*; do
+        [ -e "$path" ] || continue
+        dev="${path##*/}"
+        case "$dev" in
+            tun*|tap*|wg*|tailscale*|ppp*)
+                state="$(cat "$path/operstate" 2>/dev/null || printf 'down')"
+                if [ "$state" = "up" ] || [ "$state" = "unknown" ]; then
+                    printf '%s' 'vpn-connected'
+                    return
+                fi
+                ;;
+        esac
+    done
+
+    printf '%s' 'vpn-disconnected'
+}
+
+check_required_file() {
+    local path="$1"
+    if [ -e "$path" ]; then
+        return 0
+    fi
+    failures=$((failures + 1))
+    return 1
+}
+
+os_name="$(read_os)"
+environment="$(detect_environment)"
+display_class="$(detect_display)"
+battery_class="$(detect_battery)"
+vpn_class="$(detect_vpn)"
+repo_commit="unknown"
+if have git && git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    repo_commit="$(git -C "$ROOT" rev-parse --short=12 HEAD 2>/dev/null || printf 'unknown')"
+fi
+
+required_paths=(
+    "$ROOT/kalipwm.sh"
+    "$ROOT/DEPENDENCIES.lock"
+    "$ROOT/SCRIPTS/kalipwm"
+    "$ROOT/SCRIPTS/kalipwm-brightness"
+    "$ROOT/CONFIGS/config/bspwm/bspwmrc"
+    "$ROOT/CONFIGS/config/sxhkd/sxhkdrc"
+    "$ROOT/CONFIGS/config/polybar/obsidian/scripts/control-center.sh"
+    "$ROOT/CONFIGS/config/polybar/obsidian-v2/launch.sh"
+)
+for path in "${required_paths[@]}"; do
+    check_required_file "$path" || true
+done
+
+doctor_result="not-installed"
+if have kalipwm; then
+    doctor_tmp="$(mktemp /tmp/kalipwm-release-doctor.XXXXXX)"
+    if kalipwm doctor >"$doctor_tmp" 2>&1; then
+        doctor_result="pass"
+    else
+        doctor_result="fail"
+        failures=$((failures + 1))
+    fi
+    rm -f "$doctor_tmp"
+else
+    warnings=$((warnings + 1))
+fi
+
+control_center="missing"
+if [ -x "$HOME/.config/polybar/obsidian/scripts/control-center.sh" ]; then
+    control_center="installed"
+else
+    warnings=$((warnings + 1))
+fi
+
+brightness="not-applicable"
+if compgen -G '/sys/class/backlight/*' >/dev/null 2>&1; then
+    if [ -x "$HOME/.config/polybar/forest/scripts/kalipwm-brightness" ]; then
+        brightness="helper-installed"
+    else
+        brightness="helper-missing"
+        failures=$((failures + 1))
+    fi
+fi
+
+if [ "$MODE" = "markdown" ]; then
+    result="PASS"
+    [ "$failures" -eq 0 ] || result="FAIL"
+    printf '| %s | `%s` | %s | %s | %s | %s | %s | %s | %s |\n' \
+        "$(date +%Y-%m-%d)" "$repo_commit" "$environment" "$display_class" \
+        "$vpn_class" "$battery_class" "$doctor_result" "$control_center" "$result"
+    if [ "$failures" -eq 0 ]; then
+        exit 0
+    fi
+    exit 1
+fi
+
+printf '%s\n' '== KaliPWM release validation =='
+printf 'Repository commit: %s\n' "$repo_commit"
+printf 'OS: %s\n' "$os_name"
+printf 'Environment: %s\n' "$environment"
+printf 'Display: %s\n' "$display_class"
+printf 'VPN: %s\n' "$vpn_class"
+printf 'Power: %s\n' "$battery_class"
+printf 'Doctor: %s\n' "$doctor_result"
+printf 'Control Center: %s\n' "$control_center"
+printf 'Brightness: %s\n' "$brightness"
+printf '\nResult: %d failure(s), %d warning(s)\n' "$failures" "$warnings"
+
+if [ "$failures" -ne 0 ]; then
+    printf '%s\n' 'Release validation: FAIL'
+    exit 1
+fi
+
+printf '%s\n' 'Release validation: PASS'

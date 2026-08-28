@@ -1,0 +1,18 @@
+@import "control-center.rasi"
+
+window {
+    width: 78%;
+}
+
+listview {
+    lines: 18;
+    spacing: 2px;
+}
+
+element {
+    padding: 5px 8px;
+}
+
+entry {
+    placeholder: "Filter report...";
+}

@@ -1,0 +1,21 @@
+name: Release quality
+
+on:
+  push:
+    branches:
+      - main
+      - feature/public-release-quality
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  release-self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run release repository self-check
+        run: bash tests/release-self-check.sh
