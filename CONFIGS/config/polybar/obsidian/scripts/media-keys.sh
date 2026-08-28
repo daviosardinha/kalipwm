@@ -28,18 +28,10 @@ case "${1:-}" in
         fi
         ;;
     brightness-up)
-        if have brightnessctl; then
-            exec brightnessctl set +10%
-        elif have xbacklight; then
-            exec xbacklight -inc 10
-        fi
+        exec bash "$HOME/.config/polybar/forest/scripts/kalipwm-brightness" up
         ;;
     brightness-down)
-        if have brightnessctl; then
-            exec brightnessctl set 10%-
-        elif have xbacklight; then
-            exec xbacklight -dec 10
-        fi
+        exec bash "$HOME/.config/polybar/forest/scripts/kalipwm-brightness" down
         ;;
     *)
         printf 'Usage: %s {volume-up|volume-down|volume-mute|brightness-up|brightness-down}\n' "${0##*/}" >&2
