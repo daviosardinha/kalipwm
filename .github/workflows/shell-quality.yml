@@ -30,3 +30,6 @@ jobs:
 
       - name: Validate installer failure reporting
         run: bash tests/installer-failure-handling.sh
+
+      - name: Validate external dependency lock
+        run: bash tests/dependency-lock.sh
