@@ -24,3 +24,6 @@ jobs:
 
       - name: Run maintained-shell audit
         run: bash SCRIPTS/kalipwm-shell-quality
+
+      - name: Guard validated brightness architecture
+        run: bash tests/brightness-regression.sh
