@@ -11,8 +11,8 @@ The matrix is deliberately capability-based rather than machine-count-based. One
 | Installation | Clean Kali VM fresh install | ⏳ Pending |
 | Installation | Primary bare-metal Kali host validation | 🟡 Release baseline PASS; final interactive pass before tag |
 | Display | Standard/single-display geometry | ✅ 2560x1600 bare-metal baseline |
-| Display | Ultrawide or multi-monitor geometry where available | ⏳ Pending |
-| VPN | Tunnel connected | ⏳ Pending |
+| Display | Ultrawide or multi-monitor geometry where available | ✅ Two-output bare-metal validation |
+| VPN | Tunnel connected | ⏳ Pending; may be validated in clean VM with a temporary tunnel |
 | VPN | Tunnel disconnected | ✅ Bare-metal baseline |
 | Power | Battery-present hardware | ✅ Bare-metal baseline |
 | Power | No-battery environment | ⏳ Pending |
@@ -62,10 +62,13 @@ Sanitized `--markdown` rows go here. Do not add hostnames, usernames, IP address
 | Date | Commit | Environment | Display | VPN | Power | Doctor | Control Center | Result |
 |---|---|---|---|---|---|---|---|---|
 | 2026-08-28 | `cafb269415c7` | bare-metal | single:standard:2560x1600 | vpn-disconnected | battery-present | pass | installed | PASS |
+| 2026-08-28 | `b767e730a089` | bare-metal | multi-monitor:2-outputs:first-2560x1600 | vpn-disconnected | battery-present | pass | installed | PASS |
 
 ### Primary bare-metal baseline
 
-The first Phase 7 release check passed with zero failures and zero warnings on the primary bare-metal Kali host. This covers the standard single-display, VPN-disconnected and battery-present matrix states. The desktop runtime itself was not modified by the Phase 7 validation tooling; a final interactive regression pass is still required before the release tag.
+The first Phase 7 release check passed with zero failures and zero warnings on the primary bare-metal Kali host. This covers the standard single-display, VPN-disconnected and battery-present matrix states. A second zero-failure/zero-warning pass covered a two-output multi-monitor state. The desktop runtime itself was not modified by the Phase 7 validation tooling; a final interactive regression pass is still required before the release tag.
+
+The primary host does not need to re-enable a previously disabled VPN solely for release testing. The remaining `vpn-connected` capability can be exercised later on the clean Kali VM with a temporary test tunnel, keeping the bare-metal host unchanged.
 
 ## Release gate
 
