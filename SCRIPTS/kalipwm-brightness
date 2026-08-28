@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf"
+BACKLIGHT_ROOT="${KALIPWM_BACKLIGHT_ROOT:-/sys/class/backlight}"
+[[ -r "$PROFILE" ]] && source "$PROFILE"
+backlight="${backlight:-}"
+action="${1:-status}"
+
+select_backlight() {
+  local p
+  if [[ -n "$backlight" && -d "$BACKLIGHT_ROOT/$backlight" ]]; then
+    printf '%s\n' "$backlight"
+    return 0
+  fi
+  for p in "$BACKLIGHT_ROOT"/*; do
+    [[ -d "$p" ]] || continue
+    basename "$p"
+    return 0
+  done
+  return 1
+}
+
+name="$(select_backlight || true)"
+if [[ -z "$name" ]]; then
+  [[ "$action" == status ]] && { printf 'BRIGHTNESS unavailable\n'; exit 0; }
+  printf 'No backlight device found.\n' >&2
+  exit 1
+fi
+
+base="$BACKLIGHT_ROOT/$name"
+
+status() {
+  local current maximum pct
+  current="$(cat "$base/brightness" 2>/dev/null || true)"
+  maximum="$(cat "$base/max_brightness" 2>/dev/null || true)"
+  [[ "$current" =~ ^[0-9]+$ && "$maximum" =~ ^[1-9][0-9]*$ ]] || {
+    printf 'BRIGHTNESS unavailable\n'
+    return 0
+  }
+  pct=$(( (current * 100 + maximum / 2) / maximum ))
+  (( pct > 100 )) && pct=100
+  printf 'BRIGHTNESS %s%% %s\n' "$pct" "$name"
+}
+
+case "$action" in
+  status)
+    status
+    ;;
+  up|down)
+    command -v brightnessctl >/dev/null 2>&1 || {
+      printf 'brightnessctl is required for brightness changes.\n' >&2
+      exit 1
+    }
+    if [[ "$action" == up ]]; then
+      brightnessctl -q -d "$name" set +5%
+    else
+      brightnessctl -q -d "$name" set 5%-
+    fi
+    ;;
+  *)
+    printf 'Usage: kalipwm-brightness {status|up|down}\n' >&2
+    exit 2
+    ;;
+esac
