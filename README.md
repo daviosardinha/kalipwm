@@ -44,6 +44,7 @@ The current stable `main` includes:
 - Hardware-adaptive right-side telemetry: GPU and fan modules are included only when readable telemetry is available, avoiding dead `N/A` blocks on unsupported hardware.
 - Persistent per-user Target state that does **not** depend on VPN connectivity.
 - Obsidian Rofi launcher and compact power confirmation UI.
+- Rofi-based KaliPWM Control Center on `Super + Space` with Network, VPN, Target, Wallpaper, Screenshot, Display, Audio, System, Diagnostics and Power sections.
 - Selectable City and Nomad Kingdom wallpaper families.
 - Persistent wallpaper choice across BSPWM sessions.
 - Standalone runtime wallpaper switching that never starts the installer.
@@ -332,6 +333,7 @@ The hardware-adaptive layout was validated on the primary bare-metal host, inclu
 |---|---|
 | `Super + Enter` | Open Kitty |
 | `Super + D` | Open the Obsidian launcher |
+| `Super + Space` | Open the KaliPWM Control Center |
 | `Super + Arrow keys` | Move focus between windows |
 | `Super + Tab` | Return to the previous desktop |
 | `Super + Alt + R` | Reload the desktop environment |
@@ -364,7 +366,7 @@ At a glance:
 - ✅ configuration backup and rollback
 - ✅ dynamic display handling and VMware-aware BSPWM startup
 - ✅ hardware-adaptive Polybar modules
-- ⏳ Rofi-based KaliPWM Control Center
+- ✅ Rofi-based KaliPWM Control Center
 - ⏳ reproducibility/security hardening and a tagged `v1.0.0`
 
 ## Project language
