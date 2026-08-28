@@ -33,3 +33,6 @@ jobs:
 
       - name: Validate external dependency lock
         run: bash tests/dependency-lock.sh
+
+      - name: Validate Flameshot X11 fallback
+        run: bash tests/flameshot-x11-regression.sh
