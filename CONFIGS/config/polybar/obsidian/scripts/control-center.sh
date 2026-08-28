@@ -346,7 +346,9 @@ system_menu() {
     while true; do
         choice="$(choose 'System' 'Safe KaliPWM management actions' '  System summary' '󰆓  Create configuration backup' '󰋚  List backups' '󰁯  Repair dry-run' "$BACK")" || return 0
         case "$choice" in
-            '  System summary') show_report 'System summary' "fastfetch --logo none 2>/dev/null || (uname -a; printf '\\n'; free -h; printf '\\n'; df -h /)" ;;
+            '  System summary')
+                open_interactive_terminal 'System Summary' 'clear; if command -v fastfetch >/dev/null 2>&1; then fastfetch; else uname -a; printf "\n"; free -h; printf "\n"; df -h /; fi; exec "${SHELL:-/bin/bash}" -l'
+                ;;
             '󰆓  Create configuration backup')
                 confirm 'Create configuration backup' && run_background 'Configuration backup' 'kalipwm backup'
                 ;;
