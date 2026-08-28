@@ -5,6 +5,9 @@ have() {
     command -v "$1" >/dev/null 2>&1
 }
 
+BRIGHTNESS_HELPER="$HOME/.config/polybar/forest/scripts/kalipwm-brightness"
+OSD_HELPER="$HOME/.config/polybar/forest/scripts/kalipwm-osd"
+
 case "${1:-}" in
     volume-up)
         if have wpctl; then
@@ -28,10 +31,18 @@ case "${1:-}" in
         fi
         ;;
     brightness-up)
-        exec bash "$HOME/.config/polybar/forest/scripts/kalipwm-brightness" up
+        if [ -x "$BRIGHTNESS_HELPER" ]; then
+            bash "$BRIGHTNESS_HELPER" up || exit $?
+            [ -x "$OSD_HELPER" ] && bash "$OSD_HELPER" brightness || true
+            exit 0
+        fi
         ;;
     brightness-down)
-        exec bash "$HOME/.config/polybar/forest/scripts/kalipwm-brightness" down
+        if [ -x "$BRIGHTNESS_HELPER" ]; then
+            bash "$BRIGHTNESS_HELPER" down || exit $?
+            [ -x "$OSD_HELPER" ] && bash "$OSD_HELPER" brightness || true
+            exit 0
+        fi
         ;;
     *)
         printf 'Usage: %s {volume-up|volume-down|volume-mute|brightness-up|brightness-down}\n' "${0##*/}" >&2
