@@ -9,14 +9,12 @@ if [ -n "$gpu_value" ] && [ "$gpu_value" != "N/A" ]; then
     modules_right+=(gpu)
 fi
 
-modules_right+=(memory)
-
 fan_value="$($DIR/scripts/fan-compact.sh 2>/dev/null || true)"
 if [ -n "$fan_value" ] && [ "$fan_value" != "N/A" ]; then
     modules_right+=(fan)
 fi
 
-modules_right+=(audio power date sysmenu)
+modules_right+=(memory audio power date sysmenu)
 export KALIPWM_MODULES_RIGHT="${modules_right[*]}"
 
 killall -q polybar
