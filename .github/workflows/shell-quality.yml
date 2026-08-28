@@ -1,0 +1,26 @@
+name: Shell quality
+
+on:
+  push:
+    branches:
+      - main
+      - feature/security-maintainability-shell-quality
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  shell-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Run maintained-shell audit
+        run: bash SCRIPTS/kalipwm-shell-quality
