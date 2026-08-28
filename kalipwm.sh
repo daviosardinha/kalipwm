@@ -8,6 +8,37 @@ RESET=$(tput sgr0)
 
 WALLPAPER_CHOICE=""
 NERD_FONT_VERSION="v3.0.2"
+INSTALL_STAGE="preflight"
+INSTALL_FAILURE_DETAIL=""
+INSTALL_FINISHED=0
+
+installer_command_error() {
+    local rc="$1"
+    local line="$2"
+    local command="$3"
+
+    INSTALL_FAILURE_DETAIL="line $line: $command (exit $rc)"
+    exit "$rc"
+}
+
+installer_failure_summary() {
+    local rc="$1"
+
+    [ "$INSTALL_FINISHED" -eq 0 ] || return 0
+    [ "$rc" -ne 0 ] || return 0
+
+    printf '\n%s[-] KaliPWM installation stopped.%s\n' "$RED" "$RESET" >&2
+    printf 'Stage: %s\n' "$INSTALL_STAGE" >&2
+    if [ -n "$INSTALL_FAILURE_DETAIL" ]; then
+        printf 'Failure: %s\n' "$INSTALL_FAILURE_DETAIL" >&2
+    fi
+    printf 'No automatic rollback was attempted; existing files were left as-is.\n' >&2
+    printf 'Fix the reported problem, then rerun: bash %s\n' "$0" >&2
+    if command -v kalipwm >/dev/null 2>&1; then
+        printf 'Check the current managed state with: kalipwm doctor\n' >&2
+        printf 'If managed configuration needs recovery, use an existing KaliPWM backup/rollback.\n' >&2
+    fi
+}
 
 print_wallpaper_choices() {
     cat <<'EOF'
@@ -195,6 +226,18 @@ else
     fi
 fi
 
+# From this point onward a command failure is fatal. The ERR trap stops the
+# installer immediately and the EXIT trap reports the stage and recovery path.
+set -E
+trap 'installer_command_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
+trap 'installer_failure_summary "$?"' EXIT
+
+# CI-only failure injection. This is inert unless explicitly set by a test.
+if [ -n "${KALIPWM_TEST_FAIL_STAGE:-}" ]; then
+    INSTALL_STAGE="$KALIPWM_TEST_FAIL_STAGE"
+    false
+fi
+
 echo -e "${GREEN}
 @@@  @@@   @@@@@@   @@@       @@@  @@@@@@@   @@@  @@@  @@@  @@@@@@@@@@
 @@@  @@@  @@@@@@@@  @@@       @@@  @@@@@@@@  @@@  @@@  @@@  @@@@@@@@@@@
@@ -220,34 +263,41 @@ echo -e "\n${BLUE}[*] Preparing installation..${RESET}\n"
 RPATH="$(pwd)"
 ZSH_CUSTOM_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
 
+INSTALL_STAGE="package metadata"
 echo -e "\n${BLUE}[*] Updating package metadata..${RESET}\n"
 sudo apt update
 
+INSTALL_STAGE="required packages"
 echo -e "\n${BLUE}[*] Ensuring required packages are installed..${RESET}\n"
 sudo apt install -y git bspwm vim feh flameshot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython open-vm-tools-desktop open-vm-tools fastfetch \
     dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq
 
+INSTALL_STAGE="desktop dependencies"
 echo -e "\n${BLUE}[*] Ensuring desktop environment dependencies are installed..${RESET}\n"
 sudo apt install -y build-essential libxcb-util0-dev libxcb-ewmh-dev libxcb-randr0-dev \
     libxcb-icccm4-dev libxcb-keysyms1-dev libxcb-xinerama0-dev libasound2-dev libxcb-xtest0-dev libxcb-shape0-dev
 
+INSTALL_STAGE="Polybar build dependencies"
 echo -e "\n${BLUE}[*] Ensuring Polybar build requirements are installed..${RESET}\n"
 sudo apt install -y cmake cmake-data pkg-config python3-sphinx libcairo2-dev libxcb1-dev libxcb-util0-dev \
     libxcb-randr0-dev libxcb-composite0-dev python3-xcbgen xcb-proto libxcb-image0-dev libxcb-ewmh-dev \
     libxcb-icccm4-dev libxcb-xkb-dev libxcb-xrm-dev libxcb-cursor-dev libasound2-dev libpulse-dev libjsoncpp-dev \
     libmpdclient-dev libuv1-dev libnl-genl-3-dev
 
+INSTALL_STAGE="Picom build dependencies"
 echo -e "\n${BLUE}[*] Ensuring Picom dependencies are installed..${RESET}\n"
 sudo apt install -y meson libxext-dev libxcb1-dev libxcb-damage0-dev libxcb-xfixes0-dev libxcb-shape0-dev \
     libxcb-render-util0-dev libxcb-render0-dev libxcb-composite0-dev libxcb-image0-dev libxcb-present-dev \
     libxcb-xinerama0-dev libpixman-1-dev libdbus-1-dev libconfig-dev libgl1-mesa-dev libpcre2-dev libevdev-dev \
     uthash-dev libev-dev libx11-xcb-dev libxcb-glx0-dev libpcre3 libpcre3-dev
 
+INSTALL_STAGE="Nerd Fonts"
 echo -e "\n${BLUE}[*] Ensuring Nerd Fonts are installed..${RESET}\n"
 ensure_nerd_font "Hack Nerd Font" "Hack" || exit 1
 ensure_nerd_font "JetBrainsMono Nerd Font" "JetBrainsMono" || exit 1
 
+INSTALL_STAGE="Oh My Zsh"
 echo -e "\n${BLUE}[*] Ensuring Oh My Zsh is installed..${RESET}\n"
 if [ -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]; then
     echo -e "${GREEN}[=] Oh My Zsh is already installed; reusing it.${RESET}"
@@ -259,15 +309,18 @@ else
     yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 fi
 
+INSTALL_STAGE="Powerlevel10k"
 echo -e "\n${BLUE}[*] Ensuring the Powerlevel10k theme is installed..${RESET}\n"
 ensure_git_repo "Powerlevel10k" "https://github.com/romkatv/powerlevel10k.git" "$ZSH_CUSTOM_DIR/themes/powerlevel10k" 1 || exit 1
 cp -v "$RPATH/CONFIGS/p10k.zsh" "$HOME/.p10k.zsh"
 
+INSTALL_STAGE="Zsh plugins"
 echo -e "\n${BLUE}[*] Ensuring Zsh plugins are installed..${RESET}\n"
 ensure_git_repo "zsh-autosuggestions" "https://github.com/zsh-users/zsh-autosuggestions" "$ZSH_CUSTOM_DIR/plugins/zsh-autosuggestions" || exit 1
 ensure_git_repo "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting.git" "$ZSH_CUSTOM_DIR/plugins/zsh-syntax-highlighting" || exit 1
 cp -v "$RPATH/CONFIGS/zshrc" "$HOME/.zshrc"
 
+INSTALL_STAGE="fzf"
 echo -e "\n${BLUE}[*] Ensuring fzf is installed..${RESET}\n"
 ensure_git_repo "fzf" "https://github.com/junegunn/fzf.git" "$HOME/.fzf" 1 || exit 1
 if [ ! -x "$HOME/.fzf/bin/fzf" ] || [ ! -f "$HOME/.fzf.zsh" ]; then
@@ -276,11 +329,13 @@ else
     echo -e "${GREEN}[=] fzf shell integration is already installed; reusing it.${RESET}"
 fi
 
+INSTALL_STAGE="tmux"
 echo -e "\n${BLUE}[*] Ensuring tmux configuration is installed..${RESET}\n"
 ensure_git_repo "gpakosz/.tmux" "https://github.com/gpakosz/.tmux.git" "$HOME/.tmux" || exit 1
 ln -s -f "$HOME/.tmux/.tmux.conf" "$HOME/.tmux.conf"
 cp -v "$RPATH/CONFIGS/tmux.conf.local" "$HOME/.tmux.conf.local"
 
+INSTALL_STAGE="Kitty"
 echo -e "\n${BLUE}[*] Ensuring Kitty terminal is installed..${RESET}\n"
 if [ -x "$HOME/.local/kitty.app/bin/kitty" ]; then
     echo -e "${GREEN}[=] Kitty application bundle is already installed; reusing it.${RESET}"
@@ -290,6 +345,7 @@ fi
 
 mkdir -p "$HOME/github"
 
+INSTALL_STAGE="Polybar"
 if command -v polybar >/dev/null 2>&1; then
     echo -e "\n${GREEN}[=] Polybar is already installed; skipping source rebuild.${RESET}\n"
 else
@@ -300,6 +356,7 @@ else
     sudo cmake --install "$HOME/github/polybar/build"
 fi
 
+INSTALL_STAGE="Polybar themes"
 if [ -d "$HOME/github/polybar-themes/.git" ]; then
     echo -e "\n${GREEN}[=] Polybar themes checkout already exists; skipping theme bootstrap.${RESET}\n"
 else
@@ -312,6 +369,7 @@ else
     ) || exit 1
 fi
 
+INSTALL_STAGE="Picom"
 if command -v picom >/dev/null 2>&1; then
     echo -e "\n${GREEN}[=] Picom is already installed; skipping source rebuild.${RESET}\n"
 else
@@ -326,6 +384,7 @@ else
     sudo ninja -C "$HOME/github/picom/build" install
 fi
 
+INSTALL_STAGE="managed configuration"
 echo -e "\n${BLUE}[*] Installing KaliPWM managed configuration..${RESET}\n"
 sudo timedatectl set-timezone "Europe/Lisbon"
 
@@ -344,6 +403,7 @@ sudo install -m 0755 "$RPATH/SCRIPTS/kalipwm" /usr/local/bin/kalipwm
 mkdir -p "$HOME/Wallpapers"
 cp -rv "$RPATH/WALLPAPERS/." "$HOME/Wallpapers/"
 
+INSTALL_STAGE="wallpaper validation"
 for wallpaper in \
     "$HOME/Wallpapers/obsidian/obsidian-city-16x9.jpg" \
     "$HOME/Wallpapers/obsidian/obsidian-city-ultrawide.jpg" \
@@ -357,6 +417,7 @@ for wallpaper in \
     fi
 done
 
+INSTALL_STAGE="managed permissions"
 chmod +x "$HOME/.config/bspwm/bspwmrc"
 chmod +x "$HOME/.config/bspwm/scripts/bspwm_resize"
 chmod +x "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh"
@@ -372,6 +433,9 @@ if [ -n "${DISPLAY:-}" ] && command -v xrandr >/dev/null 2>&1 && command -v feh 
     "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh" "$WALLPAPER_CHOICE" || \
         echo -e "${RED}[!] Wallpaper was installed but could not be applied in the current session.${RESET}"
 fi
+
+INSTALL_FINISHED=1
+trap - ERR EXIT
 
 echo -e "\n${BLUE}[+] KaliPWM environment deployed. Happy hacking ;)${RESET}\n"
 echo -e "${BLUE}[+] Existing installations can rerun this installer without destructive source re-clones.${RESET}\n"
