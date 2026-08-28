@@ -3,6 +3,7 @@ set -u
 
 BASE="$HOME/.config/polybar/obsidian/scripts"
 THEME="$BASE/rofi/control-center.rasi"
+REPORT_THEME="$BASE/rofi/report.rasi"
 CONFIRM_THEME="$BASE/rofi/confirm.rasi"
 POWER_MENU="$BASE/powermenu.sh"
 MEDIA_KEYS="$BASE/media-keys.sh"
@@ -55,7 +56,7 @@ show_report() {
     [ -n "$output" ] || output='No output.'
 
     printf '%s\n' "$output" |
-        rofi -no-config -dmenu -i -p "$title" -mesg "Read-only report • exit $rc • Esc/Enter to close" -theme "$THEME" >/dev/null
+        rofi -no-config -dmenu -i -p "$title" -mesg "Read-only report • exit $rc • Esc/Enter to close" -theme "$REPORT_THEME" >/dev/null
 }
 
 run_background() {
@@ -345,7 +346,7 @@ system_menu() {
     while true; do
         choice="$(choose 'System' 'Safe KaliPWM management actions' '  System summary' '󰆓  Create configuration backup' '󰋚  List backups' '󰁯  Repair dry-run' "$BACK")" || return 0
         case "$choice" in
-            '  System summary') show_report 'System summary' "fastfetch 2>/dev/null || (uname -a; printf '\\n'; free -h; printf '\\n'; df -h /)" ;;
+            '  System summary') show_report 'System summary' "fastfetch --logo none 2>/dev/null || (uname -a; printf '\\n'; free -h; printf '\\n'; df -h /)" ;;
             '󰆓  Create configuration backup')
                 confirm 'Create configuration backup' && run_background 'Configuration backup' 'kalipwm backup'
                 ;;
