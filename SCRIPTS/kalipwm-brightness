@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/kalipwm/profile.conf"
 BACKLIGHT_ROOT="${KALIPWM_BACKLIGHT_ROOT:-/sys/class/backlight}"
+# shellcheck disable=SC1090 # Runtime profile path is intentionally user-configurable.
 [[ -r "$PROFILE" ]] && source "$PROFILE"
 backlight="${backlight:-}"
 action="${1:-status}"
