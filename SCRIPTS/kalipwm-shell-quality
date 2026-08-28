@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -u
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+failures=0
+checked=0
+
+collect_bash_files() {
+    {
+        printf '%s\0' kalipwm.sh
+        find SCRIPTS -maxdepth 1 -type f -print0
+        find CONFIGS/config/bspwm/scripts -maxdepth 1 -type f -name '*.sh' -print0
+        find CONFIGS/config/polybar/obsidian -maxdepth 1 -type f -name '*.sh' -print0
+        find CONFIGS/config/polybar/obsidian/scripts -maxdepth 1 -type f -name '*.sh' -print0
+        find CONFIGS/config/polybar/obsidian-v2 -maxdepth 1 -type f -name '*.sh' -print0
+        find CONFIGS/config/polybar/obsidian-v2/scripts -maxdepth 1 -type f -name '*.sh' -print0
+    } | sort -z -u
+}
+
+printf '%s\n' '== KaliPWM shell syntax =='
+while IFS= read -r -d '' file; do
+    checked=$((checked + 1))
+    if bash -n "$file"; then
+        printf '[OK]   %s\n' "$file"
+    else
+        printf '[FAIL] %s\n' "$file" >&2
+        failures=$((failures + 1))
+    fi
+done < <(collect_bash_files)
+
+if sh -n CONFIGS/config/bspwm/bspwmrc; then
+    printf '[OK]   %s\n' 'CONFIGS/config/bspwm/bspwmrc'
+else
+    printf '[FAIL] %s\n' 'CONFIGS/config/bspwm/bspwmrc' >&2
+    failures=$((failures + 1))
+fi
+checked=$((checked + 1))
+
+printf '\n%s\n' '== ShellCheck =='
+if command -v shellcheck >/dev/null 2>&1; then
+    while IFS= read -r -d '' file; do
+        if shellcheck -x --severity=warning "$file"; then
+            printf '[OK]   %s\n' "$file"
+        else
+            printf '[FAIL] %s\n' "$file" >&2
+            failures=$((failures + 1))
+        fi
+    done < <(collect_bash_files)
+
+    if shellcheck -x --shell=sh --severity=warning CONFIGS/config/bspwm/bspwmrc; then
+        printf '[OK]   %s\n' 'CONFIGS/config/bspwm/bspwmrc'
+    else
+        printf '[FAIL] %s\n' 'CONFIGS/config/bspwm/bspwmrc' >&2
+        failures=$((failures + 1))
+    fi
+else
+    printf '[INFO] ShellCheck is not installed; syntax checks still completed.\n'
+fi
+
+printf '\nChecked %d maintained shell files; %d failure(s).\n' "$checked" "$failures"
+[ "$failures" -eq 0 ]
