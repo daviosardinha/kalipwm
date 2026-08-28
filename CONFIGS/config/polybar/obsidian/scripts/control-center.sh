@@ -99,6 +99,31 @@ open_interactive_terminal() {
     "$kitty" --title "$title" bash -lc "$command" >/dev/null 2>&1 &
 }
 
+open_system_summary() {
+    local kitty
+
+    kitty="$(kitty_path || true)"
+    if [ -z "$kitty" ]; then
+        notice 'Kitty is unavailable.'
+        return 1
+    fi
+
+    # The summary is a transient information window, not another tiled work
+    # surface. Give it a dedicated WM_CLASS and a one-shot floating BSPWM rule
+    # so the existing desktop layout is left untouched.
+    if have bspc; then
+        bspc rule -a KaliPWMSystemSummary -o state=floating center=on focus=on
+    fi
+
+    "$kitty" \
+        --class KaliPWMSystemSummary \
+        --title 'KaliPWM System Summary' \
+        --override initial_window_width=110c \
+        --override initial_window_height=34c \
+        bash -lc 'clear; if command -v fastfetch >/dev/null 2>&1; then fastfetch; else uname -a; printf "\n"; free -h; printf "\n"; df -h /; fi; exec "${SHELL:-/bin/bash}" -l' \
+        >/dev/null 2>&1 &
+}
+
 copy_clipboard() {
     local value="$1"
 
@@ -347,7 +372,8 @@ system_menu() {
         choice="$(choose 'System' 'Safe KaliPWM management actions' '  System summary' '󰆓  Create configuration backup' '󰋚  List backups' '󰁯  Repair dry-run' "$BACK")" || return 0
         case "$choice" in
             '  System summary')
-                open_interactive_terminal 'System Summary' 'clear; if command -v fastfetch >/dev/null 2>&1; then fastfetch; else uname -a; printf "\n"; free -h; printf "\n"; df -h /; fi; exec "${SHELL:-/bin/bash}" -l'
+                open_system_summary
+                exit 0
                 ;;
             '󰆓  Create configuration backup')
                 confirm 'Create configuration backup' && run_background 'Configuration backup' 'kalipwm backup'
