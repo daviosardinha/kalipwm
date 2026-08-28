@@ -1,130 +1,129 @@
 # KaliPWM v1.0 release validation
 
-This document tracks the final validation required before tagging `v1.0.0`.
+This document records the validation used to approve the first KaliPWM Obsidian public release.
 
-The matrix is deliberately capability-based rather than machine-count-based. One validation host may satisfy several rows at once; the goal is to exercise each environment class without pretending every combination requires a separate installation.
+The matrix is capability-based rather than machine-count-based: one validation host may satisfy several rows. Unsupported hardware is not a release failure; KaliPWM should report unavailable capabilities cleanly instead of inventing broken telemetry.
 
-## Minimum matrix
+## Release candidate
 
-| Validation axis | Required state | Status |
+- Release candidate source: `main`
+- Validated code commit: `df258a954e67917b286cd36320fb5ffb11067e44`
+- Validation date: 2026-08-28
+- Final clean-install environment: current Kali GNU/Linux Rolling in VMware
+
+## Final matrix
+
+| Validation axis | State | Result |
 |---|---|---|
-| Installation | Clean Kali VM fresh install | ⏳ Pending |
-| Installation | Primary bare-metal Kali host validation | 🟡 Release baseline PASS; final interactive pass before tag |
-| Display | Standard/single-display geometry | ✅ 2560x1600 bare-metal baseline |
-| Display | Ultrawide or multi-monitor geometry where available | ✅ Two-output bare-metal validation |
-| VPN | Tunnel connected | ⏳ Pending; may be validated in clean VM with a temporary tunnel |
-| VPN | Tunnel disconnected | ✅ Bare-metal baseline |
-| Power | Battery-present hardware | ✅ Bare-metal baseline |
-| Power | No-battery environment | ⏳ Pending |
+| Installation | Clean Kali VM fresh clone/install from `main` | ✅ PASS |
+| Installation | Primary bare-metal Kali host | ✅ PASS across Phase 3–7 regression work |
+| Display | Standard/single display | ✅ PASS |
+| Display | Multi-monitor/two-output | ✅ PASS |
+| VPN | Disconnected | ✅ PASS |
+| VPN | Connected | ⚪ Not exercised for v1.0; VPN detection/control had earlier live validation and remains capability-based |
+| Power | Battery-present | ✅ PASS |
+| Power | No-battery environment | ⚪ Not exercised for v1.0; absence is handled as an optional capability |
+| Screenshots | Flameshot on BSPWM/X11 | ✅ PASS |
+| Control Center | Rofi Control Center | ✅ PASS |
+| Desktop chrome | Obsidian violet BSPWM borders | ✅ PASS |
+| Diagnostics | `kalipwm doctor` | ✅ `0 FAIL` |
+| Release checker | `kalipwm-release-check` | ✅ `0 failures`, `0 warnings` |
+| Repository state | `main`, clean working tree | ✅ PASS |
 
-## Clean Kali VM fresh-install procedure
+## Final clean-install proof
 
-Use a separate disposable VM. Do not perform this fresh-install test on the already validated bare-metal host.
+A brand-new Kali VM was checked before installation and had:
 
-Recommended baseline:
+```text
+[OK] no KaliPWM checkout
+[OK] no Polybar config
+[OK] no BSPWM config
+[OK] kalipwm not installed
+```
 
-- current Kali Rolling installation;
-- default graphical desktop available before KaliPWM installation;
-- 2 or more vCPUs;
-- 4 GiB or more RAM;
-- 40 GiB or more disk;
-- one standard virtual display for the initial install test;
-- no previous KaliPWM checkout, managed configuration or KaliPWM backup restored into the VM.
-
-After the first normal Kali login, take a hypervisor snapshot such as `clean-kali-pre-kalipwm`. Do not preinstall KaliPWM dependencies: the release test is intended to exercise the installer itself.
-
-If `git` is already present, clone the release-quality branch directly:
+The VM then cloned the public default branch normally:
 
 ```bash
-git clone --branch feature/public-release-quality --single-branch https://github.com/daviosardinha/kalipwm.git ~/kalipwm
+git clone https://github.com/daviosardinha/kalipwm.git ~/kalipwm
 cd ~/kalipwm
-git rev-parse --short=12 HEAD
 bash kalipwm.sh
 ```
 
-If the clean image does not contain `git`, install only Git first and then run the commands above:
+After installation and reboot into BSPWM, the final validation returned:
 
-```bash
-sudo apt update
-sudo apt install -y git
-```
-
-A successful installer run must reach the KaliPWM deployment-complete message without an unexpected failure summary. Reboot afterward:
-
-```bash
-sudo reboot
-```
-
-At the login screen select the BSPWM session. After the desktop starts, run:
-
-```bash
-cd ~/kalipwm
-bash SCRIPTS/kalipwm-release-check
-bash SCRIPTS/kalipwm-release-check --markdown
+```text
 kalipwm doctor
+19 OK | 0 WARN | 0 FAIL | 9 INFO
+
+Release check
+0 failure(s), 0 warning(s)
+Release validation: PASS
+
+Branch
+main
+
+Commit
+df258a954e67917b286cd36320fb5ffb11067e44
+
+Working tree
+clean
 ```
-
-Keep the VM intact after this test. The same fresh-install VM can be used for the no-battery capability and temporary `vpn-connected` validation before it is discarded.
-
-## Post-install release check
-
-After installation and reboot into BSPWM, run the read-only release check from the same checkout being validated:
-
-```bash
-bash SCRIPTS/kalipwm-release-check
-```
-
-The check reports only release-relevant environment classes and managed-state health. It does not change configuration and does not print IP addresses, Target state, usernames or hostnames.
-
-To produce a sanitized row suitable for this validation document:
-
-```bash
-bash SCRIPTS/kalipwm-release-check --markdown
-```
-
-A release candidate is not considered validated merely because the script returns `PASS`. The relevant interactive behavior must also be exercised on the host.
 
 ## Interactive regression pass
 
-For each fresh-install environment where the feature is applicable, validate:
+The final clean-install VM was used to exercise the desktop rather than relying only on static CI checks.
 
-- BSPWM session starts normally and keeps the display geometry supplied by X;
-- Obsidian v2 Polybar starts with no dead optional telemetry blocks;
-- `Super + D` opens the normal Rofi launcher;
+Validated behavior:
+
+- BSPWM starts normally after a fresh install and reboot;
+- Obsidian v2 Polybar starts correctly;
+- `Super + D` remains the application launcher;
 - `Super + Space` opens the KaliPWM Control Center;
-- `kalipwm doctor` finishes with no `FAIL` findings;
-- Target set/read/reset works without depending on VPN state;
-- VPN connected/disconnected presentation follows the actual tunnel state;
-- screenshot region selection opens Flameshot;
-- wallpaper switching works and persists after BSPWM restart;
-- volume/mute works on supported hardware;
-- physical brightness F5/F6 and Control Center brightness use the validated KaliPWM brightness helper on backlight-capable hardware;
-- `kalipwm backup`, `kalipwm repair --dry-run` and rollback dry-run remain available;
-- reboot restores the same working desktop state.
+- System Summary opens as a dedicated floating Kitty/Fastfetch window;
+- Flameshot screenshot selection works on the current Kali/Flameshot 14 BSPWM/X11 stack;
+- the managed Flameshot helper enables the validated legacy X11 capture path where required;
+- Obsidian violet BSPWM window borders render correctly;
+- Target, wallpaper, diagnostics and system-management surfaces remain available;
+- `kalipwm doctor` returns no failures;
+- the release checker returns PASS.
 
-Unsupported hardware is not a release failure. For example, a VM with no battery or backlight should report those capabilities as absent rather than fabricate a broken module.
+## Bare-metal coverage
 
-## Validation records
+Phase 7 release checks on the primary bare-metal Kali host returned zero failures and zero warnings for both a single native display and a two-output multi-monitor state.
 
-Sanitized `--markdown` rows go here. Do not add hostnames, usernames, IP addresses, VPN endpoint addresses, Target values or other engagement-specific data.
+Earlier live regression work on the same host validated the hardware-sensitive paths that a VMware guest cannot meaningfully prove, including:
 
-| Date | Commit | Environment | Display | VPN | Power | Doctor | Control Center | Result |
-|---|---|---|---|---|---|---|---|---|
-| 2026-08-28 | `cafb269415c7` | bare-metal | single:standard:2560x1600 | vpn-disconnected | battery-present | pass | installed | PASS |
-| 2026-08-28 | `b767e730a089` | bare-metal | multi-monitor:2-outputs:first-2560x1600 | vpn-disconnected | battery-present | pass | installed | PASS |
+- physical F5/F6 brightness behavior through the validated `kalipwm-brightness` architecture;
+- Control Center brightness delegation to the same helper;
+- audio volume/mute;
+- GPU and fan adaptive Polybar telemetry;
+- battery/AC state;
+- wallpaper, Target, screenshots, diagnostics, backup/rollback/update/repair behavior;
+- preservation of the host display layout and avoidance of VMware-only startup behavior.
 
-### Primary bare-metal baseline
+## Known v1.0 validation limits
 
-The first Phase 7 release check passed with zero failures and zero warnings on the primary bare-metal Kali host. This covers the standard single-display, VPN-disconnected and battery-present matrix states. A second zero-failure/zero-warning pass covered a two-output multi-monitor state. The desktop runtime itself was not modified by the Phase 7 validation tooling; a final interactive regression pass is still required before the release tag.
+Two capability states were deliberately not manufactured solely to satisfy the matrix:
 
-The primary host does not need to re-enable a previously disabled VPN solely for release testing. The remaining `vpn-connected` capability can be exercised later on the clean Kali VM with a temporary test tunnel, keeping the bare-metal host unchanged.
+1. **VPN connected during the final Phase 7 matrix.** The primary host's previous VPN setup had intentionally been disabled, so it was not re-enabled just for release testing. VPN-connected behavior had already been exercised earlier in development and the implementation remains interface/capability based.
+2. **A truly battery-less final VM.** The VMware guest exposed a virtual battery. KaliPWM treats battery, GPU and fan telemetry as optional capabilities, and unavailable telemetry is not considered a failure.
 
-## Release gate
+These are documented validation gaps, not known functional breakages.
 
-`v1.0.0` can be tagged only when:
+## CI gates
 
-1. every minimum matrix capability above is either validated or explicitly documented as unavailable for testing;
-2. fresh-install validation has passed on at least one clean Kali VM;
-3. the primary bare-metal environment has passed the final regression run;
-4. the repository release self-check and normal CI gates are green;
-5. README, ROADMAP, CHANGELOG, supported/tested environments, known limitations and migration notes describe the same behavior that exists on `main`.
+The release candidate passed the repository quality gates on `main`, including:
+
+- maintained shell syntax;
+- ShellCheck;
+- F5/F6 brightness architecture regression;
+- installer failure-handling regression;
+- dependency-lock validation;
+- Flameshot BSPWM/X11 regression;
+- Release Quality repository self-check.
+
+## Release decision
+
+KaliPWM Obsidian v1.0 is approved for tagging.
+
+The public release should point at the release-finalization commit derived from the validated `main` candidate above. Release-finalization changes are documentation-only and do not modify the validated installer or desktop runtime.
