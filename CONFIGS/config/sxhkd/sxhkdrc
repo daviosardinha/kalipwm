@@ -157,9 +157,7 @@ super + shift + a
 @Print + alt
         screenshot window
 
-# Audio media keys are managed explicitly by KaliPWM so the same backend is
-# shared with the Control Center. Screen-brightness keys are intentionally not
-# intercepted here: the host's existing laptop/session handler remains authoritative.
+# Audio media keys
 XF86AudioRaiseVolume
 	~/.config/polybar/obsidian/scripts/media-keys.sh volume-up
 
@@ -168,6 +166,13 @@ XF86AudioLowerVolume
 
 XF86AudioMute
 	~/.config/polybar/obsidian/scripts/media-keys.sh volume-mute
+
+# Screen brightness — preserve the known-good bare-metal KaliPWM binding.
+XF86MonBrightnessDown
+	brightnessctl set 10%-
+
+XF86MonBrightnessUp
+	brightnessctl set +10%
 
 # Keyboard backlight remains unmanaged until a portable hardware policy is defined.
 # XF86KbdBrightness{Up,Down}
