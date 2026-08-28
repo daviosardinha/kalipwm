@@ -26,10 +26,12 @@ fi
 
 # Generic tunnel fallback.
 if [ -z "$iface" ]; then
-    for dev in $(ls /sys/class/net 2>/dev/null); do
+    for path in /sys/class/net/*; do
+        [ -e "$path" ] || continue
+        dev="${path##*/}"
         case "$dev" in
             tun*|tap*|wg*|tailscale*|ppp*)
-                state=$(cat "/sys/class/net/$dev/operstate" 2>/dev/null || printf 'down')
+                state=$(cat "$path/operstate" 2>/dev/null || printf 'down')
                 [ "$state" = "up" ] || continue
                 iface="$dev"
                 name="$dev"
