@@ -11,6 +11,7 @@ collect_bash_files() {
     {
         printf '%s\0' kalipwm.sh
         find SCRIPTS -maxdepth 1 -type f -print0
+        find tests -maxdepth 1 -type f -name '*.sh' -print0
         find CONFIGS/config/bspwm/scripts -maxdepth 1 -type f -name '*.sh' -print0
         find CONFIGS/config/polybar/obsidian -maxdepth 1 -type f -name '*.sh' -print0
         find CONFIGS/config/polybar/obsidian/scripts -maxdepth 1 -type f -name '*.sh' -print0
