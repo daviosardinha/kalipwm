@@ -157,18 +157,23 @@ super + shift + a
 @Print + alt
         screenshot window
 
-# Volume
-#XF86AudioRaiseVolume
-#    pactl set-sink-volume 0 +5%
-#XF86AudioLowerVolume
-#    pactl set-sink-volume 0 -5%
-#XF86AudioMute
-#    pactl set-sink-mute 0 toggle
+# Hardware volume keys
+XF86AudioRaiseVolume
+	~/.config/polybar/obsidian/scripts/media-keys.sh volume-up
 
-# Screen Brightness
-#XF86MonBrightness{Up,Down}  
-#    brightnessctl -c backlight s 10{+,-}
+XF86AudioLowerVolume
+	~/.config/polybar/obsidian/scripts/media-keys.sh volume-down
 
-# Keyboard backlight
-#XF86KbdBrightness{Up,Down}
-#    brightnessctl -d smc::kbd_backlight s 10{+,-}
+XF86AudioMute
+	~/.config/polybar/obsidian/scripts/media-keys.sh volume-mute
+
+# Hardware screen brightness keys
+XF86MonBrightnessUp
+	~/.config/polybar/obsidian/scripts/media-keys.sh brightness-up
+
+XF86MonBrightnessDown
+	~/.config/polybar/obsidian/scripts/media-keys.sh brightness-down
+
+# Keyboard backlight remains unmanaged until a portable hardware policy is defined.
+# XF86KbdBrightness{Up,Down}
+#     brightnessctl -d smc::kbd_backlight s 10{+,-}
