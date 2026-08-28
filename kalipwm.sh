@@ -7,7 +7,6 @@ RED=$(tput setaf 1)
 RESET=$(tput sgr0)
 
 WALLPAPER_CHOICE=""
-NERD_FONT_VERSION="v3.0.2"
 INSTALL_STAGE="preflight"
 INSTALL_FAILURE_DETAIL=""
 INSTALL_FINISHED=0
@@ -86,10 +85,18 @@ ensure_git_repo() {
     local dir="$3"
     local depth="${4:-0}"
     local recursive="${5:-0}"
+    local ref="${6:-}"
     local clone_args=()
+    local current_ref=""
 
     if [ -d "$dir/.git" ]; then
         echo -e "${GREEN}[=] Reusing existing $name checkout: $dir${RESET}"
+        if [ -n "$ref" ]; then
+            current_ref="$(git -C "$dir" rev-parse HEAD 2>/dev/null || true)"
+            if [ -n "$current_ref" ] && [ "$current_ref" != "$ref" ]; then
+                echo -e "${BLUE}[=] $name is at ${current_ref:0:12}; fresh installs are pinned to ${ref:0:12}. Existing checkout left unchanged.${RESET}"
+            fi
+        fi
         if [ "$recursive" = "1" ]; then
             git -C "$dir" submodule update --init --recursive
         fi
@@ -103,9 +110,21 @@ ensure_git_repo() {
     fi
 
     mkdir -p "$(dirname "$dir")"
+
+    if [ -n "$ref" ]; then
+        # A full clone guarantees the locked commit remains checkout-able even
+        # after the upstream branch moves beyond it.
+        git clone "$url" "$dir"
+        git -C "$dir" checkout --detach "$ref"
+        if "$recursive" = "1"; then
+            git -C "$dir" submodule update --init --recursive
+        fi
+        echo -e "${GREEN}[=] Pinned $name to ${ref:0:12}.${RESET}"
+        return 0
+    fi
+
     [ "$depth" = "1" ] && clone_args+=(--depth=1)
     [ "$recursive" = "1" ] && clone_args+=(--recursive)
-
     git clone "${clone_args[@]}" "$url" "$dir"
 }
 
@@ -262,6 +281,17 @@ echo -e "\n${BLUE}[*] Preparing installation..${RESET}\n"
 
 RPATH="$(pwd)"
 ZSH_CUSTOM_DIR="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
+DEPENDENCY_LOCK="$RPATH/DEPENDENCIES.lock"
+
+INSTALL_STAGE="dependency lock"
+if [ ! -r "$DEPENDENCY_LOCK" ]; then
+    echo -e "${RED}[-] Missing dependency lock: $DEPENDENCY_LOCK${RESET}"
+    exit 1
+fi
+# shellcheck source=DEPENDENCIES.lock
+. "$DEPENDENCY_LOCK"
+
+echo -e "${GREEN}[=] External dependency revisions loaded from DEPENDENCIES.lock.${RESET}"
 
 INSTALL_STAGE="package metadata"
 echo -e "\n${BLUE}[*] Updating package metadata..${RESET}\n"
@@ -301,28 +331,34 @@ INSTALL_STAGE="Oh My Zsh"
 echo -e "\n${BLUE}[*] Ensuring Oh My Zsh is installed..${RESET}\n"
 if [ -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]; then
     echo -e "${GREEN}[=] Oh My Zsh is already installed; reusing it.${RESET}"
+    if [ -d "$HOME/.oh-my-zsh/.git" ]; then
+        omz_current_ref="$(git -C "$HOME/.oh-my-zsh" rev-parse HEAD 2>/dev/null || true)"
+        if [ -n "$omz_current_ref" ] && [ "$omz_current_ref" != "$OH_MY_ZSH_REF" ]; then
+            echo -e "${BLUE}[=] Oh My Zsh is at ${omz_current_ref:0:12}; fresh installs are pinned to ${OH_MY_ZSH_REF:0:12}. Existing checkout left unchanged.${RESET}"
+        fi
+    fi
 elif [ -e "$HOME/.oh-my-zsh" ]; then
     echo -e "${RED}[-] $HOME/.oh-my-zsh exists but does not look like a complete Oh My Zsh installation.${RESET}"
     echo -e "${RED}[-] Move or repair that directory manually before rerunning KaliPWM.${RESET}"
     exit 1
 else
-    yes | sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    ensure_git_repo "Oh My Zsh" "https://github.com/ohmyzsh/ohmyzsh.git" "$HOME/.oh-my-zsh" 0 0 "$OH_MY_ZSH_REF" || exit 1
 fi
 
 INSTALL_STAGE="Powerlevel10k"
 echo -e "\n${BLUE}[*] Ensuring the Powerlevel10k theme is installed..${RESET}\n"
-ensure_git_repo "Powerlevel10k" "https://github.com/romkatv/powerlevel10k.git" "$ZSH_CUSTOM_DIR/themes/powerlevel10k" 1 || exit 1
+ensure_git_repo "Powerlevel10k" "https://github.com/romkatv/powerlevel10k.git" "$ZSH_CUSTOM_DIR/themes/powerlevel10k" 0 0 "$POWERLEVEL10K_REF" || exit 1
 cp -v "$RPATH/CONFIGS/p10k.zsh" "$HOME/.p10k.zsh"
 
 INSTALL_STAGE="Zsh plugins"
 echo -e "\n${BLUE}[*] Ensuring Zsh plugins are installed..${RESET}\n"
-ensure_git_repo "zsh-autosuggestions" "https://github.com/zsh-users/zsh-autosuggestions" "$ZSH_CUSTOM_DIR/plugins/zsh-autosuggestions" || exit 1
-ensure_git_repo "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting.git" "$ZSH_CUSTOM_DIR/plugins/zsh-syntax-highlighting" || exit 1
+ensure_git_repo "zsh-autosuggestions" "https://github.com/zsh-users/zsh-autosuggestions" "$ZSH_CUSTOM_DIR/plugins/zsh-autosuggestions" 0 0 "$ZSH_AUTOSUGGESTIONS_REF" || exit 1
+ensure_git_repo "zsh-syntax-highlighting" "https://github.com/zsh-users/zsh-syntax-highlighting.git" "$ZSH_CUSTOM_DIR/plugins/zsh-syntax-highlighting" 0 0 "$ZSH_SYNTAX_HIGHLIGHTING_REF" || exit 1
 cp -v "$RPATH/CONFIGS/zshrc" "$HOME/.zshrc"
 
 INSTALL_STAGE="fzf"
 echo -e "\n${BLUE}[*] Ensuring fzf is installed..${RESET}\n"
-ensure_git_repo "fzf" "https://github.com/junegunn/fzf.git" "$HOME/.fzf" 1 || exit 1
+ensure_git_repo "fzf" "https://github.com/junegunn/fzf.git" "$HOME/.fzf" 0 0 "$FZF_REF" || exit 1
 if [ ! -x "$HOME/.fzf/bin/fzf" ] || [ ! -f "$HOME/.fzf.zsh" ]; then
     yes | "$HOME/.fzf/install"
 else
@@ -331,7 +367,7 @@ fi
 
 INSTALL_STAGE="tmux"
 echo -e "\n${BLUE}[*] Ensuring tmux configuration is installed..${RESET}\n"
-ensure_git_repo "gpakosz/.tmux" "https://github.com/gpakosz/.tmux.git" "$HOME/.tmux" || exit 1
+ensure_git_repo "gpakosz/.tmux" "https://github.com/gpakosz/.tmux.git" "$HOME/.tmux" 0 0 "$TMUX_REF" || exit 1
 ln -s -f "$HOME/.tmux/.tmux.conf" "$HOME/.tmux.conf"
 cp -v "$RPATH/CONFIGS/tmux.conf.local" "$HOME/.tmux.conf.local"
 
@@ -340,7 +376,15 @@ echo -e "\n${BLUE}[*] Ensuring Kitty terminal is installed..${RESET}\n"
 if [ -x "$HOME/.local/kitty.app/bin/kitty" ]; then
     echo -e "${GREEN}[=] Kitty application bundle is already installed; reusing it.${RESET}"
 else
-    /usr/bin/cat "$RPATH/kitty-installer.sh" | sh /dev/stdin
+    case "$(uname -m)" in
+        amd64|x86_64) kitty_bundle_sha256="$KITTY_SHA256_X86_64" ;;
+        aarch64*|armv8*) kitty_bundle_sha256="$KITTY_SHA256_ARM64" ;;
+        *)
+            echo -e "${RED}[-] No pinned Kitty bundle is defined for architecture: $(uname -m)${RESET}"
+            exit 1
+            ;;
+    esac
+    KITTY_VERSION="$KITTY_VERSION" KITTY_SHA256="$kitty_bundle_sha256" sh "$RPATH/kitty-installer.sh"
 fi
 
 mkdir -p "$HOME/github"
@@ -350,7 +394,7 @@ if command -v polybar >/dev/null 2>&1; then
     echo -e "\n${GREEN}[=] Polybar is already installed; skipping source rebuild.${RESET}\n"
 else
     echo -e "\n${BLUE}[*] Installing Polybar..${RESET}\n"
-    ensure_git_repo "Polybar" "https://github.com/polybar/polybar" "$HOME/github/polybar" 0 1 || exit 1
+    ensure_git_repo "Polybar" "https://github.com/polybar/polybar" "$HOME/github/polybar" 0 1 "$POLYBAR_REF" || exit 1
     cmake -S "$HOME/github/polybar" -B "$HOME/github/polybar/build"
     cmake --build "$HOME/github/polybar/build" -j "$(nproc)"
     sudo cmake --install "$HOME/github/polybar/build"
@@ -359,9 +403,13 @@ fi
 INSTALL_STAGE="Polybar themes"
 if [ -d "$HOME/github/polybar-themes/.git" ]; then
     echo -e "\n${GREEN}[=] Polybar themes checkout already exists; skipping theme bootstrap.${RESET}\n"
+    themes_current_ref="$(git -C "$HOME/github/polybar-themes" rev-parse HEAD 2>/dev/null || true)"
+    if [ -n "$themes_current_ref" ] && [ "$themes_current_ref" != "$POLYBAR_THEMES_REF" ]; then
+        echo -e "${BLUE}[=] Polybar themes is at ${themes_current_ref:0:12}; fresh installs are pinned to ${POLYBAR_THEMES_REF:0:12}. Existing checkout left unchanged.${RESET}"
+    fi
 else
     echo -e "\n${BLUE}[*] Installing Polybar themes..${RESET}\n"
-    ensure_git_repo "Polybar themes" "https://github.com/adi1090x/polybar-themes.git" "$HOME/github/polybar-themes" 1 || exit 1
+    ensure_git_repo "Polybar themes" "https://github.com/adi1090x/polybar-themes.git" "$HOME/github/polybar-themes" 0 0 "$POLYBAR_THEMES_REF" || exit 1
     chmod +x "$HOME/github/polybar-themes/setup.sh"
     (
         cd "$HOME/github/polybar-themes" || exit 1
@@ -374,7 +422,7 @@ if command -v picom >/dev/null 2>&1; then
     echo -e "\n${GREEN}[=] Picom is already installed; skipping source rebuild.${RESET}\n"
 else
     echo -e "\n${BLUE}[*] Installing Picom..${RESET}\n"
-    ensure_git_repo "Picom" "https://github.com/ibhagwan/picom.git" "$HOME/github/picom" 0 1 || exit 1
+    ensure_git_repo "Picom" "https://github.com/ibhagwan/picom.git" "$HOME/github/picom" 0 1 "$PICOM_REF" || exit 1
     if [ -d "$HOME/github/picom/build/meson-private" ]; then
         meson setup --reconfigure --buildtype=release "$HOME/github/picom/build" "$HOME/github/picom"
     else
