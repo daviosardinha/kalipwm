@@ -319,7 +319,7 @@ run_doctor() {
         print_status INFO "GPU telemetry unavailable"
     fi
 
-    fan_file="$(find /sys/class/hwmon -type f -name 'fan*_input' -readable -print -quit 2>/dev/null)"
+    fan_file="$(find -L /sys/class/hwmon -type f -name 'fan*_input' -readable -print -quit 2>/dev/null)"
     if [ -n "$fan_file" ]; then
         print_status OK "Fan telemetry is available"
     else
