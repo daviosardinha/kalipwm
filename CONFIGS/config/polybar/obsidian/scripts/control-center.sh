@@ -5,6 +5,7 @@ BASE="$HOME/.config/polybar/obsidian/scripts"
 THEME="$BASE/rofi/control-center.rasi"
 CONFIRM_THEME="$BASE/rofi/confirm.rasi"
 POWER_MENU="$BASE/powermenu.sh"
+MEDIA_KEYS="$BASE/media-keys.sh"
 TARGET_CMD="$(command -v target 2>/dev/null || true)"
 WALLPAPER_CMD="$(command -v wallpaper 2>/dev/null || true)"
 SCREENSHOT_CMD="$(command -v screenshot 2>/dev/null || true)"
@@ -44,6 +45,35 @@ notice() {
     fi
 }
 
+show_report() {
+    local title="$1"
+    local command="$2"
+    local output rc
+
+    output="$(bash -lc "$command" 2>&1)"
+    rc=$?
+    [ -n "$output" ] || output='No output.'
+
+    printf '%s\n' "$output" |
+        rofi -no-config -dmenu -i -p "$title" -mesg "Read-only report • exit $rc • Esc/Enter to close" -theme "$THEME" >/dev/null
+}
+
+run_background() {
+    local title="$1"
+    local command="$2"
+    local logfile="/tmp/kalipwm-control-${title//[^A-Za-z0-9]/-}.log"
+
+    (
+        if bash -lc "$command" >"$logfile" 2>&1; then
+            have notify-send && notify-send -a 'KaliPWM Control Center' 'KaliPWM' "$title completed."
+        else
+            have notify-send && notify-send -a 'KaliPWM Control Center' 'KaliPWM' "$title failed. See $logfile"
+        fi
+    ) &
+
+    notice "$title started in background."
+}
+
 kitty_path() {
     if [ -x "$HOME/.local/kitty.app/bin/kitty" ]; then
         printf '%s' "$HOME/.local/kitty.app/bin/kitty"
@@ -54,7 +84,7 @@ kitty_path() {
     fi
 }
 
-open_terminal() {
+open_interactive_terminal() {
     local title="$1"
     local command="$2"
     local kitty
@@ -65,7 +95,7 @@ open_terminal() {
         return 1
     fi
 
-    "$kitty" --title "$title" --hold bash -lc "$command" >/dev/null 2>&1 &
+    "$kitty" --title "$title" bash -lc "$command" >/dev/null 2>&1 &
 }
 
 copy_clipboard() {
@@ -113,7 +143,7 @@ network_menu() {
                 if have nmcli; then
                     network_cmd="printf '=== NetworkManager ===\\n'; nmcli general status; printf '\\n'; nmcli device status; printf '\\n=== Addresses ===\\n'; ip -brief address; printf '\\n=== Routes ===\\n'; ip route"
                 fi
-                open_terminal 'KaliPWM Network' "$network_cmd"
+                show_report 'Network status' "$network_cmd"
                 ;;
             '󰤭  Disable Wi-Fi')
                 nmcli radio wifi off && notice 'Wi-Fi disabled.'
@@ -123,7 +153,7 @@ network_menu() {
                 ;;
             '󰌘  NetworkManager (nmtui)')
                 if have nmtui; then
-                    open_terminal 'NetworkManager' 'nmtui'
+                    open_interactive_terminal 'NetworkManager' 'nmtui'
                 else
                     notice 'nmtui is unavailable.'
                 fi
@@ -134,7 +164,7 @@ network_menu() {
 }
 
 vpn_menu() {
-    local choice vpn_if vpn_ip status active selected
+    local choice vpn_if vpn_ip status active
     local -a entries connections
 
     while true; do
@@ -159,7 +189,7 @@ vpn_menu() {
         choice="$(choose 'VPN' "$status" "${entries[@]}")" || return 0
         case "$choice" in
             '󰦝  VPN status')
-                open_terminal 'KaliPWM VPN' "printf '=== Tunnel interfaces ===\\n'; ip -brief address | awk '\$1 ~ /^(tun|tap|wg|ppp)/ {print}'; printf '\\n=== Active NetworkManager connections ===\\n'; if command -v nmcli >/dev/null 2>&1; then nmcli connection show --active; else printf 'nmcli unavailable\\n'; fi"
+                show_report 'VPN status' "printf '=== Tunnel interfaces ===\\n'; ip -brief address | awk '\$1 ~ /^(tun|tap|wg|ppp)/ {print}'; printf '\\n=== Active NetworkManager connections ===\\n'; if command -v nmcli >/dev/null 2>&1; then nmcli connection show --active; else printf 'nmcli unavailable\\n'; fi"
                 ;;
             '󰅖  Disconnect NetworkManager VPN')
                 active="$(choose 'Disconnect VPN' 'Select an active NetworkManager VPN connection' "${connections[@]}" "$BACK")" || continue
@@ -170,7 +200,7 @@ vpn_menu() {
                 fi
                 ;;
             '󰌘  NetworkManager (nmtui)')
-                open_terminal 'NetworkManager' 'nmtui'
+                open_interactive_terminal 'NetworkManager' 'nmtui'
                 ;;
             "$BACK"|'') return 0 ;;
         esac
@@ -250,19 +280,25 @@ screenshot_menu() {
 
 display_menu() {
     local choice status
+    local -a entries
 
     while true; do
         status="$(xrandr --current 2>/dev/null | awk '/ connected/{printf "%s%s ", $1, ($3 ~ /^[0-9]+x[0-9]+/) ? " " $3 : ""}' || true)"
         [ -n "$status" ] || status='Display status unavailable'
 
-        if have arandr; then
-            choice="$(choose 'Display' "$status" '󰍹  Display status' '󰹑  Open ARandR' "$BACK")" || return 0
-        else
-            choice="$(choose 'Display' "$status" '󰍹  Display status' "$BACK")" || return 0
+        entries=('󰍹  Display status')
+        if [ -x "$MEDIA_KEYS" ] && { have brightnessctl || have xbacklight; }; then
+            entries+=('󰃞  Brightness +10%' '󰃝  Brightness -10%')
         fi
+        have arandr && entries+=('󰹑  Open ARandR')
+        entries+=("$BACK")
+
+        choice="$(choose 'Display' "$status" "${entries[@]}")" || return 0
 
         case "$choice" in
-            '󰍹  Display status') open_terminal 'KaliPWM Display' "xrandr --current" ;;
+            '󰍹  Display status') show_report 'Display status' 'xrandr --current' ;;
+            '󰃞  Brightness +10%') "$MEDIA_KEYS" brightness-up ;;
+            '󰃝  Brightness -10%') "$MEDIA_KEYS" brightness-down ;;
             '󰹑  Open ARandR') arandr >/dev/null 2>&1 & ;;
             "$BACK"|'') return 0 ;;
         esac
@@ -273,19 +309,24 @@ audio_menu() {
     local choice volume mute status
 
     while true; do
-        if have pactl; then
+        volume='unknown'
+        mute='unknown'
+        if have wpctl; then
+            status="$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null || printf 'Volume unavailable')"
+            choice="$(choose 'Audio' "$status" '  Volume +5%' '  Volume -5%' '󰖁  Toggle mute' '󰓃  Open pavucontrol' "$BACK")" || return 0
+        elif have pactl; then
             volume="$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | grep -oE '[0-9]+%' | head -n1)"
             mute="$(pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null | awk '{print $2}')"
             status="Volume: ${volume:-unknown}  Mute: ${mute:-unknown}"
             choice="$(choose 'Audio' "$status" '  Volume +5%' '  Volume -5%' '󰖁  Toggle mute' '󰓃  Open pavucontrol' "$BACK")" || return 0
         else
-            choice="$(choose 'Audio' 'pactl unavailable' '󰓃  Open pavucontrol' "$BACK")" || return 0
+            choice="$(choose 'Audio' 'Audio control unavailable' '󰓃  Open pavucontrol' "$BACK")" || return 0
         fi
 
         case "$choice" in
-            '  Volume +5%') pactl set-sink-volume @DEFAULT_SINK@ +5% ;;
-            '  Volume -5%') pactl set-sink-volume @DEFAULT_SINK@ -5% ;;
-            '󰖁  Toggle mute') pactl set-sink-mute @DEFAULT_SINK@ toggle ;;
+            '  Volume +5%') [ -x "$MEDIA_KEYS" ] && "$MEDIA_KEYS" volume-up ;;
+            '  Volume -5%') [ -x "$MEDIA_KEYS" ] && "$MEDIA_KEYS" volume-down ;;
+            '󰖁  Toggle mute') [ -x "$MEDIA_KEYS" ] && "$MEDIA_KEYS" volume-mute ;;
             '󰓃  Open pavucontrol')
                 if have pavucontrol; then
                     pavucontrol >/dev/null 2>&1 &
@@ -304,12 +345,12 @@ system_menu() {
     while true; do
         choice="$(choose 'System' 'Safe KaliPWM management actions' '  System summary' '󰆓  Create configuration backup' '󰋚  List backups' '󰁯  Repair dry-run' "$BACK")" || return 0
         case "$choice" in
-            '  System summary') open_terminal 'KaliPWM System' "fastfetch 2>/dev/null || (uname -a; printf '\\n'; free -h; printf '\\n'; df -h /)" ;;
+            '  System summary') show_report 'System summary' "fastfetch 2>/dev/null || (uname -a; printf '\\n'; free -h; printf '\\n'; df -h /)" ;;
             '󰆓  Create configuration backup')
-                confirm 'Create configuration backup' && open_terminal 'KaliPWM Backup' 'kalipwm backup'
+                confirm 'Create configuration backup' && run_background 'Configuration backup' 'kalipwm backup'
                 ;;
-            '󰋚  List backups') open_terminal 'KaliPWM Backups' 'kalipwm backups' ;;
-            '󰁯  Repair dry-run') open_terminal 'KaliPWM Repair Dry-Run' 'kalipwm repair --dry-run' ;;
+            '󰋚  List backups') show_report 'KaliPWM backups' 'kalipwm backups' ;;
+            '󰁯  Repair dry-run') show_report 'Repair dry-run' 'kalipwm repair --dry-run' ;;
             "$BACK"|'') return 0 ;;
         esac
     done
@@ -319,13 +360,13 @@ diagnostics_menu() {
     local choice
 
     while true; do
-        choice="$(choose 'Diagnostics' 'Read-only checks' '󰒓  Run kalipwm doctor' '󰘳  Polybar log' '  Hardware summary' '󰈀  Network summary' '󰍹  Display summary' "$BACK")" || return 0
+        choice="$(choose 'Diagnostics' 'Read-only checks — no terminal windows' '󰒓  Run kalipwm doctor' '󰘳  Polybar log' '  Hardware summary' '󰈀  Network summary' '󰍹  Display summary' "$BACK")" || return 0
         case "$choice" in
-            '󰒓  Run kalipwm doctor') open_terminal 'KaliPWM Doctor' 'kalipwm doctor' ;;
-            '󰘳  Polybar log') open_terminal 'Polybar Log' "if [ -f /tmp/polybar-obsidian-v2.log ]; then tail -n 120 /tmp/polybar-obsidian-v2.log; else printf 'Polybar log not found.\\n'; fi" ;;
-            '  Hardware summary') open_terminal 'KaliPWM Hardware' "printf '=== Sensors ===\\n'; sensors 2>/dev/null || true; printf '\\n=== Graphics ===\\n'; lspci 2>/dev/null | grep -Ei 'VGA|3D|Display' || true; printf '\\n=== Power ===\\n'; for f in /sys/class/power_supply/BAT*/capacity; do [ -r \"\$f\" ] && printf '%s: %s%%\\n' \"\$f\" \"\$(cat \"\$f\")\"; done" ;;
-            '󰈀  Network summary') open_terminal 'KaliPWM Network' "ip -brief address; printf '\\n'; ip route; printf '\\n'; command -v nmcli >/dev/null 2>&1 && nmcli connection show --active || true" ;;
-            '󰍹  Display summary') open_terminal 'KaliPWM Display' 'xrandr --current' ;;
+            '󰒓  Run kalipwm doctor') show_report 'KaliPWM Doctor' 'kalipwm doctor' ;;
+            '󰘳  Polybar log') show_report 'Polybar log' "if [ -f /tmp/polybar-obsidian-v2.log ]; then tail -n 120 /tmp/polybar-obsidian-v2.log; else printf 'Polybar log not found.\\n'; fi" ;;
+            '  Hardware summary') show_report 'Hardware summary' "printf '=== Sensors ===\\n'; sensors 2>/dev/null || true; printf '\\n=== Graphics ===\\n'; lspci 2>/dev/null | grep -Ei 'VGA|3D|Display' || true; printf '\\n=== Power ===\\n'; for f in /sys/class/power_supply/BAT*/capacity; do [ -r \"\$f\" ] && printf '%s: %s%%\\n' \"\$f\" \"\$(cat \"\$f\")\"; done" ;;
+            '󰈀  Network summary') show_report 'Network summary' "ip -brief address; printf '\\n'; ip route; printf '\\n'; command -v nmcli >/dev/null 2>&1 && nmcli connection show --active || true" ;;
+            '󰍹  Display summary') show_report 'Display summary' 'xrandr --current' ;;
             "$BACK"|'') return 0 ;;
         esac
     done
