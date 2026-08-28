@@ -10,6 +10,25 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+## 2026-08-28 — Hardware-adaptive Obsidian v2 Polybar
+
+### Changed
+
+- Obsidian v2 now builds its right-side Polybar module list dynamically at launch instead of assuming optional telemetry is always present.
+- GPU is included only when the existing GPU telemetry helper returns a real value.
+- Fan is included only when readable hwmon fan telemetry exists.
+- The fan block is now explicit and compact (`FAN <rpm>RPM`) and is positioned between GPU and RAM telemetry.
+- `fan-compact.sh` reports the highest current readable fan speed and emits no `N/A` placeholder when telemetry is unavailable.
+- The static fallback right-side ordering now matches the adaptive layout: CPU, GPU, fan, RAM, audio, power, time and system menu.
+
+### Validation
+
+- `bash -n CONFIGS/config/polybar/obsidian-v2/launch.sh` passed before deployment.
+- The branch was deployed directly to the primary bare-metal Kali host and both GPU and fan modules were confirmed loaded by the Polybar log checks.
+- `kalipwm doctor` confirmed battery, GPU and fan telemetry with `21 OK | 0 WARN | 0 FAIL | 7 INFO`.
+- Live fan telemetry rendered correctly in Polybar and tracked the host sensors rather than showing a dead placeholder.
+- A fresh reboot restored the adaptive layout successfully; post-reboot validation showed the fan block active at `FAN 2500RPM` alongside GPU, RAM, audio, power/battery and time.
+
 ## 2026-08-27 — Dynamic display and VMware-aware startup
 
 ### Changed

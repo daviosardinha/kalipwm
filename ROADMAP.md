@@ -260,17 +260,23 @@ Completed outcome:
 - bare-metal runtime validation showed no VMware desktop process before or after BSPWM restart;
 - final diagnostics reached `19 OK | 0 WARN | 0 FAIL | 9 INFO` on VMware and `20 OK | 0 WARN | 0 FAIL | 8 INFO` on bare metal.
 
-### ⏳ Hardware-adaptive Polybar
+### ✅ Hardware-adaptive Polybar
 
-Modules should disappear or degrade cleanly when hardware is unavailable.
+The Obsidian v2 right-side telemetry now adapts to optional GPU and fan telemetry instead of reserving dead blocks for hardware that is unavailable.
 
-Examples:
+Completed outcome:
 
-- no battery → hide battery block;
-- no readable GPU telemetry → hide/neutralize GPU block;
-- no fan sensors → hide fan block;
-- no VPN → show a clean disconnected state;
-- Ethernet/Wi-Fi presentation should reflect interfaces actually present.
+- `launch.sh` builds `KALIPWM_MODULES_RIGHT` dynamically before Polybar starts;
+- CPU, RAM, audio, power, clock and system-menu modules remain part of the stable baseline;
+- GPU is included only when the existing GPU telemetry helper returns a real value rather than an empty/`N/A` result;
+- fan is included only when `fan-compact.sh` finds readable `/sys/class/hwmon/hwmon*/fan*_input` telemetry;
+- the compact fan helper reports the highest current readable fan speed and emits no placeholder when telemetry disappears;
+- the visible ordering is `CPU → GPU → FAN → RAM → audio → power → time → system menu`, with optional GPU/fan blocks removed cleanly when unavailable;
+- `kalipwm doctor` reports battery, GPU and fan capability separately so optional hardware absence remains informational instead of being treated as a failure;
+- bare-metal validation confirmed both GPU and fan modules load with real telemetry and `kalipwm doctor` completed at `21 OK | 0 WARN | 0 FAIL | 7 INFO`;
+- a fresh reboot restored the adaptive Obsidian v2 bar successfully, including live fan telemetry (`FAN 2500RPM` during post-reboot validation).
+
+This completed step is intentionally scoped to optional GPU/fan module visibility. Existing compact battery/power and network/VPN presentation remain unchanged and can be refined independently without reopening this validated telemetry work.
 
 ---
 

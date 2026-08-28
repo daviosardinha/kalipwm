@@ -40,7 +40,8 @@ These are real screenshots captured while testing this fork. They are not inheri
 The current stable `main` includes:
 
 - BSPWM with Roman-numeral workspaces `I` through `X`.
-- Obsidian v2 Polybar with Wi-Fi interface/IP, VPN telemetry, Target state, CPU/GPU data, temperatures, RAM, fan RPM, audio, battery/AC and time.
+- Obsidian v2 Polybar with Wi-Fi interface/IP, VPN telemetry, Target state, CPU/GPU data, temperatures, fan RPM, RAM, audio, battery/AC and time.
+- Hardware-adaptive right-side telemetry: GPU and fan modules are included only when readable telemetry is available, avoiding dead `N/A` blocks on unsupported hardware.
 - Persistent per-user Target state that does **not** depend on VPN connectivity.
 - Obsidian Rofi launcher and compact power confirmation UI.
 - Selectable City and Nomad Kingdom wallpaper families.
@@ -311,15 +312,17 @@ The bar is deliberately compact. Detailed sensor information remains available f
 - VPN interface + VPN IP
 - current Target
 - CPU usage + temperature
-- GPU usage + temperature when available
+- GPU usage + temperature when readable telemetry is available
+- fan RPM when readable fan sensors are available
 - used RAM
-- compact fan RPM
 - volume
 - AC/battery state
 - time
 - power menu
 
-Base display/VM startup awareness is now environment-aware; hardware-adaptive Polybar module visibility remains planned for the next Phase 4 step.
+The right-side module list is built at launch time. GPU and fan modules are omitted when their telemetry is unavailable; supported hardware renders normally without leaving `N/A` placeholders. The fan helper scans readable `/sys/class/hwmon/hwmon*/fan*_input` sensors and reports the highest current RPM in a compact block.
+
+The hardware-adaptive layout was validated on the primary bare-metal host, including a fresh reboot. After reboot the bar restored the adaptive GPU/fan layout and live fan telemetry successfully.
 
 ## Main shortcuts
 
@@ -360,7 +363,7 @@ At a glance:
 - ✅ `kalipwm repair`
 - ✅ configuration backup and rollback
 - ✅ dynamic display handling and VMware-aware BSPWM startup
-- ⏳ hardware-adaptive Polybar modules
+- ✅ hardware-adaptive Polybar modules
 - ⏳ Rofi-based KaliPWM Control Center
 - ⏳ reproducibility/security hardening and a tagged `v1.0.0`
 
