@@ -6,7 +6,10 @@ DRY_RUN=0
 ACTION=""
 
 THEME_NAME="KaliPWM-Obsidian"
-GREETER_OVERRIDE="/etc/lightdm/lightdm-gtk-greeter.conf.d/90-kalipwm-obsidian.conf"
+BASE_GREETER="/etc/lightdm/lightdm-gtk-greeter.conf"
+LEGACY_OVERRIDE="/etc/lightdm/lightdm-gtk-greeter.conf.d/90-kalipwm-obsidian.conf"
+BACKUP_DIR="/var/lib/kalipwm/lightdm"
+BACKUP_GREETER="$BACKUP_DIR/lightdm-gtk-greeter.conf.pre-kalipwm"
 THEME_DEST="/usr/share/themes/$THEME_NAME"
 BACKGROUND_DIR="/usr/share/backgrounds/kalipwm"
 BACKGROUND_DEST="$BACKGROUND_DIR/obsidian-login.png"
@@ -22,9 +25,9 @@ Usage:
 Manage the KaliPWM Obsidian theme for the existing LightDM GTK Greeter.
 
 Commands:
-  install      Install or refresh KaliPWM-owned greeter files.
-  rollback     Remove only KaliPWM-owned greeter files and return to Kali defaults.
-  status       Show whether the KaliPWM greeter override is installed.
+  install      Install or refresh KaliPWM greeter styling safely.
+  rollback     Restore the exact pre-KaliPWM greeter config and remove theme files.
+  status       Show whether the KaliPWM greeter theme is installed.
   test         Launch LightDM in nested test mode (requires Xephyr).
 
 Options:
@@ -32,8 +35,10 @@ Options:
   --dry-run    Print system changes without modifying anything.
   -h, --help   Show this help.
 
-The installer never edits /etc/lightdm/lightdm-gtk-greeter.conf directly and
-never restarts LightDM automatically.
+LightDM GTK Greeter loads conf.d entries before its main config, so Kali's
+/etc/lightdm/lightdm-gtk-greeter.conf wins on duplicate keys. KaliPWM therefore
+backs up that file once and merges only the managed [greeter] keys into it.
+Rollback restores the exact backup. LightDM is never restarted automatically.
 HELP
 }
 
@@ -58,7 +63,7 @@ validate_repo() {
     fi
 
     for path in \
-        "CONFIGS/lightdm/90-kalipwm-obsidian.conf" \
+        "CONFIGS/lightdm/kalipwm-obsidian.conf" \
         "CONFIGS/themes/$THEME_NAME/index.theme" \
         "CONFIGS/themes/$THEME_NAME/gtk-3.0/gtk.css" \
         "WALLPAPERS/obsidian/obsidian-nomad-emblem-16x9.png"
@@ -80,68 +85,189 @@ validate_host() {
         printf 'lightdm-gtk-greeter is not installed on this system.\n' >&2
         return 1
     fi
+
+    if ! command -v python3 >/dev/null 2>&1; then
+        printf 'python3 is required to preserve and merge the LightDM greeter config.\n' >&2
+        return 1
+    fi
+
+    if [ ! -f "$BASE_GREETER" ]; then
+        printf 'Kali LightDM GTK Greeter config is missing: %s\n' "$BASE_GREETER" >&2
+        return 1
+    fi
+}
+
+build_merged_config() {
+    local config_src=$1 output=$2
+
+    python3 - "$BASE_GREETER" "$config_src" "$output" <<'PY'
+import re
+import sys
+from pathlib import Path
+
+base_path, override_path, output_path = map(Path, sys.argv[1:4])
+
+# Read the KaliPWM [greeter] fragment in source order.
+overrides = []
+in_greeter = False
+for raw in override_path.read_text(encoding="utf-8").splitlines():
+    stripped = raw.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        in_greeter = stripped.lower() == "[greeter]"
+        continue
+    if not in_greeter or not stripped or stripped.startswith(("#", ";")) or "=" not in raw:
+        continue
+    key, value = raw.split("=", 1)
+    overrides.append((key.strip(), value.strip()))
+
+override_keys = {key.lower() for key, _ in overrides}
+base_lines = base_path.read_text(encoding="utf-8").splitlines()
+out = []
+in_greeter = False
+found_greeter = False
+injected = False
+section_re = re.compile(r"^\s*\[([^]]+)\]\s*$")
+
+def inject():
+    global injected
+    if injected:
+        return
+    out.append("")
+    out.append("# KaliPWM managed greeter values. Restored exactly by kalipwm-lightdm rollback.")
+    out.extend(f"{key}={value}" for key, value in overrides)
+    injected = True
+
+for raw in base_lines:
+    match = section_re.match(raw)
+    if match:
+        if in_greeter:
+            inject()
+        in_greeter = match.group(1).strip().lower() == "greeter"
+        if in_greeter:
+            found_greeter = True
+        out.append(raw)
+        continue
+
+    if in_greeter:
+        stripped = raw.strip()
+        if stripped and not stripped.startswith(("#", ";")) and "=" in raw:
+            key = raw.split("=", 1)[0].strip().lower()
+            if key in override_keys:
+                continue
+    out.append(raw)
+
+if in_greeter:
+    inject()
+elif not found_greeter:
+    if out and out[-1] != "":
+        out.append("")
+    out.append("[greeter]")
+    inject()
+
+output_path.write_text("\n".join(out).rstrip() + "\n", encoding="utf-8")
+PY
 }
 
 install_theme() {
     local theme_src="$REPO/CONFIGS/themes/$THEME_NAME"
-    local config_src="$REPO/CONFIGS/lightdm/90-kalipwm-obsidian.conf"
+    local config_src="$REPO/CONFIGS/lightdm/kalipwm-obsidian.conf"
     local background_src="$REPO/WALLPAPERS/obsidian/obsidian-nomad-emblem-16x9.png"
+    local merged=""
 
     validate_host
 
     printf 'KaliPWM Obsidian LightDM theme\n'
     printf 'Repository: %s\n\n' "$REPO"
 
-    run_root install -d -m 0755 /etc/lightdm/lightdm-gtk-greeter.conf.d
     run_root install -d -m 0755 "$THEME_DEST/gtk-3.0"
     run_root install -d -m 0755 "$BACKGROUND_DIR"
+    run_root install -d -m 0700 "$BACKUP_DIR"
+
+    if [ ! -e "$BACKUP_GREETER" ]; then
+        if [ "$DRY_RUN" -eq 1 ]; then
+            printf '[DRY-RUN] capture exact pre-KaliPWM greeter config: %s -> %s\n' "$BASE_GREETER" "$BACKUP_GREETER"
+        else
+            sudo cp -a -- "$BASE_GREETER" "$BACKUP_GREETER"
+        fi
+    else
+        printf '[INFO] Existing pre-KaliPWM greeter backup preserved: %s\n' "$BACKUP_GREETER"
+    fi
 
     run_root install -m 0644 "$theme_src/index.theme" "$THEME_DEST/index.theme"
     run_root install -m 0644 "$theme_src/gtk-3.0/gtk.css" "$THEME_DEST/gtk-3.0/gtk.css"
     run_root install -m 0644 "$background_src" "$BACKGROUND_DEST"
-    run_root install -m 0644 "$config_src" "$GREETER_OVERRIDE"
+    run_root rm -f "$LEGACY_OVERRIDE"
 
-    if [ "$DRY_RUN" -eq 0 ]; then
-        if ! sudo -u lightdm test -r "$GREETER_OVERRIDE" \
+    if [ "$DRY_RUN" -eq 1 ]; then
+        printf '[DRY-RUN] merge %s [greeter] keys into %s\n' "$config_src" "$BASE_GREETER"
+    else
+        merged="$(mktemp)"
+        trap 'rm -f "$merged"' RETURN
+        build_merged_config "$config_src" "$merged"
+        sudo install -m 0644 "$merged" "$BASE_GREETER"
+        rm -f "$merged"
+        trap - RETURN
+
+        if ! sudo -u lightdm test -r "$BASE_GREETER" \
             || ! sudo -u lightdm test -r "$THEME_DEST/gtk-3.0/gtk.css" \
             || ! sudo -u lightdm test -r "$BACKGROUND_DEST"; then
             printf 'Installed greeter files are not readable by the lightdm user.\n' >&2
             return 1
         fi
+
+        if ! grep -q '^theme-name=KaliPWM-Obsidian$' "$BASE_GREETER"; then
+            printf 'KaliPWM greeter values were not merged into the active config.\n' >&2
+            return 1
+        fi
     fi
 
     printf '\nKaliPWM LightDM files installed.\n'
-    printf 'Kali base greeter configuration was not modified.\n'
+    printf 'Exact pre-KaliPWM greeter config backup: %s\n' "$BACKUP_GREETER"
     printf 'No display-manager restart was performed.\n'
     printf 'Run: bash SCRIPTS/kalipwm-lightdm --repo "%s" test\n' "$REPO"
 }
 
 rollback_theme() {
     printf 'KaliPWM LightDM rollback\n\n'
-    run_root rm -f "$GREETER_OVERRIDE"
+
+    if [ -e "$BACKUP_GREETER" ]; then
+        if [ "$DRY_RUN" -eq 1 ]; then
+            printf '[DRY-RUN] restore exact greeter config: %s -> %s\n' "$BACKUP_GREETER" "$BASE_GREETER"
+        else
+            sudo cp -a -- "$BACKUP_GREETER" "$BASE_GREETER"
+            sudo rm -f -- "$BACKUP_GREETER"
+        fi
+    else
+        printf '[INFO] No KaliPWM greeter backup exists; active greeter config was not changed by rollback.\n'
+    fi
+
+    run_root rm -f "$LEGACY_OVERRIDE"
     run_root rm -f "$BACKGROUND_DEST"
     run_root rm -rf "$THEME_DEST"
 
     if [ "$DRY_RUN" -eq 0 ]; then
         if [ -d "$BACKGROUND_DIR" ] && [ -z "$(find "$BACKGROUND_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
-            run_root rmdir "$BACKGROUND_DIR"
+            sudo rmdir "$BACKGROUND_DIR" 2>/dev/null || true
+        fi
+        if [ -d "$BACKUP_DIR" ] && [ -z "$(find "$BACKUP_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+            sudo rmdir "$BACKUP_DIR" 2>/dev/null || true
+            sudo rmdir /var/lib/kalipwm 2>/dev/null || true
         fi
     fi
 
-    printf '\nKaliPWM-owned LightDM files removed.\n'
-    printf 'Kali defaults in /etc/lightdm/lightdm-gtk-greeter.conf remain untouched.\n'
+    printf '\nKaliPWM-owned LightDM theme files removed.\n'
+    printf 'The exact pre-KaliPWM greeter config was restored when a backup was present.\n'
     printf 'No display-manager restart was performed.\n'
 }
 
 show_status() {
-    local installed=1
+    local installed=1 item
 
     printf 'KaliPWM Obsidian LightDM status\n'
     printf 'Display manager: '
     readlink -f /etc/systemd/system/display-manager.service 2>/dev/null || printf 'unknown\n'
 
     for item in \
-        "$GREETER_OVERRIDE" \
         "$THEME_DEST/index.theme" \
         "$THEME_DEST/gtk-3.0/gtk.css" \
         "$BACKGROUND_DEST"
@@ -153,6 +279,21 @@ show_status() {
             installed=0
         fi
     done
+
+    if [ -r "$BACKUP_GREETER" ]; then
+        printf '[OK] rollback backup: %s\n' "$BACKUP_GREETER"
+    else
+        printf '[MISS] rollback backup: %s\n' "$BACKUP_GREETER"
+        installed=0
+    fi
+
+    if grep -q '^theme-name=KaliPWM-Obsidian$' "$BASE_GREETER" 2>/dev/null \
+        && grep -q '^background=/usr/share/backgrounds/kalipwm/obsidian-login.png$' "$BASE_GREETER" 2>/dev/null; then
+        printf '[OK] active greeter config selects KaliPWM Obsidian\n'
+    else
+        printf '[MISS] active greeter config does not select KaliPWM Obsidian\n'
+        installed=0
+    fi
 
     if [ "$installed" -eq 1 ]; then
         printf 'State: installed\n'
@@ -166,7 +307,7 @@ test_theme() {
 
     validate_host
 
-    if [ ! -r "$GREETER_OVERRIDE" ]; then
+    if ! grep -q '^theme-name=KaliPWM-Obsidian$' "$BASE_GREETER" 2>/dev/null; then
         printf 'Install the KaliPWM greeter theme before running test mode.\n' >&2
         return 1
     fi
