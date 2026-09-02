@@ -8,6 +8,7 @@ DEFAULT_MINUTES=25
 MAX_CUSTOM_MINUTES=720
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPLETION_THEME="$SCRIPT_DIR/pomodoro-complete.rasi"
+MENU_THEME="$SCRIPT_DIR/pomodoro-menu.rasi"
 STATE_DIR="${KALIPWM_POMODORO_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/kalipwm}"
 STATE_FILE="$STATE_DIR/pomodoro.state"
 NO_UI="${KALIPWM_POMODORO_NO_UI:-${KALIPWM_POMODORO_NO_NOTIFY:-0}}"
@@ -265,21 +266,37 @@ open_menu() {
 
     command -v rofi >/dev/null 2>&1 || return 0
 
-    choice=$(printf '%s\n' \
-        '60 minutes' \
-        '45 minutes' \
-        '30 minutes' \
-        '25 minutes' \
-        '20 minutes' \
-        '15 minutes' \
-        '10 minutes' \
-        '5 minutes' \
-        'Custom…' | rofi -dmenu -i -p 'Focus timer') || return 0
+    choice="$(
+        printf '%s\n' \
+            '60 minutes' \
+            '45 minutes' \
+            '30 minutes' \
+            '25 minutes' \
+            '20 minutes' \
+            '15 minutes' \
+            '10 minutes' \
+            '5 minutes' \
+            'Custom…' |
+            rofi \
+                -dmenu \
+                -i \
+                -p '󰔟  Focus timer' \
+                -theme "$MENU_THEME"
+    )" || return 0
 
     [[ -n "$choice" ]] || return 0
 
     if [[ "$choice" == "Custom…" ]]; then
-        custom=$(printf '%s' '' | rofi -dmenu -p "Minutes (1-${MAX_CUSTOM_MINUTES})") || return 0
+        custom="$(
+            printf '%s' '' |
+                rofi \
+                    -dmenu \
+                    -p '󰔟  Custom timer' \
+                    -mesg "Enter whole minutes from 1 to ${MAX_CUSTOM_MINUTES}." \
+                    -theme "$MENU_THEME" \
+                    -theme-str 'listview { enabled: false; }'
+        )" || return 0
+
         if ! valid_minutes "$custom"; then
             if command -v notify-send >/dev/null 2>&1; then
                 notify-send -a KaliPWM -u low "Focus timer" "Enter a whole number from 1 to ${MAX_CUSTOM_MINUTES}." >/dev/null 2>&1 || true
