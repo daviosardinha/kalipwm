@@ -4,6 +4,7 @@ set -euo pipefail
 repo_root="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 script="$repo_root/CONFIGS/config/polybar/obsidian-v2/scripts/pomodoro.sh"
 completion_theme="$repo_root/CONFIGS/config/polybar/obsidian-v2/scripts/pomodoro-complete.rasi"
+menu_theme="$repo_root/CONFIGS/config/polybar/obsidian-v2/scripts/pomodoro-menu.rasi"
 config="$repo_root/CONFIGS/config/polybar/obsidian-v2/config.ini"
 modules="$repo_root/CONFIGS/config/polybar/obsidian-v2/modules.ini"
 icons="$repo_root/CONFIGS/config/polybar/obsidian-v2/icons.ini"
@@ -26,7 +27,12 @@ assert_eq() {
 
 bash -n "$script"
 [[ -s "$completion_theme" ]] || fail 'completion Rofi theme is missing'
+[[ -s "$menu_theme" ]] || fail 'timer menu Rofi theme is missing'
 grep -q '^window {' "$completion_theme" || fail 'completion Rofi theme has no window block'
+grep -q '^window {' "$menu_theme" || fail 'timer menu Rofi theme has no window block'
+grep -q 'background:     #0B0D12;' "$menu_theme" || fail 'timer menu does not use Obsidian background'
+grep -q 'MENU_THEME=' "$script" || fail 'timer menu theme is not wired into the script'
+grep -q -- '-theme "$MENU_THEME"' "$script" || fail 'timer menu does not invoke its Rofi theme'
 grep -q 'FOCUS COMPLETE' "$script" || fail 'completion card title is missing'
 grep -q 'Take a 5m break' "$script" || fail 'completion card break action is missing'
 grep -q 'timeout 10s rofi' "$script" || fail 'completion card does not auto-dismiss'
