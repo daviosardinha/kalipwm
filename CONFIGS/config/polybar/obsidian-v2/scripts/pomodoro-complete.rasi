@@ -1,8 +1,8 @@
 * {
-    background:     #F20B0D12;
-    background-alt: #F2181B24;
-    foreground:     #D9DCE5;
-    muted:          #7C8291;
+    background:     #0B0D12;
+    background-alt: #181B24;
+    foreground:     #E7EAF0;
+    muted:          #9AA1B2;
     violet:         #9B7EDE;
     violet-bright:  #B9A3F4;
 
@@ -41,6 +41,8 @@ prompt {
 
 message {
     background-color: @background-alt;
+    border: 1px;
+    border-color: #2A2E3A;
     border-radius: 8px;
     padding: 12px;
 }
@@ -63,13 +65,16 @@ listview {
 element {
     background-color: @background-alt;
     text-color: @foreground;
+    border: 1px;
+    border-color: #2A2E3A;
     border-radius: 8px;
     padding: 10px 14px;
 }
 
 element selected {
-    background-color: @violet;
-    text-color: @background;
+    background-color: @violet-bright;
+    text-color: #0B0D12;
+    border-color: @violet-bright;
 }
 
 element-text {
