@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO="${KALIPWM_REPO:-$HOME/kalipwm}"
+DRY_RUN=0
+ACTION=""
+
+THEME_NAME="KaliPWM-Obsidian"
+GREETER_OVERRIDE="/etc/lightdm/lightdm-gtk-greeter.conf.d/90-kalipwm-obsidian.conf"
+THEME_DEST="/usr/share/themes/$THEME_NAME"
+BACKGROUND_DIR="/usr/share/backgrounds/kalipwm"
+BACKGROUND_DEST="$BACKGROUND_DIR/obsidian-login.png"
+
+usage() {
+    cat <<'HELP'
+Usage:
+  kalipwm-lightdm [--repo PATH] [--dry-run] install
+  kalipwm-lightdm [--repo PATH] [--dry-run] rollback
+  kalipwm-lightdm [--repo PATH] status
+  kalipwm-lightdm [--repo PATH] test
+
+Manage the KaliPWM Obsidian theme for the existing LightDM GTK Greeter.
+
+Commands:
+  install      Install or refresh KaliPWM-owned greeter files.
+  rollback     Remove only KaliPWM-owned greeter files and return to Kali defaults.
+  status       Show whether the KaliPWM greeter override is installed.
+  test         Launch LightDM in nested test mode (requires Xephyr).
+
+Options:
+  --repo PATH  Use a KaliPWM checkout other than ~/kalipwm.
+  --dry-run    Print system changes without modifying anything.
+  -h, --help   Show this help.
+
+The installer never edits /etc/lightdm/lightdm-gtk-greeter.conf directly and
+never restarts LightDM automatically.
+HELP
+}
+
+run_root() {
+    if [ "$DRY_RUN" -eq 1 ]; then
+        printf '[DRY-RUN]'
+        printf ' %q' "$@"
+        printf '\n'
+        return 0
+    fi
+    sudo "$@"
+}
+
+validate_repo() {
+    local path
+
+    REPO="$(readlink -f "$REPO" 2>/dev/null || printf '%s' "$REPO")"
+
+    if [ ! -d "$REPO/.git" ]; then
+        printf 'KaliPWM repository is not a Git checkout: %s\n' "$REPO" >&2
+        return 1
+    fi
+
+    for path in \
+        "CONFIGS/lightdm/90-kalipwm-obsidian.conf" \
+        "CONFIGS/themes/$THEME_NAME/index.theme" \
+        "CONFIGS/themes/$THEME_NAME/gtk-3.0/gtk.css" \
+        "WALLPAPERS/obsidian/obsidian-nomad-emblem-16x9.png"
+    do
+        if [ ! -f "$REPO/$path" ]; then
+            printf 'KaliPWM LightDM source is missing: %s\n' "$REPO/$path" >&2
+            return 1
+        fi
+    done
+}
+
+validate_host() {
+    if ! command -v lightdm >/dev/null 2>&1; then
+        printf 'LightDM is not installed on this system.\n' >&2
+        return 1
+    fi
+
+    if ! command -v lightdm-gtk-greeter >/dev/null 2>&1; then
+        printf 'lightdm-gtk-greeter is not installed on this system.\n' >&2
+        return 1
+    fi
+}
+
+install_theme() {
+    local theme_src="$REPO/CONFIGS/themes/$THEME_NAME"
+    local config_src="$REPO/CONFIGS/lightdm/90-kalipwm-obsidian.conf"
+    local background_src="$REPO/WALLPAPERS/obsidian/obsidian-nomad-emblem-16x9.png"
+
+    validate_host
+
+    printf 'KaliPWM Obsidian LightDM theme\n'
+    printf 'Repository: %s\n\n' "$REPO"
+
+    run_root install -d -m 0755 /etc/lightdm/lightdm-gtk-greeter.conf.d
+    run_root install -d -m 0755 "$THEME_DEST/gtk-3.0"
+    run_root install -d -m 0755 "$BACKGROUND_DIR"
+
+    run_root install -m 0644 "$theme_src/index.theme" "$THEME_DEST/index.theme"
+    run_root install -m 0644 "$theme_src/gtk-3.0/gtk.css" "$THEME_DEST/gtk-3.0/gtk.css"
+    run_root install -m 0644 "$background_src" "$BACKGROUND_DEST"
+    run_root install -m 0644 "$config_src" "$GREETER_OVERRIDE"
+
+    if [ "$DRY_RUN" -eq 0 ]; then
+        if ! sudo -u lightdm test -r "$GREETER_OVERRIDE" \
+            || ! sudo -u lightdm test -r "$THEME_DEST/gtk-3.0/gtk.css" \
+            || ! sudo -u lightdm test -r "$BACKGROUND_DEST"; then
+            printf 'Installed greeter files are not readable by the lightdm user.\n' >&2
+            return 1
+        fi
+    fi
+
+    printf '\nKaliPWM LightDM files installed.\n'
+    printf 'Kali base greeter configuration was not modified.\n'
+    printf 'No display-manager restart was performed.\n'
+    printf 'Run: bash SCRIPTS/kalipwm-lightdm --repo "%s" test\n' "$REPO"
+}
+
+rollback_theme() {
+    printf 'KaliPWM LightDM rollback\n\n'
+    run_root rm -f "$GREETER_OVERRIDE"
+    run_root rm -f "$BACKGROUND_DEST"
+    run_root rm -rf "$THEME_DEST"
+
+    if [ "$DRY_RUN" -eq 0 ]; then
+        if [ -d "$BACKGROUND_DIR" ] && [ -z "$(find "$BACKGROUND_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]; then
+            run_root rmdir "$BACKGROUND_DIR"
+        fi
+    fi
+
+    printf '\nKaliPWM-owned LightDM files removed.\n'
+    printf 'Kali defaults in /etc/lightdm/lightdm-gtk-greeter.conf remain untouched.\n'
+    printf 'No display-manager restart was performed.\n'
+}
+
+show_status() {
+    local installed=1
+
+    printf 'KaliPWM Obsidian LightDM status\n'
+    printf 'Display manager: '
+    readlink -f /etc/systemd/system/display-manager.service 2>/dev/null || printf 'unknown\n'
+
+    for item in \
+        "$GREETER_OVERRIDE" \
+        "$THEME_DEST/index.theme" \
+        "$THEME_DEST/gtk-3.0/gtk.css" \
+        "$BACKGROUND_DEST"
+    do
+        if [ -r "$item" ]; then
+            printf '[OK] %s\n' "$item"
+        else
+            printf '[MISS] %s\n' "$item"
+            installed=0
+        fi
+    done
+
+    if [ "$installed" -eq 1 ]; then
+        printf 'State: installed\n'
+    else
+        printf 'State: not fully installed\n'
+    fi
+}
+
+test_theme() {
+    validate_host
+
+    if [ ! -r "$GREETER_OVERRIDE" ]; then
+        printf 'Install the KaliPWM greeter theme before running test mode.\n' >&2
+        return 1
+    fi
+
+    if ! command -v Xephyr >/dev/null 2>&1; then
+        printf 'Xephyr is required for nested LightDM test mode.\n' >&2
+        printf 'Install it on the VM with: sudo apt install xserver-xephyr\n' >&2
+        return 2
+    fi
+
+    printf 'Launching LightDM nested test mode. Close the Xephyr window to exit.\n'
+    printf 'This does not restart the active display manager.\n\n'
+    exec sudo -u lightdm lightdm --test-mode --debug
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --repo)
+            if [ "$#" -lt 2 ]; then
+                printf '--repo requires a path.\n' >&2
+                exit 2
+            fi
+            REPO="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        install|rollback|status|test)
+            if [ -n "$ACTION" ]; then
+                printf 'Only one action may be specified.\n' >&2
+                exit 2
+            fi
+            ACTION="$1"
+            shift
+            ;;
+        *)
+            printf 'Unknown option or action: %s\n\n' "$1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
+done
+
+if [ -z "$ACTION" ]; then
+    usage >&2
+    exit 2
+fi
+
+validate_repo
+
+case "$ACTION" in
+    install) install_theme ;;
+    rollback) rollback_theme ;;
+    status) show_status ;;
+    test) test_theme ;;
+esac

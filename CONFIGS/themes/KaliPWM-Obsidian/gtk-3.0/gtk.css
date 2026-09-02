@@ -1,0 +1,195 @@
+@define-color obsidian_bg #0b0d12;
+@define-color obsidian_surface #151821;
+@define-color obsidian_surface_alt #1b1f2a;
+@define-color obsidian_border #2b3040;
+@define-color obsidian_fg #d9dce5;
+@define-color obsidian_muted #7c8291;
+@define-color obsidian_violet #9b7ede;
+@define-color obsidian_violet_bright #b9a3f4;
+@define-color obsidian_danger #ef6b73;
+
+.lightdm-gtk-greeter {
+    color: @obsidian_fg;
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 11pt;
+}
+
+#panel_window {
+    background-color: alpha(@obsidian_bg, 0.94);
+    color: @obsidian_fg;
+    border-bottom: 1px solid alpha(@obsidian_violet, 0.85);
+    box-shadow: 0 8px 24px alpha(black, 0.32);
+}
+
+#panel_window menubar,
+#panel_window menubar > menuitem,
+#panel_window .menubar,
+#panel_window .menubar > .menuitem {
+    background-color: transparent;
+    color: @obsidian_fg;
+    border: none;
+    padding: 5px 9px;
+}
+
+#panel_window menu,
+#panel_window .menu {
+    background-color: @obsidian_surface;
+    color: @obsidian_fg;
+    border: 1px solid @obsidian_violet;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+#panel_window menuitem,
+#panel_window .menuitem {
+    background-color: transparent;
+    color: @obsidian_fg;
+    border-radius: 6px;
+    padding: 7px 10px;
+}
+
+#panel_window menuitem:hover,
+#panel_window .menuitem:hover {
+    background-color: @obsidian_violet;
+    color: @obsidian_bg;
+}
+
+#login_window,
+#power_window,
+#shutdown_dialog,
+#restart_dialog {
+    background-color: alpha(@obsidian_bg, 0.97);
+    color: @obsidian_fg;
+    border: 1px solid @obsidian_violet;
+    border-radius: 16px;
+    box-shadow:
+        0 18px 48px alpha(black, 0.62),
+        inset 0 0 0 1px alpha(@obsidian_violet_bright, 0.12);
+}
+
+#content_frame {
+    padding: 30px 34px 18px 34px;
+}
+
+#buttonbox_frame {
+    padding: 10px 34px 28px 34px;
+    background-color: transparent;
+    border: none;
+}
+
+#user_combobox,
+#login_window combobox,
+#login_window GtkComboBox {
+    color: @obsidian_fg;
+    font-weight: 600;
+}
+
+#login_window combobox button,
+#login_window GtkComboBox .button {
+    background-color: @obsidian_surface;
+    background-image: none;
+    color: @obsidian_fg;
+    border: 1px solid @obsidian_border;
+    border-radius: 8px;
+    box-shadow: none;
+    padding: 8px 10px;
+}
+
+#login_window combobox button:focus,
+#login_window combobox button:hover,
+#login_window GtkComboBox .button:focus,
+#login_window GtkComboBox .button:hover {
+    border-color: @obsidian_violet_bright;
+}
+
+#login_window entry,
+#login_window .entry {
+    min-height: 38px;
+    background-color: @obsidian_surface;
+    background-image: none;
+    color: @obsidian_fg;
+    caret-color: @obsidian_violet_bright;
+    border: 1px solid @obsidian_border;
+    border-radius: 8px;
+    box-shadow: none;
+    padding: 5px 11px;
+}
+
+#login_window entry selection,
+#login_window .entry selection {
+    background-color: @obsidian_violet;
+    color: @obsidian_bg;
+}
+
+#login_window entry:focus,
+#login_window entry:hover,
+#login_window .entry:focus,
+#login_window .entry:hover {
+    border-color: @obsidian_violet_bright;
+    box-shadow: 0 0 0 1px alpha(@obsidian_violet, 0.24);
+}
+
+#login_window button,
+#login_window .button,
+#power_window button,
+#shutdown_dialog button,
+#restart_dialog button {
+    min-height: 34px;
+    background-color: @obsidian_surface_alt;
+    background-image: none;
+    color: @obsidian_fg;
+    border: 1px solid @obsidian_border;
+    border-radius: 8px;
+    box-shadow: none;
+    padding: 7px 16px;
+}
+
+#login_window button:hover,
+#login_window .button:hover,
+#power_window button:hover,
+#shutdown_dialog button:hover,
+#restart_dialog button:hover {
+    border-color: @obsidian_violet;
+    background-color: #222735;
+}
+
+#login_button,
+#login_window button.default,
+#login_window .button.default,
+#login_window button:focus,
+#login_window .button:focus {
+    background-color: @obsidian_violet;
+    background-image: none;
+    color: @obsidian_bg;
+    border-color: @obsidian_violet_bright;
+    font-weight: 700;
+}
+
+#login_button:hover,
+#login_window button.default:hover,
+#login_window .button.default:hover {
+    background-color: @obsidian_violet_bright;
+    color: @obsidian_bg;
+}
+
+#greeter_infobar {
+    background-color: alpha(@obsidian_danger, 0.16);
+    color: #ffd9dc;
+    border: 1px solid alpha(@obsidian_danger, 0.65);
+    border-radius: 8px;
+}
+
+#user_image,
+#user_image_border {
+    border-radius: 50%;
+    box-shadow: none;
+    background-color: transparent;
+}
+
+tooltip,
+tooltip.background {
+    background-color: @obsidian_surface;
+    color: @obsidian_fg;
+    border: 1px solid @obsidian_violet;
+    border-radius: 6px;
+}
