@@ -39,7 +39,9 @@ if grep -Eq '^[[:space:]]*(run_root|sudo)[[:space:]].*/etc/lightdm/lightdm-gtk-g
     fail 'management script appears to modify Kali base greeter configuration'
 fi
 grep -q 'No display-manager restart was performed' "$script" || fail 'script does not explicitly preserve the active session'
-grep -q 'sudo -u lightdm lightdm --test-mode --debug' "$script" || fail 'nested LightDM test path is missing'
+grep -q 'xhost +SI:localuser:lightdm' "$script" || fail 'nested preview does not grant temporary lightdm X access'
+grep -q 'xhost -SI:localuser:lightdm' "$script" || fail 'nested preview does not revoke temporary lightdm X access'
+grep -q 'sudo -u lightdm env DISPLAY="\$DISPLAY" lightdm --test-mode --debug' "$script" || fail 'nested LightDM test path is missing'
 
 dry_run="$("$script" --repo "$repo_root" --dry-run install)"
 grep -q '/etc/lightdm/lightdm-gtk-greeter.conf.d/90-kalipwm-obsidian.conf' <<<"$dry_run" || fail 'dry-run does not install the isolated override'
