@@ -33,7 +33,9 @@ grep -q '@define-color obsidian_violet #9b7ede;' "$css" || fail 'Obsidian violet
 grep -q '@define-color obsidian_bg #0b0d12;' "$css" || fail 'Obsidian background token is missing'
 
 grep -q 'GREETER_OVERRIDE="/etc/lightdm/lightdm-gtk-greeter.conf.d/90-kalipwm-obsidian.conf"' "$script" || fail 'managed greeter override path changed'
-if grep -Eq '(sed|tee|cp|install).*/etc/lightdm/lightdm-gtk-greeter\.conf([^.]|$)' "$script"; then
+# Inspect executable mutation statements only. Do not match documentation text such
+# as "The installer never edits /etc/lightdm/lightdm-gtk-greeter.conf directly".
+if grep -Eq '^[[:space:]]*(run_root|sudo)[[:space:]].*/etc/lightdm/lightdm-gtk-greeter\.conf([[:space:]"'"'"']|$)' "$script"; then
     fail 'management script appears to modify Kali base greeter configuration'
 fi
 grep -q 'No display-manager restart was performed' "$script" || fail 'script does not explicitly preserve the active session'
