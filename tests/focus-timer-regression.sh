@@ -3,6 +3,7 @@ set -euo pipefail
 
 repo_root="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 script="$repo_root/CONFIGS/config/polybar/obsidian-v2/scripts/pomodoro.sh"
+completion_theme="$repo_root/CONFIGS/config/polybar/obsidian-v2/scripts/pomodoro-complete.rasi"
 config="$repo_root/CONFIGS/config/polybar/obsidian-v2/config.ini"
 modules="$repo_root/CONFIGS/config/polybar/obsidian-v2/modules.ini"
 icons="$repo_root/CONFIGS/config/polybar/obsidian-v2/icons.ini"
@@ -11,7 +12,7 @@ tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
 export KALIPWM_POMODORO_STATE_DIR="$tmpdir/state"
-export KALIPWM_POMODORO_NO_NOTIFY=1
+export KALIPWM_POMODORO_NO_UI=1
 
 fail() {
     printf '[FAIL] %s\n' "$1" >&2
@@ -24,6 +25,12 @@ assert_eq() {
 }
 
 bash -n "$script"
+[[ -s "$completion_theme" ]] || fail 'completion Rofi theme is missing'
+grep -q '^window {' "$completion_theme" || fail 'completion Rofi theme has no window block'
+grep -q 'FOCUS COMPLETE' "$script" || fail 'completion card title is missing'
+grep -q 'Take a 5m break' "$script" || fail 'completion card break action is missing'
+grep -q 'timeout 10s rofi' "$script" || fail 'completion card does not auto-dismiss'
+
 assert_eq '25m' "$("$script" status)" 'default timer'
 
 "$script" set 1
@@ -59,6 +66,8 @@ fi
 if "$script" set 721 >/dev/null 2>&1; then
     fail 'custom duration above the supported maximum was accepted'
 fi
+
+"$script" preview 25 >/dev/null 2>&1 || fail 'completion preview command failed with UI disabled'
 
 mkdir -p "$KALIPWM_POMODORO_STATE_DIR"
 cat > "$KALIPWM_POMODORO_STATE_DIR/pomodoro.state" <<'STATE'
