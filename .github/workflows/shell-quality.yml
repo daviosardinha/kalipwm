@@ -36,3 +36,6 @@ jobs:
 
       - name: Validate Flameshot X11 fallback
         run: bash tests/flameshot-x11-regression.sh
+
+      - name: Validate Polybar focus timer
+        run: bash tests/focus-timer-regression.sh

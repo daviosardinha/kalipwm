@@ -14,7 +14,7 @@ if [ -n "$fan_value" ] && [ "$fan_value" != "N/A" ]; then
     modules_right+=(fan)
 fi
 
-modules_right+=(memory audio power date sysmenu)
+modules_right+=(memory audio power pomodoro date sysmenu)
 export KALIPWM_MODULES_RIGHT="${modules_right[*]}"
 
 killall -q polybar
