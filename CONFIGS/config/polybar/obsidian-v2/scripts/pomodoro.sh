@@ -6,9 +6,11 @@
 PRESETS=(5 10 15 20 25 30 45 60)
 DEFAULT_MINUTES=25
 MAX_CUSTOM_MINUTES=720
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPLETION_THEME="$SCRIPT_DIR/pomodoro-complete.rasi"
 STATE_DIR="${KALIPWM_POMODORO_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/kalipwm}"
 STATE_FILE="$STATE_DIR/pomodoro.state"
-NO_NOTIFY="${KALIPWM_POMODORO_NO_NOTIFY:-0}"
+NO_UI="${KALIPWM_POMODORO_NO_UI:-${KALIPWM_POMODORO_NO_NOTIFY:-0}}"
 
 selected=$DEFAULT_MINUTES
 status="idle"
@@ -64,25 +66,82 @@ save_state() {
     mv -f "$tmp" "$STATE_FILE"
 }
 
-notify_complete() {
-    [[ "$NO_NOTIFY" == "1" ]] && return 0
-    command -v notify-send >/dev/null 2>&1 || return 0
-    notify-send -a KaliPWM -u normal "Focus timer complete" "${selected} minute session finished." >/dev/null 2>&1 || true
+play_completion_sound() {
+    [[ "$NO_UI" == "1" ]] && return 0
+
+    if command -v canberra-gtk-play >/dev/null 2>&1; then
+        canberra-gtk-play -i complete >/dev/null 2>&1 || true
+        return 0
+    fi
+
+    if command -v paplay >/dev/null 2>&1 && [[ -r /usr/share/sounds/freedesktop/stereo/complete.oga ]]; then
+        paplay /usr/share/sounds/freedesktop/stereo/complete.oga >/dev/null 2>&1 || true
+    fi
+}
+
+show_completion_card() {
+    local finished_minutes=$1 choice
+
+    [[ "$NO_UI" == "1" ]] && return 0
+
+    if ! command -v rofi >/dev/null 2>&1; then
+        if command -v notify-send >/dev/null 2>&1; then
+            notify-send -a KaliPWM -u normal "Focus complete" "${finished_minutes} minute session finished." >/dev/null 2>&1 || true
+        fi
+        return 0
+    fi
+
+    play_completion_sound
+
+    choice="$(
+        printf '%s\n' \
+            'Take a 5m break' \
+            "Repeat ${finished_minutes}m" \
+            'Dismiss' |
+            timeout 10s rofi \
+                -dmenu \
+                -i \
+                -no-custom \
+                -p '󰔟  FOCUS COMPLETE' \
+                -mesg "${finished_minutes} minute session finished. Nice work." \
+                -theme "$COMPLETION_THEME" 2>/dev/null
+    )" || return 0
+
+    case "$choice" in
+        'Take a 5m break')
+            start_minutes 5
+            ;;
+        "Repeat ${finished_minutes}m")
+            start_minutes "$finished_minutes"
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+launch_completion_card() {
+    local finished_minutes=$1
+
+    (
+        show_completion_card "$finished_minutes"
+    ) >/dev/null 2>&1 &
 }
 
 process_expiry() {
-    local now
+    local now finished_minutes
 
     [[ "$status" == "running" ]] || return 0
     now=$(date +%s)
 
     if (( end_epoch <= now )); then
+        finished_minutes=$selected
         status="idle"
         end_epoch=0
         remaining=$((selected * 60))
         flash_until=$((now + 5))
         save_state
-        notify_complete
+        launch_completion_card "$finished_minutes"
     fi
 }
 
@@ -235,9 +294,16 @@ open_menu() {
     start_minutes "$minutes"
 }
 
+preview_completion() {
+    local minutes=${1:-$selected}
+
+    valid_minutes "$minutes" || return 1
+    show_completion_card "$((10#$minutes))"
+}
+
 usage() {
     cat <<'USAGE'
-Usage: pomodoro.sh [status|toggle|reset|next|prev|menu|set MINUTES]
+Usage: pomodoro.sh [status|toggle|reset|next|prev|menu|set MINUTES|preview [MINUTES]]
 USAGE
 }
 
@@ -256,6 +322,13 @@ case "${1:-status}" in
             exit 2
         fi
         start_minutes "$2"
+        ;;
+    preview)
+        if [[ $# -gt 2 ]] || { [[ $# -eq 2 ]] && ! valid_minutes "$2"; }; then
+            usage >&2
+            exit 2
+        fi
+        preview_completion "${2:-$selected}"
         ;;
     -h|--help|help) usage ;;
     *) usage >&2; exit 2 ;;
