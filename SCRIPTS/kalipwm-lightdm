@@ -107,7 +107,6 @@ from pathlib import Path
 
 base_path, override_path, output_path = map(Path, sys.argv[1:4])
 
-# Read the KaliPWM [greeter] fragment in source order.
 overrides = []
 in_greeter = False
 for raw in override_path.read_text(encoding="utf-8").splitlines():
@@ -174,7 +173,9 @@ install_theme() {
     local background_src="$REPO/WALLPAPERS/obsidian/obsidian-nomad-emblem-16x9.png"
     local merged=""
 
-    validate_host
+    if [ "$DRY_RUN" -eq 0 ]; then
+        validate_host
+    fi
 
     printf 'KaliPWM Obsidian LightDM theme\n'
     printf 'Repository: %s\n\n' "$REPO"
@@ -202,11 +203,15 @@ install_theme() {
         printf '[DRY-RUN] merge %s [greeter] keys into %s\n' "$config_src" "$BASE_GREETER"
     else
         merged="$(mktemp)"
-        trap 'rm -f "$merged"' RETURN
-        build_merged_config "$config_src" "$merged"
-        sudo install -m 0644 "$merged" "$BASE_GREETER"
+        if ! build_merged_config "$config_src" "$merged"; then
+            rm -f "$merged"
+            return 1
+        fi
+        if ! sudo install -m 0644 "$merged" "$BASE_GREETER"; then
+            rm -f "$merged"
+            return 1
+        fi
         rm -f "$merged"
-        trap - RETURN
 
         if ! sudo -u lightdm test -r "$BASE_GREETER" \
             || ! sudo -u lightdm test -r "$THEME_DEST/gtk-3.0/gtk.css" \
