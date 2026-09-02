@@ -31,6 +31,8 @@ grep -q '^#login_window,' "$css" || fail 'login card styling is missing'
 grep -q '#login_button' "$css" || fail 'login button styling is missing'
 grep -q '#login_window #login_button' "$css" || fail 'primary login action is not explicitly themed'
 grep -q 'min-width: 280px;' "$css" || fail 'login card inputs are not using the refined width'
+grep -q 'background-color: alpha(@obsidian_bg, 0.94);' "$css" || fail 'validated translucent card opacity changed'
+grep -q 'border: 2px solid alpha(@obsidian_violet_bright, 0.95);' "$css" || fail 'validated login card border changed'
 grep -q '@define-color obsidian_violet #9b7ede;' "$css" || fail 'Obsidian violet token is missing'
 grep -q '@define-color obsidian_bg #0b0d12;' "$css" || fail 'Obsidian background token is missing'
 
