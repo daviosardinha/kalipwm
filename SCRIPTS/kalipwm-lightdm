@@ -162,6 +162,8 @@ show_status() {
 }
 
 test_theme() {
+    local rc=0
+
     validate_host
 
     if [ ! -r "$GREETER_OVERRIDE" ]; then
@@ -175,9 +177,39 @@ test_theme() {
         return 2
     fi
 
+    if ! command -v xhost >/dev/null 2>&1; then
+        printf 'xhost is required to grant temporary X access to the lightdm user.\n' >&2
+        printf 'Install it with: sudo apt install x11-xserver-utils\n' >&2
+        return 2
+    fi
+
+    if [ -z "${DISPLAY:-}" ]; then
+        printf 'No active X DISPLAY is available for nested LightDM test mode.\n' >&2
+        return 1
+    fi
+
     printf 'Launching LightDM nested test mode. Close the Xephyr window to exit.\n'
-    printf 'This does not restart the active display manager.\n\n'
-    exec sudo -u lightdm lightdm --test-mode --debug
+    printf 'This does not restart the active display manager.\n'
+    printf 'Temporary X access is granted only to the local lightdm user and removed afterward.\n\n'
+
+    if ! xhost +SI:localuser:lightdm >/dev/null; then
+        printf 'Unable to grant the lightdm user access to the current X display.\n' >&2
+        return 1
+    fi
+
+    cleanup_test_access() {
+        xhost -SI:localuser:lightdm >/dev/null 2>&1 || true
+    }
+    trap cleanup_test_access EXIT HUP INT TERM
+
+    set +e
+    sudo -u lightdm env DISPLAY="$DISPLAY" lightdm --test-mode --debug
+    rc=$?
+    set -e
+
+    cleanup_test_access
+    trap - EXIT HUP INT TERM
+    return "$rc"
 }
 
 while [ "$#" -gt 0 ]; do
