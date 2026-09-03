@@ -182,7 +182,7 @@ install_theme() {
 
     run_root install -d -m 0755 "$THEME_DEST/gtk-3.0"
     run_root install -d -m 0755 "$BACKGROUND_DIR"
-    run_root install -d -m 0700 "$BACKUP_DIR"
+    run_root install -d -m 0711 "$BACKUP_DIR"
 
     if [ ! -e "$BACKUP_GREETER" ]; then
         if [ "$DRY_RUN" -eq 1 ]; then
@@ -194,6 +194,7 @@ install_theme() {
         printf '[INFO] Existing pre-KaliPWM greeter backup preserved: %s\n' "$BACKUP_GREETER"
     fi
 
+    run_root chmod 0600 "$BACKUP_GREETER"
     run_root install -m 0644 "$theme_src/index.theme" "$THEME_DEST/index.theme"
     run_root install -m 0644 "$theme_src/gtk-3.0/gtk.css" "$THEME_DEST/gtk-3.0/gtk.css"
     run_root install -m 0644 "$background_src" "$BACKGROUND_DEST"
@@ -285,7 +286,7 @@ show_status() {
         fi
     done
 
-    if [ -r "$BACKUP_GREETER" ]; then
+    if [ -e "$BACKUP_GREETER" ]; then
         printf '[OK] rollback backup: %s\n' "$BACKUP_GREETER"
     else
         printf '[MISS] rollback backup: %s\n' "$BACKUP_GREETER"
