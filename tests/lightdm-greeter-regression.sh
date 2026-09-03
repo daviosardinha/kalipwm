@@ -39,6 +39,9 @@ grep -q '@define-color obsidian_bg #0b0d12;' "$css" || fail 'Obsidian background
 grep -q 'BASE_GREETER="/etc/lightdm/lightdm-gtk-greeter.conf"' "$script" || fail 'active greeter config path changed'
 grep -q 'BACKUP_GREETER="\$BACKUP_DIR/lightdm-gtk-greeter.conf.pre-kalipwm"' "$script" || fail 'greeter rollback backup path is missing'
 grep -q 'sudo cp -a -- "\$BASE_GREETER" "\$BACKUP_GREETER"' "$script" || fail 'install does not preserve the exact pre-KaliPWM greeter config'
+grep -Fq 'run_root install -d -m 0711 "$BACKUP_DIR"' "$script" || fail 'backup directory is not traversable for safe existence checks'
+grep -Fq 'run_root chmod 0600 "$BACKUP_GREETER"' "$script" || fail 'rollback backup contents are not restricted to root'
+grep -Fq 'if [ -e "$BACKUP_GREETER" ]; then' "$script" || fail 'protected rollback backup is still checked for user readability'
 grep -q 'build_merged_config' "$script" || fail 'managed greeter merge function is missing'
 grep -q 'sudo cp -a -- "\$BACKUP_GREETER" "\$BASE_GREETER"' "$script" || fail 'rollback does not restore the exact greeter backup'
 grep -q 'run_root rm -f "\$LEGACY_OVERRIDE"' "$script" || fail 'stale ineffective conf.d override is not cleaned up'
@@ -52,5 +55,6 @@ grep -q 'capture exact pre-KaliPWM greeter config' <<<"$dry_run" || fail 'dry-ru
 grep -q 'merge .*kalipwm-obsidian.conf.* into /etc/lightdm/lightdm-gtk-greeter.conf' <<<"$dry_run" || fail 'dry-run does not report the active config merge'
 grep -q '/usr/share/themes/KaliPWM-Obsidian/gtk-3.0/gtk.css' <<<"$dry_run" || fail 'dry-run does not install GTK CSS'
 grep -q '/usr/share/backgrounds/kalipwm/obsidian-login.png' <<<"$dry_run" || fail 'dry-run does not install the system-readable background'
+grep -q 'chmod 0600 /var/lib/kalipwm/lightdm/lightdm-gtk-greeter.conf.pre-kalipwm' <<<"$dry_run" || fail 'dry-run does not protect the rollback backup contents'
 
 printf '[OK] LightDM Obsidian greeter regression passed.\n'
