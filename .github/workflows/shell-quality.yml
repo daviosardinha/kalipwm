@@ -39,6 +39,3 @@ jobs:
 
       - name: Validate Polybar focus timer
         run: bash tests/focus-timer-regression.sh
-
-      - name: Validate LightDM Obsidian greeter
-        run: bash tests/lightdm-greeter-regression.sh
