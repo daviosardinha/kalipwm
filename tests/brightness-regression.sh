@@ -10,6 +10,11 @@ MEDIA="$ROOT/CONFIGS/config/polybar/obsidian/scripts/media-keys.sh"
 CONTROL="$ROOT/CONFIGS/config/polybar/obsidian/scripts/control-center.sh"
 BRIGHTNESS="$ROOT/SCRIPTS/kalipwm-brightness"
 OSD="$ROOT/SCRIPTS/kalipwm-osd"
+INSTALLER="$ROOT/kalipwm.sh"
+
+printf '%s\n' '== Brightness dependency guard =='
+grep -Eq 'sudo apt install -y .*\bbrightnessctl\b|^[[:space:]]+.*\bbrightnessctl\b' "$INSTALLER"
+printf '%s\n' '[OK] installer declares brightnessctl as a required package'
 
 printf '%s\n' '== Brightness binding guard =='
 grep -Fq 'XF86MonBrightness{Up,Down}' "$SXHKD"
