@@ -301,7 +301,7 @@ INSTALL_STAGE="required packages"
 echo -e "\n${BLUE}[*] Ensuring required packages are installed..${RESET}\n"
 sudo apt install -y git bspwm vim feh flameshot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython open-vm-tools-desktop open-vm-tools fastfetch \
-    dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq
+    dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq brightnessctl
 
 INSTALL_STAGE="desktop dependencies"
 echo -e "\n${BLUE}[*] Ensuring desktop environment dependencies are installed..${RESET}\n"
