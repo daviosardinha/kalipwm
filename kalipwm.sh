@@ -301,7 +301,7 @@ INSTALL_STAGE="required packages"
 echo -e "\n${BLUE}[*] Ensuring required packages are installed..${RESET}\n"
 sudo apt install -y git bspwm vim feh flameshot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython open-vm-tools-desktop open-vm-tools fastfetch \
-    dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq
+    dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq brightnessctl
 
 INSTALL_STAGE="desktop dependencies"
 echo -e "\n${BLUE}[*] Ensuring desktop environment dependencies are installed..${RESET}\n"
@@ -334,7 +334,7 @@ if [ -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]; then
     if [ -d "$HOME/.oh-my-zsh/.git" ]; then
         omz_current_ref="$(git -C "$HOME/.oh-my-zsh" rev-parse HEAD 2>/dev/null || true)"
         if [ -n "$omz_current_ref" ] && [ "$omz_current_ref" != "$OH_MY_ZSH_REF" ]; then
-            echo -e "${BLUE}[=] Oh My Zsh is at ${omz_current_ref:0:12}; fresh installs are pinned to ${OH_MY_ZSH_REF:0:12}. Existing checkout left unchanged.${RESET}"
+            echo -e "${BLUE}[=] Oh My Zsh is at ${omz_current_ref:0:12}; fresh installs are pinned to ${ref:0:12}. Existing checkout left unchanged.${RESET}"
         fi
     fi
 elif [ -e "$HOME/.oh-my-zsh" ]; then
