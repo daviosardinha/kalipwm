@@ -334,7 +334,7 @@ if [ -f "$HOME/.oh-my-zsh/oh-my-zsh.sh" ]; then
     if [ -d "$HOME/.oh-my-zsh/.git" ]; then
         omz_current_ref="$(git -C "$HOME/.oh-my-zsh" rev-parse HEAD 2>/dev/null || true)"
         if [ -n "$omz_current_ref" ] && [ "$omz_current_ref" != "$OH_MY_ZSH_REF" ]; then
-            echo -e "${BLUE}[=] Oh My Zsh is at ${omz_current_ref:0:12}; fresh installs are pinned to ${ref:0:12}. Existing checkout left unchanged.${RESET}"
+            echo -e "${BLUE}[=] Oh My Zsh is at ${omz_current_ref:0:12}; fresh installs are pinned to ${OH_MY_ZSH_REF:0:12}. Existing checkout left unchanged.${RESET}"
         fi
     fi
 elif [ -e "$HOME/.oh-my-zsh" ]; then
