@@ -11,7 +11,19 @@ fi
 
 pgrep -x sxhkd > /dev/null || sxhkd &
 
-bspc monitor -d I II III IV V VI VII VIII IX X
+# DISPLAY
+# BSPWM does not have the XFCE display daemon behind it. Make newly connected
+# external outputs usable before assigning desktops, while preserving layouts
+# that X already activated (including deliberate external-only setups).
+DISPLAY_HELPER="$HOME/.config/bspwm/scripts/kalipwm-display.sh"
+if [ -x "$DISPLAY_HELPER" ]; then
+    "$DISPLAY_HELPER" auto >/tmp/kalipwm-display.log 2>&1 || true
+    # Give BSPWM a moment to consume the RandR topology change.
+    sleep 0.4
+    "$DISPLAY_HELPER" workspaces >>/tmp/kalipwm-display.log 2>&1 ||         bspc monitor -d I II III IV V VI VII VIII IX X
+else
+    bspc monitor -d I II III IV V VI VII VIII IX X
+fi
 
 bspc config border_width         2
 bspc config window_gap          6
@@ -32,10 +44,6 @@ bspc rule -a Chromium desktop='^2'
 bspc rule -a mplayer2 state=floating
 bspc rule -a Kupfer.py focus=on
 bspc rule -a Screenkey manage=off
-
-# DISPLAY
-# Preserve the active X11 layout selected by the display manager, VMware tools
-# or the user. KaliPWM no longer forces a VM-specific output name or mode.
 
 # WALLPAPER - Obsidian v2
 # No argument means: restore the wallpaper choice saved by the installer/user.
