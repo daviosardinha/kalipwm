@@ -18,7 +18,7 @@ The matrix is capability-based rather than machine-count-based: one validation h
 | Installation | Clean Kali VM fresh clone/install from `main` | ✅ PASS |
 | Installation | Primary bare-metal Kali host | ✅ PASS across Phase 3–7 regression work |
 | Display | Standard/single display | ✅ PASS |
-| Display | Multi-monitor/two-output | ✅ PASS |
+| Display | Multi-monitor/two-output | ⚠️ v1.0 proved two connected outputs; active external-output behavior was not proven until the 2026-09-30 post-release regression below |
 | VPN | Disconnected | ✅ PASS |
 | VPN | Connected | ⚪ Not exercised for v1.0; VPN detection/control had earlier live validation and remains capability-based |
 | Power | Battery-present | ✅ PASS |
@@ -29,6 +29,24 @@ The matrix is capability-based rather than machine-count-based: one validation h
 | Diagnostics | `kalipwm doctor` | ✅ `0 FAIL` |
 | Release checker | `kalipwm-release-check` | ✅ `0 failures`, `0 warnings` |
 | Repository state | `main`, clean working tree | ✅ PASS |
+
+## 2026-09-30 multi-monitor validation correction
+
+The original v1.0 two-output check counted XRandR outputs reported as `connected`. That was useful hardware-detection coverage, but it did not prove that every connected output had active geometry or was usable by BSPWM. On the primary bare-metal host, the external HDMI display could be detected while remaining inactive.
+
+The post-release multi-monitor regression for PR #15 closes that validation gap:
+
+- XRandR exposed two providers: `modesetting` and `NVIDIA-G0`;
+- `eDP-1` remained the primary internal display at `2560x1600+0+0`;
+- `HDMI-1-0` was detected and activated at `2560x1440+2560+0`;
+- BSPWM exposed both monitor names;
+- workspaces `I`–`V` were assigned to `eDP-1` and `VI`–`X` to `HDMI-1-0`;
+- Obsidian v2 launched one Polybar instance for each active monitor;
+- a full reboot reproduced the layout automatically after login.
+
+The display-manager login greeter is intentionally outside this BSPWM runtime validation. On the tested host the external monitor remained inactive at the greeter and was activated when the KaliPWM BSPWM session started.
+
+This correction does not change the historical v1.0 tag. It documents the distinction between **connected** and **active** outputs and the later runtime fix that makes the external display usable.
 
 ## Final clean-install proof
 

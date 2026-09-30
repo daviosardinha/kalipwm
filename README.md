@@ -54,7 +54,8 @@ The current stable `main` includes:
 - `kalipwm repair` for safely refreshing managed configuration, executable permissions and helper symlinks while quarantining recognized legacy PATH shadows.
 - `kalipwm backup`, `kalipwm backups` and `kalipwm rollback` for timestamped managed-configuration snapshots and reversible rollback.
 - Automatic `pre-update`, `pre-repair` and `pre-rollback` safety snapshots around destructive managed-file changes.
-- Environment-aware BSPWM startup that preserves the display geometry provided by X instead of forcing a legacy `Virtual1` mode, and only starts the VMware session helper when VMware is actually detected.
+- Environment-aware BSPWM startup that preserves existing active display geometry, activates connected-but-inactive external outputs, distributes workspaces `I` through `X` across active monitors and starts one Obsidian v2 Polybar per monitor.
+- VMware desktop integration remains runtime-guarded and starts only when VMware is actually detected.
 - Idempotent installer reruns that reuse existing components instead of destructively recloning/rebuilding them.
 - CI-enforced shell-quality checks covering maintained shell syntax, ShellCheck, brightness regression, installer failure handling and dependency-lock validation.
 - Reproducible fresh-install dependency pins in `DEPENDENCIES.lock`, including checksum verification for the pinned Kitty bundle; existing working third-party checkouts are reported but deliberately left unchanged.
@@ -137,11 +138,15 @@ The diagnostic logic has been validated on both the representative VMware Kali V
 
 ## Hardware and VM awareness
 
-KaliPWM no longer forces a fixed `Virtual1` output or a `1920x1080` mode during BSPWM startup. The active X session keeps control of the connected output names, native/dynamic resolution and multi-monitor state.
+KaliPWM no longer forces a fixed `Virtual1` output or a `1920x1080` mode during BSPWM startup. At session start it inspects the current XRandR topology: already-active outputs keep their geometry, while connected-but-inactive external outputs are activated automatically and placed alongside the active layout. A deliberate external-only laptop layout is preserved rather than silently turning the internal panel back on.
 
-VMware-specific desktop integration is also guarded at runtime: `vmware-user-suid-wrapper` is launched only when `systemd-detect-virt` reports VMware and the helper exists. On bare metal, the VMware helper remains inactive. Other virtualization types are reported diagnostically without enabling VMware-specific behavior.
+After the display topology is active, KaliPWM distributes Roman-numeral workspaces `I` through `X` across the BSPWM monitors and launches one Obsidian v2 Polybar instance per active monitor. The Display section of the Control Center also exposes display status, diagnostics and an **Activate connected displays** action for applying the same managed display path during an existing session.
 
-This startup policy was validated by restarting BSPWM on both the representative VMware VM and the primary bare-metal host. VMware retained its dynamic `Virtual-1` geometry and active desktop integration, while bare metal retained its native `eDP-1` geometry and started no VMware desktop process. Both systems finished the updated Doctor checks with zero warnings and zero failures.
+The display-manager login greeter is separate from the user's BSPWM session. KaliPWM does not reconfigure the greeter; on the validated bare-metal host the external HDMI display became active automatically when the BSPWM session started after login.
+
+VMware-specific desktop integration is guarded at runtime: `vmware-user-suid-wrapper` is launched only when `systemd-detect-virt` reports VMware and the helper exists. On bare metal, the VMware helper remains inactive. Other virtualization types are reported diagnostically without enabling VMware-specific behavior.
+
+The current startup policy has been validated on the representative VMware VM and on the primary bare-metal Kali host. The bare-metal regression included a hybrid XRandR provider setup (`modesetting` plus `NVIDIA-G0`) with `eDP-1` at `2560x1600` and `HDMI-1-0` at `2560x1440`; a reboot restored both monitors, a 5/5 workspace split and one Polybar per monitor after BSPWM login.
 
 ## Update workflow
 
