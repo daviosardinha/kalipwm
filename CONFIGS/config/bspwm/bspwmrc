@@ -27,8 +27,10 @@ if [ -x "$DISPLAY_HELPER" ]; then
     "$DISPLAY_HELPER" auto >/tmp/kalipwm-display.log 2>&1 || true
     # Give BSPWM a moment to consume the RandR topology change.
     sleep 0.4
-    if ! "$DISPLAY_HELPER" workspaces >>/tmp/kalipwm-display.log 2>&1; then
-        bspc monitor -d I II III IV V VI VII VIII IX X
+    if ! "$DISPLAY_HELPER" reconcile >>/tmp/kalipwm-display.log 2>&1; then
+        if ! "$DISPLAY_HELPER" workspaces >>/tmp/kalipwm-display.log 2>&1; then
+            bspc monitor -d I II III IV V VI VII VIII IX X
+        fi
     fi
 else
     bspc monitor -d I II III IV V VI VII VIII IX X

@@ -142,6 +142,121 @@ auto_enable_connected_outputs() {
     done
 }
 
+output_geometry() {
+    local output="$1"
+
+    xrandr --query 2>/dev/null |
+        awk -v target="$output" '
+            $1 == target && $2 == "connected" {
+                for (i = 3; i <= NF; i++) {
+                    if ($i ~ /^[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+$/) {
+                        print $i
+                        exit
+                    }
+                }
+            }
+        '
+}
+
+desktop_exists() {
+    local desktop="$1"
+
+    bspc query -D --names 2>/dev/null |
+        grep -Fxq -- "$desktop"
+}
+
+desired_desktop_slice() {
+    local index="$1"
+    local count="$2"
+    local start end slice_count
+    local -a desktops=(I II III IV V VI VII VIII IX X)
+
+    [ "$count" -gt 0 ] || return 1
+    [ "$count" -le "${#desktops[@]}" ] || count="${#desktops[@]}"
+
+    start=$(( index * ${#desktops[@]} / count ))
+    end=$(( (index + 1) * ${#desktops[@]} / count - 1 ))
+    slice_count=$(( end - start + 1 ))
+
+    printf '%s\n' "${desktops[@]:start:slice_count}"
+}
+
+reconcile_bspwm_monitors() {
+    local anchor monitor output geometry placeholder moved desktop i
+    local -a active monitors stale_desktops desired
+
+    require_x11 || return 1
+
+    if ! have bspc; then
+        printf 'bspc is unavailable; cannot reconcile BSPWM monitors.\n' >&2
+        return 1
+    fi
+
+    mapfile -t active < <(active_outputs)
+    if [ "${#active[@]}" -eq 0 ]; then
+        printf 'XRandR reported no active outputs; BSPWM monitor reconciliation skipped.\n' >&2
+        return 1
+    fi
+
+    anchor="$(choose_anchor "${active[@]}")"
+
+    # BSPWM keeps stale monitor objects by default on some hybrid-GPU paths.
+    # Move every desktop off a disappeared output before removing the monitor so
+    # windows and workspace state survive the physical disconnect.
+    mapfile -t monitors < <(bspc query -M --names 2>/dev/null)
+    for monitor in "${monitors[@]}"; do
+        contains_output "$monitor" "${active[@]}" && continue
+
+        mapfile -t stale_desktops < <(bspc query -D -m "$monitor" --names 2>/dev/null)
+        for desktop in "${stale_desktops[@]}"; do
+            [ -n "$desktop" ] || continue
+            bspc desktop "$desktop" --to-monitor "$anchor" || true
+        done
+
+        bspc monitor "$monitor" --remove || true
+    done
+
+    # Add outputs that XRandR has activated before BSPWM noticed them. Preserve
+    # canonical desktops by moving their existing objects instead of recreating
+    # them, which also preserves windows living on those desktops.
+    mapfile -t monitors < <(bspc query -M --names 2>/dev/null)
+    for ((i = 0; i < ${#active[@]}; i++)); do
+        output="${active[$i]}"
+        geometry="$(output_geometry "$output")"
+        [ -n "$geometry" ] || continue
+
+        if contains_output "$output" "${monitors[@]}"; then
+            bspc monitor "$output" --rectangle "$geometry" || true
+            continue
+        fi
+
+        bspc wm --add-monitor "$output" "$geometry" || continue
+        placeholder="$(bspc query -D -m "$output" 2>/dev/null | head -n1 || true)"
+        moved=0
+
+        mapfile -t desired < <(desired_desktop_slice "$i" "${#active[@]}")
+        for desktop in "${desired[@]}"; do
+            if desktop_exists "$desktop"; then
+                bspc desktop "$desktop" --to-monitor "$output" || true
+                moved=$((moved + 1))
+            fi
+        done
+
+        # wm --add-monitor creates one empty placeholder desktop. Remove it only
+        # after at least one canonical desktop was moved to the new monitor.
+        if [ "$moved" -gt 0 ] && [ -n "$placeholder" ]; then
+            bspc desktop "$placeholder" --remove || true
+        fi
+
+        monitors+=("$output")
+    done
+
+    # Keep monitor ordering deterministic for workspace slicing and Polybar.
+    bspc wm --reorder-monitors "${active[@]}" || true
+
+    configure_bspwm_workspaces
+}
+
 configure_bspwm_workspaces() {
     local monitor_count usable_count i start end count
     local -a monitors desktops slice
@@ -232,10 +347,11 @@ watch_hotplug() {
 
         current="$(topology_signature)"
 
-        # Reload BSPWM only after a real XRandR topology transition. This makes
-        # BSPWM drop stale monitors after disconnects and rebuilds workspaces,
-        # wallpaper and per-monitor Polybar instances after connects.
+        # Reconcile BSPWM's monitor model explicitly. On hybrid-GPU systems the
+        # XRandR provider can change without BSPWM dropping its stale monitor
+        # object, even when remove_unplugged_monitors is enabled.
         if have bspc; then
+            reconcile_bspwm_monitors || true
             bspc wm -r || true
         fi
 
@@ -288,6 +404,7 @@ usage() {
 Usage:
   kalipwm-display.sh auto
   kalipwm-display.sh workspaces
+  kalipwm-display.sh reconcile
   kalipwm-display.sh watch
   kalipwm-display.sh status
   kalipwm-display.sh diagnose
@@ -296,6 +413,8 @@ Commands:
   auto        Activate connected external outputs that X left inactive.
               Existing active layouts are preserved.
   workspaces  Distribute KaliPWM workspaces I-X across active BSPWM monitors.
+  reconcile   Make BSPWM's monitor model match active XRandR outputs while
+              preserving canonical desktops and their windows.
   watch       Watch the XRandR topology and reconcile live connect/disconnect
               events, including delayed hybrid-GPU provider transitions.
   status      Show connected outputs and whether each one is active.
@@ -309,6 +428,9 @@ case "${1:-status}" in
         ;;
     workspaces)
         configure_bspwm_workspaces
+        ;;
+    reconcile)
+        reconcile_bspwm_monitors
         ;;
     watch)
         watch_hotplug
