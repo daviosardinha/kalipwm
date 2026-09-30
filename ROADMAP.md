@@ -258,6 +258,9 @@ Completed outcome:
 - Control Center exposes managed display activation and diagnostics;
 - Doctor and release validation distinguish connected outputs from outputs with active geometry;
 - live bare-metal validation passed with `eDP-1` at `2560x1600` and `HDMI-1-0` at `2560x1440`, including a reboot, 5/5 workspace split and two Polybar instances.
+- a singleton in-session watcher now handles live XRandR topology transitions, including delayed hybrid-GPU provider changes;
+- stale BSPWM monitor objects are reconciled explicitly against active XRandR outputs, moving canonical desktops before monitor removal and moving them back when an external output returns;
+- live disconnect/reconnect testing on the `modesetting` + `NVIDIA-G0` host settled to an internal-display-only state while HDMI was unavailable and restored the external monitor automatically after XRandR re-exposed it.
 
 ### ✅ Guard VMware-specific startup by runtime environment
 

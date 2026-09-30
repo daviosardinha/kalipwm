@@ -43,8 +43,14 @@ The post-release multi-monitor regression for PR #15 closes that validation gap:
 - workspaces `I`–`V` were assigned to `eDP-1` and `VI`–`X` to `HDMI-1-0`;
 - Obsidian v2 launched one Polybar instance for each active monitor;
 - a full reboot reproduced the layout automatically after login.
+- a mid-session watcher was validated against delayed hybrid-GPU hot-plug transitions;
+- while HDMI was physically unplugged and XRandR had settled to `disconnected`, BSPWM settled to the internal `eDP-1` monitor only;
+- after reconnect, XRandR re-exposed `HDMI-1-0` as connected/active and BSPWM restored the external monitor automatically without a Control Center action or manual `xrandr`;
+- the tested NVIDIA provider did not expose the external connector through the same `/sys/class/drm/card0-*` path as the integrated outputs, so XRandR's current output state is the practical runtime source used by KaliPWM for BSPWM display availability.
 
 The display-manager login greeter is intentionally outside this BSPWM runtime validation. On the tested host the external monitor remained inactive at the greeter and was activated when the KaliPWM BSPWM session started.
+
+Hot-plug timing is provider-dependent rather than instantaneous. During repeated tests the NVIDIA-backed HDMI output took several seconds to publish disconnect/reconnect state, and one source test began with the cable physically inserted while XRandR still reported `HDMI-1-0 disconnected`. KaliPWM intentionally waits for the usable XRandR topology instead of inferring display availability from physical cable presence alone.
 
 This correction does not change the historical v1.0 tag. It documents the distinction between **connected** and **active** outputs and the later runtime fix that makes the external display usable.
 

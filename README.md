@@ -140,13 +140,15 @@ The diagnostic logic has been validated on both the representative VMware Kali V
 
 KaliPWM no longer forces a fixed `Virtual1` output or a `1920x1080` mode during BSPWM startup. At session start it inspects the current XRandR topology: already-active outputs keep their geometry, while connected-but-inactive external outputs are activated automatically and placed alongside the active layout. A deliberate external-only laptop layout is preserved rather than silently turning the internal panel back on.
 
-After the display topology is active, KaliPWM distributes Roman-numeral workspaces `I` through `X` across the BSPWM monitors and launches one Obsidian v2 Polybar instance per active monitor. The Display section of the Control Center also exposes display status, diagnostics and an **Activate connected displays** action for applying the same managed display path during an existing session.
+After the display topology is active, KaliPWM distributes Roman-numeral workspaces `I` through `X` across the BSPWM monitors and launches one Obsidian v2 Polybar instance per active monitor. A singleton display watcher keeps that policy alive after login: when XRandR reports a real topology change, KaliPWM debounces the provider transition, reconciles BSPWM's monitor objects against the active XRandR outputs, preserves the canonical desktops/windows, and refreshes the BSPWM/Polybar layout. The Display section of the Control Center still exposes display status, diagnostics and an **Activate connected displays** action as a manual recovery path.
 
 The display-manager login greeter is separate from the user's BSPWM session. KaliPWM does not reconfigure the greeter; on the validated bare-metal host the external HDMI display became active automatically when the BSPWM session started after login.
 
 VMware-specific desktop integration is guarded at runtime: `vmware-user-suid-wrapper` is launched only when `systemd-detect-virt` reports VMware and the helper exists. On bare metal, the VMware helper remains inactive. Other virtualization types are reported diagnostically without enabling VMware-specific behavior.
 
 The current startup policy has been validated on the representative VMware VM and on the primary bare-metal Kali host. The bare-metal regression included a hybrid XRandR provider setup (`modesetting` plus `NVIDIA-G0`) with `eDP-1` at `2560x1600` and `HDMI-1-0` at `2560x1440`; a reboot restored both monitors, a 5/5 workspace split and one Polybar per monitor after BSPWM login.
+
+Live hot-plug was also exercised repeatedly on that host. The NVIDIA-backed HDMI connector can lag the physical cable event by several seconds, and a cable may be physically inserted while XRandR still reports the output as `disconnected` until the external sink/provider handshake completes. KaliPWM deliberately treats XRandR's current usable-output state as authoritative for the BSPWM session: while HDMI is unavailable BSPWM collapses to the internal display, and once XRandR exposes HDMI as connected/active the watcher restores the second BSPWM monitor and multi-monitor layout automatically.
 
 ## Update workflow
 
