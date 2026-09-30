@@ -20,5 +20,15 @@ export KALIPWM_MODULES_RIGHT="${modules_right[*]}"
 killall -q polybar
 while pgrep -x polybar >/dev/null; do sleep 0.2; done
 
-polybar main -c "$DIR/config.ini" >/tmp/polybar-obsidian-v2.log 2>&1 &
-disown
+mapfile -t monitors < <(polybar --list-monitors 2>/dev/null | cut -d: -f1)
+
+if [ "${#monitors[@]}" -eq 0 ]; then
+    polybar main -c "$DIR/config.ini" >/tmp/polybar-obsidian-v2.log 2>&1 &
+else
+    for monitor in "${monitors[@]}"; do
+        safe_monitor="${monitor//[^A-Za-z0-9_.-]/_}"
+        MONITOR="$monitor" polybar main -c "$DIR/config.ini"             >"/tmp/polybar-obsidian-v2-${safe_monitor}.log" 2>&1 &
+    done
+fi
+
+disown 2>/dev/null || true
