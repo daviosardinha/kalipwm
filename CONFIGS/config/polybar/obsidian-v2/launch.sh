@@ -27,7 +27,7 @@ if [ "${#monitors[@]}" -eq 0 ]; then
 else
     for monitor in "${monitors[@]}"; do
         safe_monitor="${monitor//[^A-Za-z0-9_.-]/_}"
-        MONITOR="$monitor" polybar main -c "$DIR/config.ini"             >"/tmp/polybar-obsidian-v2-${safe_monitor}.log" 2>&1 &
+        MONITOR="$monitor" polybar main -c "$DIR/config.ini" >"/tmp/polybar-obsidian-v2-${safe_monitor}.log" 2>&1 &
     done
 fi
 
