@@ -420,6 +420,7 @@ apply_managed_update() {
     chmod +x "$HOME/.config/bspwm/bspwmrc" \
         "$HOME/.config/bspwm/scripts/bspwm_resize" \
         "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh" \
+        "$HOME/.config/bspwm/scripts/kalipwm-display.sh" \
         "$HOME/.config/polybar/obsidian/launch.sh" \
         "$HOME/.config/polybar/obsidian-v2/launch.sh" || return 1
     chmod +x "$HOME/.config/polybar/obsidian/scripts/"*.sh || return 1
