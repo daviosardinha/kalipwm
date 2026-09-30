@@ -140,7 +140,7 @@ find_vpn_interface() {
 run_doctor() {
     local virt session display_name resolution default_if default_ip wifi_if vpn_if
     local os_name target_file choice_file current_wallpaper_file bspwmrc gpu_name fan_file
-    local xrandr_current display_line
+    local xrandr_current display_line connected_count active_count
     local batteries=()
 
     virt="$(virtualization_type)"
@@ -198,6 +198,16 @@ run_doctor() {
             fi
         else
             print_status WARN "xrandr did not report a connected display"
+        fi
+
+        connected_count="$(printf '%s\n' "$xrandr_current" | awk '$2 == "connected" {count++} END {print count + 0}')"
+        active_count="$(printf '%s\n' "$xrandr_current" | awk '$2 == "connected" {for (i=3; i<=NF; i++) if ($i ~ /^[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+$/) {count++; break}} END {print count + 0}')"
+        if [ "$connected_count" -gt 1 ]; then
+            if [ "$active_count" -eq "$connected_count" ]; then
+                print_status OK "Multi-monitor: $active_count/$connected_count connected outputs active"
+            else
+                print_status WARN "Multi-monitor: $active_count/$connected_count connected outputs active"
+            fi
         fi
     else
         print_status WARN "Display information unavailable (xrandr/DISPLAY missing)"
