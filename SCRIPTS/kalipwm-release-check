@@ -56,7 +56,7 @@ detect_environment() {
 }
 
 detect_display() {
-    local connected count first geometry width height
+    local connected active connected_count active_count first geometry width height
 
     if ! have xrandr || [ -z "${DISPLAY:-}" ]; then
         printf '%s' 'no-active-x-display'
@@ -64,21 +64,24 @@ detect_display() {
     fi
 
     connected="$(xrandr --query 2>/dev/null | awk '$2 == "connected" {print}' || true)"
-    count="$(printf '%s\n' "$connected" | sed '/^$/d' | wc -l | tr -d ' ')"
+    active="$(printf '%s\n' "$connected" | awk '$2 == "connected" {for (i=3; i<=NF; i++) if ($i ~ /^[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+$/) {print; break}}')"
+    connected_count="$(printf '%s\n' "$connected" | sed '/^$/d' | wc -l | tr -d ' ')"
+    active_count="$(printf '%s\n' "$active" | sed '/^$/d' | wc -l | tr -d ' ')"
 
-    if [ "${count:-0}" -eq 0 ]; then
+    if [ "${connected_count:-0}" -eq 0 ]; then
         printf '%s' 'no-connected-output'
         return
     fi
 
-    first="$(printf '%s\n' "$connected" | head -n1)"
-    geometry="$(printf '%s\n' "$first" | grep -oE '[0-9]+x[0-9]+\+[0-9]+\+[0-9]+' | head -n1 | cut -d+ -f1 || true)"
+    first="$(printf '%s\n' "$active" | head -n1)"
+    [ -n "$first" ] || first="$(printf '%s\n' "$connected" | head -n1)"
+    geometry="$(printf '%s\n' "$first" | grep -oE '[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+' | head -n1 | sed -E 's/[+-][0-9]+[+-][0-9]+$//' || true)"
     if [ -z "$geometry" ]; then
         geometry="unknown"
     fi
 
-    if [ "$count" -gt 1 ]; then
-        printf 'multi-monitor:%s-outputs:first-%s' "$count" "$geometry"
+    if [ "$connected_count" -gt 1 ]; then
+        printf 'multi-monitor:%s-connected:%s-active:first-%s' "$connected_count" "$active_count" "$geometry"
         return
     fi
 
