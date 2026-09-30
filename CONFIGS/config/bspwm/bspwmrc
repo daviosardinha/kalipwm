@@ -11,7 +11,37 @@ fi
 
 pgrep -x sxhkd > /dev/null || sxhkd &
 
-bspc monitor -d I II III IV V VI VII VIII IX X
+# DISPLAY TOPOLOGY
+# BSPWM keeps unplugged/disabled monitors by default. That leaves stale desktops
+# and bars behind after a live disconnect. Ask BSPWM to merge desktops from a
+# disappearing monitor into the surviving one before removing the stale monitor.
+bspc config remove_unplugged_monitors true
+bspc config remove_disabled_monitors true
+
+# DISPLAY
+# BSPWM does not have the XFCE display daemon behind it. Make newly connected
+# external outputs usable before assigning desktops, while preserving layouts
+# that X already activated (including deliberate external-only setups).
+DISPLAY_HELPER="$HOME/.config/bspwm/scripts/kalipwm-display.sh"
+if [ -x "$DISPLAY_HELPER" ]; then
+    "$DISPLAY_HELPER" auto >/tmp/kalipwm-display.log 2>&1 || true
+    # Give BSPWM a moment to consume the RandR topology change.
+    sleep 0.4
+    if ! "$DISPLAY_HELPER" reconcile >>/tmp/kalipwm-display.log 2>&1; then
+        if ! "$DISPLAY_HELPER" workspaces >>/tmp/kalipwm-display.log 2>&1; then
+            bspc monitor -d I II III IV V VI VII VIII IX X
+        fi
+    fi
+else
+    bspc monitor -d I II III IV V VI VII VIII IX X
+fi
+
+# Keep the same display policy alive after login so connecting or disconnecting
+# an external monitor does not depend on a full BSPWM restart. The helper uses
+# a per-user flock, so bspwmrc reloads cannot create duplicate watchers.
+if [ -x "$DISPLAY_HELPER" ]; then
+    "$DISPLAY_HELPER" watch >>/tmp/kalipwm-display-watch.log 2>&1 &
+fi
 
 bspc config border_width         2
 bspc config window_gap          6
@@ -33,10 +63,6 @@ bspc rule -a mplayer2 state=floating
 bspc rule -a Kupfer.py focus=on
 bspc rule -a Screenkey manage=off
 
-# DISPLAY
-# Preserve the active X11 layout selected by the display manager, VMware tools
-# or the user. KaliPWM no longer forces a VM-specific output name or mode.
-
 # WALLPAPER - Obsidian v2
 # No argument means: restore the wallpaper choice saved by the installer/user.
 ~/.config/bspwm/scripts/set-obsidian-wallpaper.sh
@@ -48,6 +74,6 @@ bspc rule -a Screenkey manage=off
 bspc config focus_follows_pointer true
 
 # PICOM
-picom &
+pgrep -x picom > /dev/null || picom &
 
 xsetroot -cursor_name left_ptr &

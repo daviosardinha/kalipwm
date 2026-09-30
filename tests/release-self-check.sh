@@ -16,6 +16,7 @@ required_files=(
     SCRIPTS/kalipwm-release-check
     SCRIPTS/kalipwm-shell-quality
     CONFIGS/config/bspwm/bspwmrc
+    CONFIGS/config/bspwm/scripts/kalipwm-display.sh
     CONFIGS/config/sxhkd/sxhkdrc
     CONFIGS/config/polybar/obsidian/scripts/control-center.sh
     CONFIGS/config/polybar/obsidian-v2/launch.sh
@@ -37,6 +38,8 @@ bash -n SCRIPTS/kalipwm
 bash -n SCRIPTS/kalipwm-brightness
 bash -n SCRIPTS/kalipwm-release-check
 bash -n SCRIPTS/kalipwm-shell-quality
+bash -n CONFIGS/config/bspwm/scripts/kalipwm-display.sh
+bash -n tests/display-regression.sh
 printf '%s\n' '[OK] release-critical shell syntax'
 
 printf '\n%s\n' '== Documentation references =='

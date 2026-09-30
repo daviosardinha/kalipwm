@@ -10,6 +10,26 @@ No unreleased feature is considered stable until it reaches `main`.
 
 Current development work is tracked in [`ROADMAP.md`](ROADMAP.md).
 
+### Fixed
+
+- BSPWM session startup now activates connected but inactive external XRandR outputs instead of assuming another desktop display daemon will do it.
+- Existing active layouts are preserved, including deliberate external-only laptop layouts where the internal panel is intentionally disabled.
+- Roman-numeral desktops `I` through `X` are distributed across active BSPWM monitors instead of being assigned to one monitor only.
+- Obsidian v2 launches one Polybar instance per active monitor and binds each instance to its monitor.
+- Control Center Display actions can activate connected displays and expose display/provider diagnostics.
+- `kalipwm doctor` and the release checker now distinguish connected outputs from outputs with active geometry.
+- A singleton in-session display watcher now reconciles delayed XRandR topology changes after live connect/disconnect events.
+- BSPWM monitor objects are reconciled explicitly against active XRandR outputs so stale monitors are removed safely and returning monitors recover their canonical workspaces without recreating user windows.
+
+### Validation
+
+- Live bare-metal validation on the primary Kali host passed with two XRandR providers (`modesetting` and `NVIDIA-G0`), an internal `eDP-1` panel at `2560x1600`, and an external `HDMI-1-0` display at `2560x1440`.
+- After BSPWM login, the external display activated automatically at its native geometry to the right of the internal panel.
+- BSPWM exposed both monitors, split workspaces `I`–`V` to `eDP-1` and `VI`–`X` to `HDMI-1-0`, and launched two Polybar instances.
+- A full reboot reproduced the same working post-login layout. The login greeter remains outside KaliPWM's BSPWM session scope.
+- Mid-session hot-plug validation on the same hybrid-GPU host exercised the delayed NVIDIA provider path. XRandR topology changes were observed several seconds after physical cable changes, the unplugged state settled to `eDP-1` only, and reconnect restored `HDMI-1-0` automatically without Control Center or manual `xrandr`.
+- During source-of-truth testing, a physically inserted cable could still be reported by XRandR as `disconnected` until the external sink/provider handshake completed. KaliPWM therefore follows the XRandR usable-output state rather than treating cable insertion alone as an active display.
+
 ## 2026-08-28 — Security and maintainability hardening
 
 ### Added

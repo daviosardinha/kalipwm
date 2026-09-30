@@ -245,6 +245,23 @@ Completed outcome:
 - Doctor explicitly verifies that no managed hard-coded `Virtual1` output remains;
 - a BSPWM restart preserved the VMware VM's dynamic `Virtual-1` geometry and the bare-metal host's native `eDP-1` geometry.
 
+### ✅ Make multi-monitor BSPWM sessions usable
+
+Connected external outputs are no longer assumed to be activated by another desktop environment service.
+
+Completed outcome:
+
+- BSPWM startup activates connected-but-inactive external XRandR outputs while preserving existing active geometry;
+- deliberate external-only layouts remain intact instead of re-enabling the laptop panel;
+- desktops `I` through `X` are distributed across active BSPWM monitors;
+- Obsidian v2 starts one Polybar instance per active monitor;
+- Control Center exposes managed display activation and diagnostics;
+- Doctor and release validation distinguish connected outputs from outputs with active geometry;
+- live bare-metal validation passed with `eDP-1` at `2560x1600` and `HDMI-1-0` at `2560x1440`, including a reboot, 5/5 workspace split and two Polybar instances.
+- a singleton in-session watcher now handles live XRandR topology transitions, including delayed hybrid-GPU provider changes;
+- stale BSPWM monitor objects are reconciled explicitly against active XRandR outputs, moving canonical desktops before monitor removal and moving them back when an external output returns;
+- live disconnect/reconnect testing on the `modesetting` + `NVIDIA-G0` host settled to an internal-display-only state while HDMI was unavailable and restored the external monitor automatically after XRandR re-exposed it.
+
 ### ✅ Guard VMware-specific startup by runtime environment
 
 VM-specific helpers now run only when the matching runtime environment exists.

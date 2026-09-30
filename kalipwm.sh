@@ -301,7 +301,8 @@ INSTALL_STAGE="required packages"
 echo -e "\n${BLUE}[*] Ensuring required packages are installed..${RESET}\n"
 sudo apt install -y git bspwm vim feh flameshot scrub zsh rofi xclip xsel locate wmname acpi sxhkd \
     imagemagick ranger kitty tmux python3-pip font-manager lsd bat bpython open-vm-tools-desktop open-vm-tools fastfetch \
-    dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq brightnessctl
+    dirsearch feroxbuster gedit curl wget unzip papirus-icon-theme lm-sensors pavucontrol network-manager i3lock jq brightnessctl \
+    arandr x11-xserver-utils
 
 INSTALL_STAGE="desktop dependencies"
 echo -e "\n${BLUE}[*] Ensuring desktop environment dependencies are installed..${RESET}\n"
@@ -469,6 +470,7 @@ INSTALL_STAGE="managed permissions"
 chmod +x "$HOME/.config/bspwm/bspwmrc"
 chmod +x "$HOME/.config/bspwm/scripts/bspwm_resize"
 chmod +x "$HOME/.config/bspwm/scripts/set-obsidian-wallpaper.sh"
+chmod +x "$HOME/.config/bspwm/scripts/kalipwm-display.sh"
 chmod +x "$HOME/.config/polybar/obsidian/launch.sh"
 chmod +x "$HOME/.config/polybar/obsidian/scripts/"*.sh
 chmod +x "$HOME/.config/polybar/obsidian-v2/launch.sh"
