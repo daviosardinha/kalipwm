@@ -11,6 +11,13 @@ fi
 
 pgrep -x sxhkd > /dev/null || sxhkd &
 
+# DISPLAY TOPOLOGY
+# BSPWM keeps unplugged/disabled monitors by default. That leaves stale desktops
+# and bars behind after a live disconnect. Ask BSPWM to merge desktops from a
+# disappearing monitor into the surviving one before removing the stale monitor.
+bspc config remove_unplugged_monitors true
+bspc config remove_disabled_monitors true
+
 # DISPLAY
 # BSPWM does not have the XFCE display daemon behind it. Make newly connected
 # external outputs usable before assigning desktops, while preserving layouts

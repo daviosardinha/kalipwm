@@ -92,6 +92,8 @@ printf '\n%s\n' '== Managed multi-monitor architecture =='
 grep -Fq '"$DISPLAY_HELPER" auto' "$ROOT/CONFIGS/config/bspwm/bspwmrc"
 grep -Fq '"$DISPLAY_HELPER" workspaces' "$ROOT/CONFIGS/config/bspwm/bspwmrc"
 grep -Fq '"$DISPLAY_HELPER" watch' "$ROOT/CONFIGS/config/bspwm/bspwmrc"
+grep -Fq 'bspc config remove_unplugged_monitors true' "$ROOT/CONFIGS/config/bspwm/bspwmrc"
+grep -Fq 'bspc config remove_disabled_monitors true' "$ROOT/CONFIGS/config/bspwm/bspwmrc"
 grep -Fq 'watch_hotplug()' "$HELPER"
 grep -Fq 'flock -n 9' "$HELPER"
 grep -Fq 'bspc wm -r' "$HELPER"
