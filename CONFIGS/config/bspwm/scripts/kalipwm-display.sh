@@ -172,6 +172,77 @@ configure_bspwm_workspaces() {
     done
 }
 
+topology_signature() {
+    require_x11 || return 1
+
+    xrandr --query 2>/dev/null |
+        awk '
+            $2 == "connected" {
+                state = "inactive"
+                geometry = "-"
+                for (i = 3; i <= NF; i++) {
+                    if ($i ~ /^[0-9]+x[0-9]+[+-][0-9]+[+-][0-9]+$/) {
+                        state = "active"
+                        geometry = $i
+                        break
+                    }
+                }
+                printf "%s:%s:%s\n", $1, state, geometry
+            }
+        ' |
+        sort
+}
+
+watch_hotplug() {
+    local interval settle runtime_dir lock_file previous current
+
+    require_x11 || return 1
+
+    if ! have flock; then
+        printf 'KaliPWM display watcher requires flock.\n' >&2
+        return 1
+    fi
+
+    interval="${KALIPWM_DISPLAY_WATCH_INTERVAL:-2}"
+    settle="${KALIPWM_DISPLAY_SETTLE_DELAY:-1}"
+    runtime_dir="${XDG_RUNTIME_DIR:-/tmp}"
+    lock_file="$runtime_dir/kalipwm-display-watch-${UID}.lock"
+
+    # BSPWM can re-run bspwmrc during a managed display refresh. Keep exactly
+    # one watcher alive across those reloads instead of stacking poll loops.
+    exec 9>"$lock_file"
+    if ! flock -n 9; then
+        return 0
+    fi
+
+    previous="$(topology_signature)"
+
+    while sleep "$interval"; do
+        current="$(topology_signature)"
+        [ "$current" = "$previous" ] && continue
+
+        printf '[%s] XRandR topology change detected.\n' "$(date '+%Y-%m-%d %H:%M:%S')" >&2
+
+        # Hybrid-GPU/PRIME connectors can briefly disappear or report stale
+        # state while the provider settles. Debounce once, then let the next
+        # poll handle any later provider transition.
+        sleep "$settle"
+        auto_enable_connected_outputs || true
+        sleep 0.4
+
+        current="$(topology_signature)"
+
+        # Reload BSPWM only after a real XRandR topology transition. This makes
+        # BSPWM drop stale monitors after disconnects and rebuilds workspaces,
+        # wallpaper and per-monitor Polybar instances after connects.
+        if have bspc; then
+            bspc wm -r || true
+        fi
+
+        previous="$current"
+    done
+}
+
 status() {
     require_x11 || return 1
 
@@ -217,6 +288,7 @@ usage() {
 Usage:
   kalipwm-display.sh auto
   kalipwm-display.sh workspaces
+  kalipwm-display.sh watch
   kalipwm-display.sh status
   kalipwm-display.sh diagnose
 
@@ -224,6 +296,8 @@ Commands:
   auto        Activate connected external outputs that X left inactive.
               Existing active layouts are preserved.
   workspaces  Distribute KaliPWM workspaces I-X across active BSPWM monitors.
+  watch       Watch the XRandR topology and reconcile live connect/disconnect
+              events, including delayed hybrid-GPU provider transitions.
   status      Show connected outputs and whether each one is active.
   diagnose    Show XRandR outputs/providers plus BSPWM monitor/desktop state.
 EOF
@@ -235,6 +309,9 @@ case "${1:-status}" in
         ;;
     workspaces)
         configure_bspwm_workspaces
+        ;;
+    watch)
+        watch_hotplug
         ;;
     status)
         status

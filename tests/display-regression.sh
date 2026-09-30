@@ -91,6 +91,10 @@ printf '%s\n' '[OK] ten KaliPWM workspaces are split evenly across two monitors'
 printf '\n%s\n' '== Managed multi-monitor architecture =='
 grep -Fq '"$DISPLAY_HELPER" auto' "$ROOT/CONFIGS/config/bspwm/bspwmrc"
 grep -Fq '"$DISPLAY_HELPER" workspaces' "$ROOT/CONFIGS/config/bspwm/bspwmrc"
+grep -Fq '"$DISPLAY_HELPER" watch' "$ROOT/CONFIGS/config/bspwm/bspwmrc"
+grep -Fq 'watch_hotplug()' "$HELPER"
+grep -Fq 'flock -n 9' "$HELPER"
+grep -Fq 'bspc wm -r' "$HELPER"
 grep -Fq 'monitor = ${env:MONITOR:}' "$ROOT/CONFIGS/config/polybar/obsidian-v2/config.ini"
 grep -Fq 'polybar --list-monitors' "$ROOT/CONFIGS/config/polybar/obsidian-v2/launch.sh"
 grep -Fq 'MONITOR="$monitor" polybar main' "$ROOT/CONFIGS/config/polybar/obsidian-v2/launch.sh"

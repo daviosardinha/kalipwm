@@ -27,6 +27,13 @@ else
     bspc monitor -d I II III IV V VI VII VIII IX X
 fi
 
+# Keep the same display policy alive after login so connecting or disconnecting
+# an external monitor does not depend on a full BSPWM restart. The helper uses
+# a per-user flock, so bspwmrc reloads cannot create duplicate watchers.
+if [ -x "$DISPLAY_HELPER" ]; then
+    "$DISPLAY_HELPER" watch >>/tmp/kalipwm-display-watch.log 2>&1 &
+fi
+
 bspc config border_width         2
 bspc config window_gap          6
 
@@ -58,6 +65,6 @@ bspc rule -a Screenkey manage=off
 bspc config focus_follows_pointer true
 
 # PICOM
-picom &
+pgrep -x picom > /dev/null || picom &
 
 xsetroot -cursor_name left_ptr &
