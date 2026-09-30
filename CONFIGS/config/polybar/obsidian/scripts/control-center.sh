@@ -10,6 +10,7 @@ MEDIA_KEYS="$BASE/media-keys.sh"
 TARGET_CMD="$(command -v target 2>/dev/null || true)"
 WALLPAPER_CMD="$(command -v wallpaper 2>/dev/null || true)"
 SCREENSHOT_CMD="$(command -v screenshot 2>/dev/null || true)"
+DISPLAY_HELPER="$HOME/.config/bspwm/scripts/kalipwm-display.sh"
 BACK='󰁍  Back'
 
 [ -n "$TARGET_CMD" ] || TARGET_CMD="$BASE/target.sh"
@@ -313,6 +314,9 @@ display_menu() {
         [ -n "$status" ] || status='Display status unavailable'
 
         entries=('󰍹  Display status')
+        if [ -x "$DISPLAY_HELPER" ]; then
+            entries+=('󰹑  Activate connected displays' '󰋼  Display diagnostics')
+        fi
         if [ -x "$MEDIA_KEYS" ] && { have brightnessctl || have xbacklight; }; then
             entries+=('󰃞  Brightness +10%' '󰃝  Brightness -10%')
         fi
@@ -322,7 +326,28 @@ display_menu() {
         choice="$(choose 'Display' "$status" "${entries[@]}")" || return 0
 
         case "$choice" in
-            '󰍹  Display status') show_report 'Display status' 'xrandr --current' ;;
+            '󰍹  Display status')
+                if [ -x "$DISPLAY_HELPER" ]; then
+                    show_report 'Display status' "$DISPLAY_HELPER status"
+                else
+                    show_report 'Display status' 'xrandr --current'
+                fi
+                ;;
+            '󰹑  Activate connected displays')
+                if "$DISPLAY_HELPER" auto >/tmp/kalipwm-display.log 2>&1; then
+                    notice 'Connected displays activated. Reloading BSPWM layout.'
+                    sleep 0.4
+                    if have bspc; then
+                        bspc wm -r
+                        exit 0
+                    fi
+                else
+                    notice 'Display activation failed. Open Display diagnostics for details.'
+                fi
+                ;;
+            '󰋼  Display diagnostics')
+                show_report 'Display diagnostics' "$DISPLAY_HELPER diagnose"
+                ;;
             '󰃞  Brightness +10%') "$MEDIA_KEYS" brightness-up ;;
             '󰃝  Brightness -10%') "$MEDIA_KEYS" brightness-down ;;
             '󰹑  Open ARandR') arandr >/dev/null 2>&1 & ;;
